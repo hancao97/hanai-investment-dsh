@@ -1,0 +1,118 @@
+{
+  "name": "hanai-investment-dsh",
+  "version": "0.1.0",
+  "description": "Hanai Investment — a local-first A-share research workbench powered by DeepSeek Harness",
+  "type": "module",
+  "license": "MIT",
+  "author": "Hanai Investment contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hancao97/hanai-investment-dsh.git"
+  },
+  "homepage": "https://github.com/hancao97/hanai-investment-dsh#readme",
+  "bugs": {
+    "url": "https://github.com/hancao97/hanai-investment-dsh/issues"
+  },
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh-plugin",
+    "investment",
+    "a-share",
+    "agent"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "packageManager": "pnpm@11.7.0",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/**",
+    "cordis.patch.yml",
+    "packages/masters/assets/**",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "NODE_ENV=development tsdown --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "check": "pnpm run typecheck && pnpm run test && pnpm run build && pnpm run pack:check",
+    "pack:check": "tsx scripts/verify-package.ts",
+    "profile:install": "node lib/install-profile.js",
+    "profile:verify": "node lib/verify-profile.js",
+    "prepare": "pnpm run build"
+  },
+  "dependencies": {
+    "pinyin-pro": "3.27.0",
+    "zod": "4.1.11"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=4 <5",
+    "@deepseek-ai/dsh-client-connection": ">=0.1.0-rc.5 <0.2.0",
+    "@deepseek-ai/dsh-client-runtime": ">=0.1.0-rc.5 <0.2.0",
+    "@deepseek-ai/dsh-client-ui-conversation": ">=0.1.0-rc.5 <0.2.0",
+    "@deepseek-ai/dsh-client-ui-layout": ">=0.1.0-rc.5 <0.2.0",
+    "@deepseek-ai/dsh-client-ui-primitives": ">=0.1.0-rc.5 <0.2.0",
+    "@deepseek-ai/dsh-client-ui-slots": ">=0.1.0-rc.5 <0.2.0",
+    "@deepseek-ai/dsh-client-web-react": ">=0.1.0-rc.5 <0.2.0",
+    "@deepseek-ai/dsh-host-apiproxy": ">=0.1.0-rc.5 <0.2.0",
+    "@deepseek-ai/dsh-session": ">=0.1.0-rc.5 <0.2.0",
+    "@deepseek-ai/schemastery": ">=3 <4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/dsh-client-connection": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-runtime": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-ui-layout": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-ui-slots": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-web-react": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-host-apiproxy": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-session": "0.1.0-rc.6",
+    "@deepseek-ai/schemastery": "3.18.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.0",
+    "@types/node": "22.20.0",
+    "@types/react": "18.3.26",
+    "@types/react-dom": "18.3.7",
+    "@vitest/coverage-v8": "4.1.8",
+    "jsdom": "29.1.1",
+    "lightningcss": "1.32.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "tsdown": "0.22.2",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3",
+    "vitest": "4.1.8"
+  }
+}

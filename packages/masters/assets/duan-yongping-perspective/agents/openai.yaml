@@ -1,0 +1,4 @@
+interface:
+  display_name: "段永平思维顾问"
+  short_description: "用本分、消费者导向和长期价值框架审视投资、经营与人生决策"
+  default_prompt: "使用 $duan-yongping-perspective，作为中性思维顾问分析这个问题，区分事实、框架推断与信息不足，不冒充本人。"

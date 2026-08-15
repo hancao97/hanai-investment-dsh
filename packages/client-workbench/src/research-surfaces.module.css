@@ -1,0 +1,186 @@
+.markdownSurface {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.markdownSurface a {
+  color: var(--hanai-primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--hanai-primary) 45%, transparent);
+  text-underline-offset: 3px;
+}
+
+.markdownSurface a:hover {
+  text-decoration-color: currentcolor;
+}
+
+.markdownSurface :where(ul, ol) {
+  margin: 10px 0;
+  padding-left: 24px;
+}
+
+.markdownSurface li + li {
+  margin-top: 5px;
+}
+
+.markdownSurface li > :where(ul, ol) {
+  margin: 4px 0 6px;
+}
+
+.markdownSurface table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.markdownSurface :where(th, td) {
+  min-width: 96px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--hanai-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdownSurface th {
+  color: var(--hanai-text);
+  background: rgba(var(--hanai-primary-rgb), .06);
+  font-weight: 650;
+}
+
+.markdownSurface :global(.md-code-block) {
+  position: relative;
+  margin: 16px 0;
+  border: 1px solid var(--hanai-border);
+  border-radius: 9px;
+  background: var(--hanai-bg);
+  overflow: hidden;
+}
+
+.markdownSurface :global(.md-code-block) pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.chartFrame {
+  position: relative;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.chartSvg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 250px;
+  color: var(--hanai-muted);
+  outline: none;
+  touch-action: none;
+}
+
+.chartSvg:focus-visible {
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 2px var(--hanai-primary);
+}
+
+.axisLabel,
+.axisTitle {
+  fill: var(--hanai-faint);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  user-select: none;
+}
+
+.axisTitle {
+  fill: var(--hanai-muted);
+  font-size: 8px;
+  letter-spacing: .04em;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 2px 4px 0 54px;
+  color: var(--hanai-faint);
+  font-size: 8px;
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend i {
+  width: 13px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--legend-color);
+}
+
+.tooltip {
+  position: absolute;
+  z-index: 3;
+  top: 10px;
+  min-width: 154px;
+  max-width: 230px;
+  padding: 9px 11px;
+  border: 1px solid var(--hanai-border-strong);
+  border-radius: 8px;
+  color: var(--hanai-muted);
+  background: color-mix(in srgb, var(--hanai-panel-solid) 96%, transparent);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .24);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  line-height: 1.65;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.tooltip strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--hanai-text);
+  font-size: 9px;
+}
+
+.tooltipGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px 10px;
+}
+
+.tooltipGrid b {
+  color: var(--hanai-text);
+  font-weight: 550;
+}
+
+.screenReaderOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 720px) {
+  .chartSvg {
+    min-height: 220px;
+  }
+
+  .legend {
+    margin-left: 42px;
+  }
+
+  .tooltip {
+    max-width: 190px;
+  }
+}

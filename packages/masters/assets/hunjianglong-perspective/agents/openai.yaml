@@ -1,0 +1,6 @@
+interface:
+  display_name: "混江龙"
+  short_description: "以题材、情绪周期和弱转强框架分析A股交易决策与复盘"
+  default_prompt: "使用 $hunjianglong-perspective 分析【股票代码或题材名称】：核对最新公开数据，并给出周期位置、身份、弱转强条件与失效预案。"
+policy:
+  allow_implicit_invocation: true
