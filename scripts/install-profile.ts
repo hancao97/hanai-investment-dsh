@@ -3,13 +3,15 @@ import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+import { stripPnpmRunSeparator } from './pnpm-run-args.ts'
+
 interface Options {
   dshBin: string
   profile: string
   packageSpec: string
 }
 
-const options = parse(process.argv.slice(2))
+const options = parse(stripPnpmRunSeparator(process.argv.slice(2)))
 assertSafeExistingProfile(options.profile)
 const dshVersion = commandOutput(options.dshBin, ['--version']).match(/\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/)?.[0]
 if (dshVersion === undefined) throw new Error('无法从 dsh --version 识别版本')
@@ -20,10 +22,23 @@ run(options.dshBin, [
   '--profile',
   options.profile,
   'add',
+  '--ignore-scripts',
   '--workspace-root',
   `@deepseek-ai/dsh-web-app@${dshVersion}`,
 ])
-run(options.dshBin, ['plugin', '--profile', options.profile, 'add', '--workspace-root', options.packageSpec])
+// Both the released package and the source-install flow are built before this
+// script runs. Skipping dependency lifecycle scripts avoids pnpm >= 10
+// rejecting DSH's native transitive dependencies while still letting the DSH
+// installation own the executable copies of its in-box bundles.
+run(options.dshBin, [
+  'plugin',
+  '--profile',
+  options.profile,
+  'add',
+  '--ignore-scripts',
+  '--workspace-root',
+  options.packageSpec,
+])
 run(options.dshBin, ['--profile', options.profile, '--dump-default-config'])
 console.log(`\nProfile ready. Start Hanai with:\n  dsh --profile ${options.profile}\n\nThe stock UI remains available with:\n  dsh web`)
 

@@ -1,6 +1,8 @@
 import { spawnSync } from 'node:child_process'
 
-const args = process.argv.slice(2)
+import { stripPnpmRunSeparator } from './pnpm-run-args.ts'
+
+const args = stripPnpmRunSeparator(process.argv.slice(2))
 let profile = 'hanai-investment'
 let dshBin = 'dsh'
 for (let index = 0; index < args.length; index += 1) {
