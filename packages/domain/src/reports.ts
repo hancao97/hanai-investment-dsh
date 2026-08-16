@@ -204,9 +204,9 @@ function sha256(content: string): string {
 
 function researchContextMarkdown(detail: StockDetail): string {
   const serialized = JSON.stringify(detail, null, 2)
-  return `# Hanai 研究数据快照\n\n`
+  return `# Hanai Worth · 值见 研究数据快照\n\n`
     + `生成时间：${new Date().toISOString()}\n\n`
-    + `以下数据由 Hanai Host Provider 获取。必须检查每个对象的 meta、fetchedAt、sourceTimestamp 和 cacheState；`
+    + `以下数据由 Hanai Worth Host Provider 获取。必须检查每个对象的 meta、fetchedAt、sourceTimestamp 和 cacheState；`
     + `缺失值为 null，不得推断成 0。该快照不替代必要的公开资料核验。\n\n`
     + `\`\`\`json\n${serialized}\n\`\`\`\n`
 }

@@ -169,8 +169,8 @@ function parseOpenaiDefaultPrompt(yaml: string): string | null {
 }
 
 function agentsDocument(master: MasterPersona): string {
-  return `# Hanai Investment 研判工作区\n\n`
-    + `本工作区绑定大师：${master.name}（${master.id}，版本 ${master.version}）。\n\n`
+  return `# Hanai Worth · 值见 研判工作区\n\n`
+    + `本工作区由 Hanai Worth · 值见创建，绑定大师：${master.name}（${master.id}，版本 ${master.version}）。\n\n`
     + `## 必须遵守\n\n`
     + `1. 在每次回答前完整读取 \`.agents/skills/${master.id}/SKILL.md\`，并按其中路由读取必要参考资料。\n`
     + `2. 整段 Session 固定使用该大师的方法论与身份状态；不要切换成其他大师。\n`

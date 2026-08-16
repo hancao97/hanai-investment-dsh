@@ -133,17 +133,24 @@
   display: grid;
   place-items: center;
   border-radius: 9px;
-  color: #17130a;
-  font-family: Georgia, "Times New Roman", serif;
-  font-weight: 800;
-  background: linear-gradient(145deg, var(--gold-strong), var(--gold));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3);
+  border: 1px solid color-mix(in srgb, var(--gold) 42%, var(--border));
+  background: color-mix(in srgb, var(--panel) 92%, #071522);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
 }
 
-.brandMark { width: 34px; height: 34px; flex: 0 0 34px; font-size: 21px; }
+.brandMark { width: 34px; height: 34px; flex: 0 0 34px; }
+.brandMark svg,
+.splashMark svg { width: 82%; height: 82%; overflow: visible; }
+.brandValueLine,
+.brandPriceLine { fill: none; stroke-linecap: round; stroke-width: 2.8; }
+.brandValueLine { stroke: #e9b949; }
+.brandPriceLine { stroke: #2e75a8; }
+.brandCandles { fill: #e9b949; stroke: #e9b949; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.1; }
+.brandCandles path:nth-child(-n+2) { fill: #2e75a8; stroke: #2e75a8; }
+.brandEvidencePoint { fill: #fffaf0; stroke: #dcae43; stroke-width: 1; }
 .brandCopy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .brandCopy strong { font-size: 15px; letter-spacing: .03em; }
-.brandCopy small { color: var(--faint); font-size: 9px; letter-spacing: .28em; text-transform: uppercase; }
+.brandCopy small { color: var(--faint); font-size: 9px; letter-spacing: .12em; white-space: nowrap; }
 
 .nav { display: flex; flex-direction: column; gap: 2px; }
 .nav button {
@@ -615,7 +622,7 @@
 .empty > p { max-width: 440px; margin: 7px 0 14px; color: var(--muted); font-size: 10px; line-height: 1.6; }
 
 .splash { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; background: var(--bg); }
-.splashMark { width: 52px; height: 52px; font-size: 30px; }
+.splashMark { width: 52px; height: 52px; }
 .splash > p { margin: 13px 0 22px; color: var(--gold); font-size: 9px; letter-spacing: .24em; }
 .splash h1 { margin: 0; font-size: 18px; }
 .splash > span { margin-top: 8px; color: var(--muted); font-size: 10px; }

@@ -1,29 +1,31 @@
-# Hanai Investment for DSH
+# Hanai Worth · 值见
 
-> 以 DeepSeek Harness 为 Agent 内核的本地优先 A 股研究工作台。
+> 价格有报价，价值靠研究。
+
+![Hanai Worth · 值见——以向上 K 线、MACD 金叉与证据点构成的价值研究品牌图](docs/assets/hanai-worth-hero.svg)
 
 [![DeepSeek Harness](https://img.shields.io/badge/DeepSeek_Harness-0.1_rc-4F7CFF)](https://github.com/deepseek-ai/deepseek-harness)
 [![Node.js](https://img.shields.io/badge/Node.js-22.19%2B-339933?logo=nodedotjs&logoColor=white)](package.json)
 [![Tests](https://img.shields.io/badge/tests-passing-2EA44F)](packages)
 [![License](https://img.shields.io/badge/license-MIT-111827)](LICENSE)
 
-Hanai Investment 将旧版客户端按原有信息架构迁移到 React 工作台：保留“今日市场、自选与发现、大师研判、专家中心、设置与诊断”五个一级页面以及个股、研判详情，不重新发明页面和业务语义。DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件和会话持久化；Hanai 负责投资业务、研究资料、不可变报告快照和全部产品界面。
+**Hanai Worth · 值见** 是以 DeepSeek Harness 为 Agent 内核的本地优先 A 股价值研究工作台。它将旧版客户端按原有信息架构迁移到 React：保留“今日市场、自选与发现、大师研判、专家中心、设置与诊断”五个一级页面以及个股、研判详情，不重新发明页面和业务语义。DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件和会话持久化；Hanai Worth 负责投资业务、研究资料、不可变报告快照和全部产品界面。
 
-![Hanai Investment 产品愿景](docs/assets/product-vision.webp)
+品牌中的两条趋势线在证据点形成金叉：价格给出市场报价，研究帮助看见价值。每一份研判，都应能回到证据、方法与上下文。
 
 ## 界面预览
 
 黑夜模式保留原客户端的信息密度、页面位置与 A 股涨红跌绿语义；市场热力图由 ECharts `treemap` 绘制，面积对应板块成交额。
 
-![Hanai Investment 黑夜模式市场页](docs/assets/dashboard-dark.jpg)
+![Hanai Worth · 值见黑夜模式市场页](docs/assets/dashboard-dark.jpg)
 
 亮色模式只替换语义色彩 token，侧栏、顶栏、卡片、表格和图表的位置与尺寸保持不变。
 
-![Hanai Investment 亮色模式市场页](docs/assets/dashboard-light.jpg)
+![Hanai Worth · 值见亮色模式市场页](docs/assets/dashboard-light.jpg)
 
 个股详情恢复旧版左右布局：左侧为默认日 K、行情快照和基本面，右侧为五维雷达与独立价值曲线；金线是供应商大师价值序列，蓝线是股价，红/绿带分别表示高估与低估区间。
 
-![Hanai Investment 个股详情与价值曲线](docs/assets/stock-detail-dark.jpg)
+![Hanai Worth · 值见个股详情与价值曲线](docs/assets/stock-detail-dark.jpg)
 
 ## 核心体验
 
@@ -40,7 +42,7 @@ Hanai Investment 将旧版客户端按原有信息架构迁移到 React 工作�
 
 ## 架构
 
-![Hanai Investment 架构](docs/assets/product-architecture.webp)
+![Hanai Worth · 值见架构](docs/assets/product-architecture.webp)
 
 ```mermaid
 flowchart LR

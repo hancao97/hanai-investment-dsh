@@ -220,11 +220,12 @@ describe('HanaiWorkbench old-client parity', () => {
     expect(css).not.toMatch(/ocean|jade|marketing/i)
   })
 
-  it('restores the five original navigation entries, body title, H brand, and hash history', async () => {
+  it('restores the five original navigation entries and hash history under the Hanai Worth brand', async () => {
     const { container } = renderAt('/dashboard')
     await screen.findByRole('heading', { name: '今日市场' })
 
-    expect(screen.getByLabelText('Hanai Investment').textContent).toContain('H')
+    expect(screen.getByLabelText('Hanai Worth · 值见').textContent).toContain('WORTH · 值见')
+    expect(document.title).toBe('今日市场 — Hanai Worth · 值见')
     const nav = screen.getByRole('navigation', { name: '主导航' })
     expect(within(nav).getAllByRole('button').map(button => button.querySelector('span:last-child')?.textContent)).toEqual([
       '今日市场', '自选与发现', '大师研判', '专家中心', '设置与诊断',
@@ -236,6 +237,7 @@ describe('HanaiWorkbench old-client parity', () => {
     fireEvent.click(within(nav).getByRole('button', { name: /自选与发现/ }))
     await screen.findByRole('heading', { name: '自选与发现' })
     expect(window.location.hash).toBe('#/watch')
+    expect(document.title).toBe('自选与发现 — Hanai Worth · 值见')
   })
 
   it('shows only a real sidebar health timestamp and omits unavailable status placeholders', async () => {
@@ -660,6 +662,8 @@ describe('HanaiWorkbench old-client parity', () => {
     }
     expect(screen.getByText('清理缓存不会删除自选、专家与研判报告。')).not.toBeNull()
     expect(screen.getAllByText(bootstrap.diagnostics.dataRoot).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Hanai Worth · 值见/)).not.toBeNull()
+    expect(screen.getByText(/价格有报价，价值靠研究/)).not.toBeNull()
   })
 
   it('shows a read-only live process while generating and report/process/chat only after ready', async () => {

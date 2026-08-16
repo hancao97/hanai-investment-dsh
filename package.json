@@ -1,10 +1,10 @@
 {
   "name": "hanai-investment-dsh",
   "version": "0.1.0",
-  "description": "Hanai Investment — a local-first A-share research workbench powered by DeepSeek Harness",
+  "description": "Hanai Worth · 值见 — a local-first A-share value research workbench powered by DeepSeek Harness",
   "type": "module",
   "license": "MIT",
-  "author": "Hanai Investment contributors",
+  "author": "Hanai Worth contributors",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/hancao97/hanai-investment-dsh.git"

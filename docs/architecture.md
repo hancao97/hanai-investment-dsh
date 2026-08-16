@@ -1,4 +1,4 @@
-# Hanai Investment for DSH 总体架构设计
+# Hanai Worth · 值见 DSH 总体架构设计
 
 - 状态：核心架构已实现
 - 更新日期：2026-08-15
@@ -6,7 +6,7 @@
 
 ## 1. 结论
 
-`hanai-investment-dsh` 实现为一个树外 DeepSeek Harness Bundle。它复用 DSH 的模型、凭据、Agent、Session、会话历史、流式事件和 Web Client 插件机制；Hanai 自己拥有股票、行情、估值、自选、大师研判、报告版本和聊天呈现等业务能力。
+Hanai Worth · 值见当前以兼容包名 `hanai-investment-dsh` 实现为一个树外 DeepSeek Harness Bundle。它复用 DSH 的模型、凭据、Agent、Session、会话历史、流式事件和 Web Client 插件机制；Hanai Worth 自己拥有股票、行情、估值、自选、大师研判、报告版本和聊天呈现等业务能力。
 
 新 UI 全部使用 React 重写，但产品基线仍是旧版客户端：一级导航固定为“今日市场、自选与发现、大师研判、专家中心、设置与诊断”，个股和研判详情仍是从这些页面进入的详情路由。`hanai-investment` Profile 启动后在 `shell.overlay` 中自动挂载全屏常驻的 Hanai 工作台；Workbench 自己同步 Hash 路由，因此无需 DSH 新增通用 Router Slot。Hanai 自己渲染消息时间线和 composer，所有轮次仍发送给绑定的 DSH Session。
 

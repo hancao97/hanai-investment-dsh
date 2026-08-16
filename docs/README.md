@@ -1,6 +1,6 @@
-# Hanai Investment for DSH 设计文档
+# Hanai Worth · 值见 DSH 设计文档
 
-本文档目录记录 `hanai-investment-dsh` 的实现架构和关键决策。核心 Host、领域层、React 工作台、自绘 DSH Session 聊天、隔离数据根和独立 Profile 已完成；文档中的“后续”条目表示仍需继续演进的能力。
+本文档目录记录 **Hanai Worth · 值见**（当前兼容包名 `hanai-investment-dsh`）的实现架构和关键决策。核心 Host、领域层、React 工作台、自绘 DSH Session 聊天、隔离数据根和独立 Profile 已完成；文档中的“后续”条目表示仍需继续演进的能力。
 
 ## 文档索引
 
@@ -9,6 +9,7 @@
 | [architecture.md](architecture.md) | 已实现架构、插件装配、Agent/报告/续聊链路、数据模型和验收证据 | 已实现 |
 | [client-parity.md](client-parity.md) | 旧版客户端功能、页面位置、图表语义和逐项验收基线 | 已实现 |
 | [startup-and-verification.md](startup-and-verification.md) | 已实测的安装、启动、数据隔离与浏览器验收报告 | 已验证 |
+| [brand.md](brand.md) | 品牌名称、价值主张、标志语义与兼容边界 | 已确定 |
 | [ADR-0001](adr/0001-dsh-native-react-ui.md) | DSH 规范的 React UI、工作台 Overlay 和 Hanai 自有聊天页面 | 已接受 |
 | [ADR-0002](adr/0002-data-root-isolation.md) | `~/.hanai-investment-dsh` 数据隔离与 DSH 数据所有权 | 已接受 |
 | [ADR-0003](adr/0003-isolated-dsh-profile.md) | 独立 `hanai-investment` Profile，与官方 `dsh web` 并存 | 已接受 |

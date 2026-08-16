@@ -48,6 +48,8 @@ type AppRoute =
 type Notice = { id: number; kind: 'success' | 'error'; text: string }
 type JudgementLaunchRequest = { key: number; stock: SearchResult | null; masterId: string | null }
 
+const BRAND_NAME = 'Hanai Worth · 值见'
+
 const NAV: ReadonlyArray<{ page: TopPage; path: string; icon: string; label: string }> = [
   { page: 'dashboard', path: '/dashboard', icon: '◈', label: '今日市场' },
   { page: 'watch', path: '/watch', icon: '☆', label: '自选与发现' },
@@ -97,6 +99,13 @@ export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
 
   useEffect(() => { void reload() }, [reload])
   useEffect(() => {
+    const previousTitle = document.title
+    return () => { document.title = previousTitle }
+  }, [])
+  useEffect(() => {
+    document.title = `${routeTitle(route)} — ${BRAND_NAME}`
+  }, [route])
+  useEffect(() => {
     if (window.location.hash === '' || window.location.hash === '#') navigate('/dashboard', true)
     const syncRoute = () => setRoute(routeFromHash(window.location.hash))
     window.addEventListener('hashchange', syncRoute)
@@ -126,9 +135,9 @@ export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
   }, [])
   const clearLaunchRequest = useCallback(() => setLaunchRequest(null), [])
 
-  if (loading) return <Splash title="正在启动 Hanai" detail="连接本地研究工作台…" />
+  if (loading) return <Splash title="正在启动 Hanai Worth" detail="连接本地价值研究工作台…" />
   if (fatal !== null || bootstrap === null) {
-    return <Splash title="Hanai 暂时无法启动" detail={fatal ?? '未知错误'} action={<button onClick={() => void reload()}>重新连接</button>} />
+    return <Splash title="Hanai Worth 暂时无法启动" detail={fatal ?? '未知错误'} action={<button onClick={() => void reload()}>重新连接</button>} />
   }
 
   const openStock = (stock: Pick<SecurityMaster, 'secId'>) => navigate(`/stock/${encodeURIComponent(stock.secId)}`)
@@ -140,9 +149,9 @@ export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
   return (
     <div className={styles['app']} data-theme={bootstrap.theme} data-hanai-root>
       <aside className={styles['sidebar']}>
-        <button className={styles['brand']} onDoubleClick={() => navigate('/dashboard')} aria-label="Hanai Investment">
-          <span className={styles['brandMark']}>H</span>
-          <span className={styles['brandCopy']}><strong>Hanai</strong><small>Investment</small></span>
+        <button className={styles['brand']} onDoubleClick={() => navigate('/dashboard')} aria-label={BRAND_NAME}>
+          <BrandMark />
+          <span className={styles['brandCopy']}><strong>Hanai</strong><small>WORTH · 值见</small></span>
         </button>
         <nav className={styles['nav']} aria-label="主导航">
           {NAV.map(item => (
@@ -1145,14 +1154,14 @@ function SettingsPage({ client, bootstrap, onTheme, onReload, notify }: { client
         <div className={styles['settingsFacts']}>
           <KeyValue label="状态" value={connectionLabel} />
           <KeyValue label="连接" value={connectionDetail ?? '—'} />
-          <KeyValue label="Hanai Host 版本" value={bootstrap.diagnostics.version} />
+          <KeyValue label="Hanai Worth Host 版本" value={bootstrap.diagnostics.version} />
           <KeyValue label="本地数据目录" value={bootstrap.diagnostics.dataRoot} mono />
         </div>
         <div className={styles['modelControl']}><label htmlFor="hanai-default-model">默认模型</label><div><select id="hanai-default-model" value={modelSelection} disabled={defaultModel === null || !defaultModel.writable || models.length === 0 || busy} onChange={event => setModelSelection(event.target.value)}>{models.map(group => <optgroup key={group.id} label={group.id}>{group.models.map(model => <option key={`${group.id}/${model.id}`} value={`${group.id}\0${model.id}`}>{model.name}</option>)}</optgroup>)}</select><button className={styles['buttonPrimary']} disabled={defaultModel === null || !defaultModel.writable || modelSelection === '' || busy || modelSelection === `${defaultModel.provider}\0${defaultModel.model}`} onClick={() => void saveDefaultModel()}>保存默认模型</button><button className={styles['button']} onClick={() => void load()}>重新检测连接</button></div>{defaultModelError !== null && <small>{defaultModelError}</small>}</div>
       </article>
 
       <article className={`${styles['card']} ${styles['settingsCard']} ${styles['settingsCredential']}`}><PanelHead title="DeepSeek API Key" hint="由 DSH Credentials 安全托管" />
-        <div className={styles['credentialState']}><span className={`${styles['statusDot']} ${credential?.configured ? styles['statusOk'] : styles['statusUnknown']}`} /><div><b>{credential?.configured ? '已配置' : client.isLoopback ? '尚未配置' : '远端页面不可查看'}</b><small>{credential?.source === 'env' ? '来自环境变量（只读优先）' : credential?.source === 'file' ? '保存在 DSH 本地凭据文件' : 'Key 不写入 Hanai 数据库或浏览器存储'}</small></div></div>
+        <div className={styles['credentialState']}><span className={`${styles['statusDot']} ${credential?.configured ? styles['statusOk'] : styles['statusUnknown']}`} /><div><b>{credential?.configured ? '已配置' : client.isLoopback ? '尚未配置' : '远端页面不可查看'}</b><small>{credential?.source === 'env' ? '来自环境变量（只读优先）' : credential?.source === 'file' ? '保存在 DSH 本地凭据文件' : 'Key 不写入 Hanai Worth 数据库或浏览器存储'}</small></div></div>
         {client.isLoopback ? <><label className={styles['field']}><span>写入新的 API Key</span><input type="password" autoComplete="off" value={key} onChange={event => setKey(event.target.value)} placeholder="sk-••••••••••••" disabled={credential?.writable === false} /></label><div className={styles['settingsActions']}><button className={styles['buttonPrimary']} disabled={busy || key.trim() === '' || credential?.writable === false} onClick={() => { setBusy(true); void client.setDeepSeekKey(key).then(async () => { setKey(''); notify('API Key 已安全保存'); await load() }).catch(error => notify(messageOf(error), 'error')).finally(() => setBusy(false)) }}>安全保存</button><button className={styles['button']} disabled={!credential?.configured || credential.writable === false} onClick={() => void client.unsetDeepSeekKey().then(async () => { notify('已移除托管凭据'); await load() }).catch(error => notify(messageOf(error), 'error'))}>移除</button></div></> : <p className={styles['hintBox']}>为保护主机凭据，请在运行 DSH 的本机地址设置 API Key。</p>}
       </article>
 
@@ -1163,7 +1172,7 @@ function SettingsPage({ client, bootstrap, onTheme, onReload, notify }: { client
         <div className={styles['settingsActions']}><button className={styles['button']} disabled={busy} onClick={() => { setBusy(true); void client.call('security.sync', { force: true }).then(async result => { notify(`已同步 ${result.count.toLocaleString()} 条证券`); await onReload() }).catch(error => notify(messageOf(error), 'error')).finally(() => setBusy(false)) }}>{busy ? '同步中…' : '立即同步主数据'}</button></div>
       </article>
 
-      <article className={`${styles['card']} ${styles['settingsCard']} ${styles['settingsStorage']}`}><PanelHead title="本地存储" hint="数据与缓存均隔离在 Hanai 专用目录" />
+      <article className={`${styles['card']} ${styles['settingsCard']} ${styles['settingsStorage']}`}><PanelHead title="本地存储" hint="数据与缓存均隔离在 Hanai Worth 专用目录" />
         <div className={styles['storagePaths']}><KeyValue label="数据目录" value={bootstrap.diagnostics.dataRoot} mono /><KeyValue label="SQLite" value={bootstrap.diagnostics.databasePath} mono /></div>
         <div className={styles['storageMetrics']}>
           <SettingsMetric label="总占用" value={formatBytes(bootstrap.diagnostics.storage.totalBytes)} />
@@ -1177,7 +1186,7 @@ function SettingsPage({ client, bootstrap, onTheme, onReload, notify }: { client
 
       <article className={`${styles['card']} ${styles['settingsCard']} ${styles['settingsTheme']}`}><PanelHead title="界面主题" hint="只改变颜色，不改变页面布局" /><div className={styles['themeChoices']}><button className={bootstrap.theme === 'light' ? styles['themeSelected'] : ''} onClick={() => void setTheme('light')}><i className={styles['lightSwatch']} /><span><b>亮色模式</b><small>浅色背景与深色文字</small></span><em>{bootstrap.theme === 'light' ? '✓' : ''}</em></button><button className={bootstrap.theme === 'dark' ? styles['themeSelected'] : ''} onClick={() => void setTheme('dark')}><i className={styles['darkSwatch']} /><span><b>黑夜模式</b><small>原客户端深色研究终端</small></span><em>{bootstrap.theme === 'dark' ? '✓' : ''}</em></button></div></article>
 
-      <article className={`${styles['card']} ${styles['settingsCard']} ${styles['settingsAbout']}`}><PanelHead title="关于与声明" /><div className={styles['about']}><p><b>Hanai Investment</b> v{bootstrap.diagnostics.version} · 本地优先 A 股价值研究工作台</p><p>本产品是研究辅助工具，不是券商、投顾或资产管理服务：不执行交易、不承诺收益、不提供确定性买卖建议。</p><p>行情与估值数据可能延迟、不完整或有误，请以交易所与官方披露为准；数据接口仅限个人研究。</p><p>应用数据保存在用户本地目录 <code>{bootstrap.diagnostics.dataRoot}</code>，界面不展示或回显完整凭据。</p></div></article>
+      <article className={`${styles['card']} ${styles['settingsCard']} ${styles['settingsAbout']}`}><PanelHead title="关于与声明" /><div className={styles['about']}><p><b>{BRAND_NAME}</b> v{bootstrap.diagnostics.version} · 本地优先 A 股价值研究工作台</p><p><b>价格有报价，价值靠研究。</b> 每一份研判，都应能回到证据、方法与上下文。</p><p>本产品是研究辅助工具，不是券商、投顾或资产管理服务：不执行交易、不承诺收益、不提供确定性买卖建议。</p><p>行情与估值数据可能延迟、不完整或有误，请以交易所与官方披露为准；数据接口仅限个人研究。</p><p>应用数据保存在用户本地目录 <code>{bootstrap.diagnostics.dataRoot}</code>，界面不展示或回显完整凭据。</p></div></article>
     </div>
   </Page>
 }
@@ -1317,7 +1326,26 @@ function Empty({ title, detail, action, compact = false }: { title: string; deta
 }
 
 function Splash({ title, detail, action }: { title: string; detail: string; action?: ReactNode }) {
-  return <div className={styles['splash']} data-hanai-root><div className={styles['splashMark']}>H</div><p>HANAI INVESTMENT</p><h1>{title}</h1><span>{detail}</span>{action}</div>
+  return <div className={styles['splash']} data-hanai-root><BrandMark splash /><p>HANAI WORTH · 值见</p><h1>{title}</h1><span>{detail}</span>{action}</div>
+}
+
+function BrandMark({ splash = false }: { splash?: boolean }) {
+  return (
+    <span className={splash ? styles['splashMark'] : styles['brandMark']} aria-hidden="true">
+      <svg viewBox="0 0 34 34" focusable="false">
+        <g className={styles['brandCandles']}>
+          <path d="M7 25V18M5.8 20H8.2V24H5.8Z" />
+          <path d="M12 22V14M10.8 16H13.2V21H10.8Z" />
+          <path d="M17 18V10M15.8 12H18.2V17H15.8Z" />
+          <path d="M22 14V6M20.8 8H23.2V13H20.8Z" />
+          <path d="M27 10V2.8M25.8 4.5H28.2V9H25.8Z" />
+        </g>
+        <path className={styles['brandPriceLine']} d="M 3 28 C 9 28 11 22 17 20 C 23 18 27 15 31 10" />
+        <path className={styles['brandValueLine']} d="M 3 31 C 10 30 14 27 18 21 C 23 14 27 8 31 3" />
+        <circle className={styles['brandEvidencePoint']} cx="18" cy="21" r="1.9" />
+      </svg>
+    </span>
+  )
 }
 
 function PageSkeleton({ cards }: { cards: number }) {
@@ -1378,6 +1406,18 @@ function fundamentalMetrics(metrics: StockDetail['metrics']): Array<{ label: str
 function optionalToneMetric(label: string, value: number | null | undefined): { label: string; value: string; tone?: 'up' | 'down' } {
   const tone = changeTone(value)
   return { label, value: percent(value ?? null), ...(tone === undefined ? {} : { tone }) }
+}
+
+function routeTitle(route: AppRoute): string {
+  switch (route.page) {
+    case 'dashboard': return '今日市场'
+    case 'watch': return '自选与发现'
+    case 'judgements':
+    case 'judgement-detail': return '大师研判'
+    case 'personas': return '专家中心'
+    case 'settings': return '设置与诊断'
+    case 'stock': return '个股研究'
+  }
 }
 
 function routeFromHash(hash: string): AppRoute {

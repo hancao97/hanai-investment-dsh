@@ -1,10 +1,10 @@
-# Hanai Investment DSH 启动与验收报告
+# Hanai Worth · 值见 DSH 启动与验收报告
 
 > 验收日期：2026-08-16
 
 ## 1. 结论
 
-`hanai-investment-dsh` 以独立 DSH Profile 运行，不修改官方 `web` Profile。客户端是 Hanai 自有 React 工作台，DSH 提供 Agent、模型、工具、Session 与会话持久化。新版业务数据只写入 `~/.hanai-investment-dsh`，不会检测、读取或导入旧版数据。
+Hanai Worth · 值见当前以兼容包名 `hanai-investment-dsh` 和独立 DSH Profile 运行，不修改官方 `web` Profile。客户端是 Hanai Worth 自有 React 工作台，DSH 提供 Agent、模型、工具、Session 与会话持久化。新版业务数据只写入 `~/.hanai-investment-dsh`，不会检测、读取或导入旧版数据。
 
 ## 2. 已验证环境
 

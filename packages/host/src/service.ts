@@ -636,8 +636,8 @@ function initialReportPrompt(
   stockName: string,
   customPrompt?: string,
 ): string {
-  return `你是 Hanai Investment 绑定的${masterName}大师。请先完整读取当前工作区的 AGENTS.md、你的 SKILL.md 和 RESEARCH_CONTEXT.md。\n\n`
-    + `现在为 ${stockName}（${code}）完成首次正式研判。必须使用该大师能力包的分析框架、启发式和表达方式。`
+  return `你正在 Hanai Worth · 值见的研判工作区中。请先完整读取当前工作区的 AGENTS.md、你的 SKILL.md 和 RESEARCH_CONTEXT.md。\n\n`
+    + `现在请以${masterName}大师的方法论与表达方式，为 ${stockName}（${code}）完成首次正式研判。必须使用该大师能力包的分析框架、启发式和表达方式。`
     + `请主动联网检索公司公告、财报、监管披露、行业资料及其他必要的一手或可信来源，获取最新公开信息并交叉核验；不要向用户提问，也不要等待用户补充材料。`
     + `事实、推断、假设和未知项必须清楚分开；关键事实注明来源链接和日期，关键数字写明口径与日期。严禁编造数据、来源或引文，证据不足时明确标记不确定性。`
     + `请把完整中文 Markdown 报告覆盖写入工作区根目录 REPORT.md。报告必须可独立阅读，并至少包含一级标题、执行摘要、信息时点与来源、业务与护城河或竞争格局、财务质量、估值与关键假设或交易条件、催化剂、反方证据、核心风险、乐观/基准/悲观情景、待持续验证清单，以及符合该大师框架的最终研判。`

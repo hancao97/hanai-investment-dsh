@@ -37,7 +37,9 @@ describe('ReportStore', () => {
     const { store } = fixture()
     const master = getMasterPersona('munger-perspective')!
     const workspace = store.prepareWorkspace(judgement.id, master)
-    expect(readFileSync(join(workspace.workspace, 'AGENTS.md'), 'utf8')).toContain('整段 Session')
+    const instructions = readFileSync(join(workspace.workspace, 'AGENTS.md'), 'utf8')
+    expect(instructions).toContain('# Hanai Worth · 值见 研判工作区')
+    expect(instructions).toContain('整段 Session')
     const content = `# 贵州茅台逆向研判\n\n${'事实、推断与风险边界。'.repeat(20)}`
     writeFileSync(workspace.workingReport, content)
     const first = store.seal(judgement, 1)

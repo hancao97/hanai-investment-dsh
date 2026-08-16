@@ -113,6 +113,8 @@ describe('legacy master Skill migration', () => {
     const installed = installMasterSnapshot(ASSETS_ROOT, master, workspace)
     const instructions = readFileSync(installed.agentsPath, 'utf8')
 
+    expect(instructions).toContain('# Hanai Worth · 值见 研判工作区')
+    expect(instructions).toContain('本工作区由 Hanai Worth · 值见创建')
     expect(instructions).toContain(`.agents/skills/${master.id}/SKILL.md`)
     expect(instructions).toContain('整段 Session 固定使用该大师')
     expect(instructions).toContain('主动联网获取最新公开信息并交叉核验')

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Hanai Worth · 值见标志</title>
+  <desc id="desc">一组向右上生长的 K 线，金色快线由下向上穿过蓝色慢线形成金叉，交点是一枚证据点。</desc>
+  <defs>
+    <linearGradient id="slow" x1="24" y1="188" x2="234" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#17375f"/>
+      <stop offset="1" stop-color="#3977bf"/>
+    </linearGradient>
+    <linearGradient id="fast" x1="22" y1="202" x2="236" y2="34" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#c38a20"/>
+      <stop offset="1" stop-color="#f2c14f"/>
+    </linearGradient>
+    <filter id="point-glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Ascending candlesticks: evidence before interpretation. -->
+  <g fill="none" stroke="#6d829c" stroke-width="3" stroke-linecap="round" opacity=".74">
+    <path d="M43 191V218"/><path d="M70 173V207"/><path d="M97 158V193"/>
+    <path d="M124 139V177"/><path d="M151 119V158"/><path d="M178 91V135"/>
+    <path d="M205 62V111"/>
+  </g>
+  <g stroke-width="2">
+    <rect x="35" y="195" width="16" height="15" rx="2" fill="#17375f" stroke="#3977bf"/>
+    <rect x="62" y="180" width="16" height="18" rx="2" fill="#f2c14f" stroke="#c38a20"/>
+    <rect x="89" y="166" width="16" height="19" rx="2" fill="#17375f" stroke="#3977bf"/>
+    <rect x="116" y="147" width="16" height="21" rx="2" fill="#f2c14f" stroke="#c38a20"/>
+    <rect x="143" y="130" width="16" height="19" rx="2" fill="#17375f" stroke="#3977bf"/>
+    <rect x="170" y="102" width="16" height="25" rx="2" fill="#f2c14f" stroke="#c38a20"/>
+    <rect x="197" y="75" width="16" height="27" rx="2" fill="#f2c14f" stroke="#c38a20"/>
+  </g>
+
+  <!-- Slow price line. -->
+  <path d="M23 181C61 174 91 160 120 143C145 129 166 111 187 94C205 80 220 69 234 58"
+        fill="none" stroke="url(#slow)" stroke-width="11" stroke-linecap="round"/>
+  <!-- Fast value line rises through the slow line: a MACD-style golden cross. -->
+  <path d="M23 204C69 199 101 186 124 164C144 145 149 124 166 107C184 89 204 62 234 34"
+        fill="none" stroke="url(#fast)" stroke-width="11" stroke-linecap="round"/>
+
+  <!-- The cross is treated as an evidence point, not an unsupported signal. -->
+  <g filter="url(#point-glow)">
+    <circle cx="157" cy="117" r="11" fill="#0d1b2a" stroke="#f2c14f" stroke-width="5"/>
+    <circle cx="157" cy="117" r="3.5" fill="#fff8df"/>
+  </g>
+</svg>

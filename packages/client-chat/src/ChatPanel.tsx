@@ -124,7 +124,7 @@ function DshChatPanelInstance({
     <section className={rootClassName} aria-label="大师对话">
       <header className={css.header}>
         <div className={css.headingGroup}>
-          <span className={css.eyebrow}>HANAI · DSH SESSION</span>
+          <span className={css.eyebrow}>HANAI WORTH · RESEARCH SESSION</span>
           <h2 className={css.title}>{title}</h2>
         </div>
         <div className={css.headerActions}>

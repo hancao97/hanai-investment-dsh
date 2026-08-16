@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 640" role="img" aria-labelledby="title desc">
+  <title id="title">Hanai Worth · 值见</title>
+  <desc id="desc">价格有报价，价值靠研究。画面以向上 K 线、金色快线穿越蓝色慢线形成的金叉和证据点表达价值研究。</desc>
+  <defs>
+    <style>
+      .ink { fill: #10233c; }
+      .muted { fill: #536984; }
+      .rule { stroke: #d6dfeb; }
+      @media (prefers-color-scheme: dark) {
+        .ink { fill: #f3f6fb; }
+        .muted { fill: #aab8ca; }
+        .rule { stroke: #32435a; }
+      }
+    </style>
+    <linearGradient id="slow" x1="890" y1="484" x2="1500" y2="130" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#17375f"/><stop offset="1" stop-color="#4c8bd3"/>
+    </linearGradient>
+    <linearGradient id="fast" x1="880" y1="542" x2="1512" y2="70" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b97b13"/><stop offset="1" stop-color="#f2c14f"/>
+    </linearGradient>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <g transform="translate(96 114)">
+    <text class="muted" x="0" y="0" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="25" font-weight="650" letter-spacing="8">HANAI WORTH</text>
+    <text class="ink" x="0" y="112" font-family="Inter, system-ui, -apple-system, 'PingFang SC', sans-serif" font-size="76" font-weight="760">值见</text>
+    <line class="rule" x1="0" y1="151" x2="570" y2="151" stroke-width="2"/>
+    <text class="ink" x="0" y="222" font-family="Inter, system-ui, -apple-system, 'PingFang SC', sans-serif" font-size="34" font-weight="620">价格有报价，价值靠研究。</text>
+    <text class="muted" x="0" y="278" font-family="Inter, system-ui, -apple-system, 'PingFang SC', sans-serif" font-size="22">每一份研判，都应能回到证据、方法与上下文。</text>
+    <text class="muted" x="0" y="354" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" letter-spacing="2">LOCAL-FIRST · A-SHARE · DEEPSEEK HARNESS</text>
+  </g>
+
+  <g aria-hidden="true">
+    <!-- Rising K-line field. -->
+    <g fill="none" stroke="#6d829c" stroke-width="5" stroke-linecap="round" opacity=".68">
+      <path d="M936 427V505"/><path d="M1010 384V476"/><path d="M1084 340V437"/>
+      <path d="M1158 291V397"/><path d="M1232 244V350"/><path d="M1306 188V300"/>
+      <path d="M1380 125V244"/><path d="M1454 74V192"/>
+    </g>
+    <g stroke-width="3">
+      <rect x="917" y="446" width="38" height="39" rx="5" fill="#17375f" stroke="#4c8bd3"/>
+      <rect x="991" y="405" width="38" height="52" rx="5" fill="#f2c14f" stroke="#b97b13"/>
+      <rect x="1065" y="360" width="38" height="56" rx="5" fill="#17375f" stroke="#4c8bd3"/>
+      <rect x="1139" y="314" width="38" height="62" rx="5" fill="#f2c14f" stroke="#b97b13"/>
+      <rect x="1213" y="267" width="38" height="59" rx="5" fill="#17375f" stroke="#4c8bd3"/>
+      <rect x="1287" y="215" width="38" height="67" rx="5" fill="#f2c14f" stroke="#b97b13"/>
+      <rect x="1361" y="151" width="38" height="72" rx="5" fill="#f2c14f" stroke="#b97b13"/>
+      <rect x="1435" y="101" width="38" height="66" rx="5" fill="#f2c14f" stroke="#b97b13"/>
+    </g>
+
+    <!-- Blue slow line and gold fast line form a clear upward golden cross. -->
+    <path d="M870 437C966 421 1048 387 1121 346C1188 308 1241 264 1298 220C1356 175 1414 134 1507 86"
+          fill="none" stroke="url(#slow)" stroke-width="22" stroke-linecap="round"/>
+    <path d="M870 524C980 512 1065 475 1127 417C1180 368 1196 311 1244 264C1297 212 1364 139 1507 51"
+          fill="none" stroke="url(#fast)" stroke-width="22" stroke-linecap="round"/>
+
+    <g filter="url(#glow)">
+      <circle cx="1222" cy="285" r="23" fill="#10233c" stroke="#f2c14f" stroke-width="9"/>
+      <circle cx="1222" cy="285" r="7" fill="#fff8df"/>
+    </g>
+    <text x="1258" y="293" fill="#c38a20" font-family="Inter, system-ui, -apple-system, 'PingFang SC', sans-serif" font-size="20" font-weight="700" letter-spacing="2">证据点</text>
+  </g>
+</svg>
