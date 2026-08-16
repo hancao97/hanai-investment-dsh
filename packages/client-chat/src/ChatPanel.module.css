@@ -22,8 +22,10 @@
   --chat-shadow: var(--hanai-shadow, 0 24px 70px rgb(0 0 0 / 28%));
   color-scheme: inherit;
   display: flex;
+  height: var(--hanai-chat-height, 100%);
   min-width: min(100vw, 360px);
   min-height: 0;
+  max-height: var(--hanai-chat-max-height, 100%);
   flex-direction: column;
   overflow: hidden;
   color: var(--chat-ink);
@@ -37,14 +39,25 @@
 .compact {
   min-width: 0;
   height: 100%;
+  min-height: 0;
+  max-height: 100%;
   border: 0;
   border-radius: 0;
   box-shadow: none;
 }
 
 .compact .header {
-  min-height: 62px;
-  padding-block: 10px;
+  min-height: 44px;
+  padding-block: 5px;
+}
+
+.compact .headingGroup {
+  display: flex;
+  align-items: center;
+}
+
+.compact .eyebrow {
+  display: none;
 }
 
 .header {
@@ -52,9 +65,9 @@
   flex: none;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  min-height: 74px;
-  padding: 14px 18px 13px 22px;
+  gap: 14px;
+  min-height: 54px;
+  padding: 7px 14px 7px 18px;
   background: var(--chat-surface-glass);
   border-bottom: 1px solid var(--chat-line);
   backdrop-filter: blur(16px);
@@ -63,15 +76,15 @@
 .headingGroup {
   display: grid;
   min-width: 0;
-  gap: 3px;
+  gap: 1px;
 }
 
 .eyebrow {
   overflow: hidden;
   color: var(--chat-accent);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 760;
-  letter-spacing: .13em;
+  letter-spacing: .16em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -80,7 +93,7 @@
   overflow: hidden;
   margin: 0;
   font-family: "Noto Serif SC", "Songti SC", Georgia, serif;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 650;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -128,28 +141,35 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .transcript {
-  min-height: 180px;
-  flex: 1;
+  min-height: 0;
+  flex: 1 1 0;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 20px clamp(14px, 3vw, 28px) 28px;
+  padding: 16px clamp(14px, 3vw, 24px) 20px;
+  scrollbar-gutter: stable;
   scroll-behavior: smooth;
+}
+
+.transcript:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--chat-accent) 48%, transparent);
+  outline-offset: -2px;
 }
 
 .flow {
   display: flex;
-  width: min(100%, 820px);
+  width: min(100%, 1040px);
   margin: 0 auto;
   flex-direction: column;
   gap: 13px;
 }
 
 .intro {
-  width: min(100%, 820px);
+  width: min(100%, 1040px);
   box-sizing: border-box;
   margin: 0 auto 22px;
   padding: 16px 18px;
@@ -211,6 +231,32 @@
   color: var(--chat-muted);
   background: var(--chat-surface-muted);
   border-style: dashed;
+}
+
+.contextCard {
+  width: min(100%, 1040px);
+  box-sizing: border-box;
+  align-self: flex-start;
+  color: var(--chat-muted);
+  background: var(--chat-surface-muted);
+  border: 1px dashed var(--chat-line);
+  border-radius: 9px;
+}
+
+.contextCard summary {
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.contextBody {
+  padding: 0 10px 9px;
+}
+
+.contextBody > .text {
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .text {
@@ -312,13 +358,13 @@
 }
 
 .tool {
-  width: min(92%, 760px);
+  width: min(100%, 1040px);
   box-sizing: border-box;
   align-self: flex-start;
   overflow: hidden;
   background: var(--chat-surface);
   border: 1px solid var(--chat-line);
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .tool[data-depth="1"],
@@ -332,12 +378,12 @@
 
 .toolSummary {
   display: grid;
-  min-height: 39px;
+  min-height: 32px;
   box-sizing: border-box;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(100px, .7fr) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 9px;
-  padding: 8px 11px;
+  gap: 7px;
+  padding: 5px 9px;
   list-style: none;
   cursor: pointer;
 }
@@ -349,8 +395,8 @@
 .toolRunning,
 .toolSettled,
 .pulse {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
 }
 
@@ -371,28 +417,59 @@
 
 .toolState {
   color: var(--chat-muted);
-  font-size: 11px;
+  font-size: 10px;
+}
+
+.toolName,
+.toolArgsPreview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolName {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.toolArgsPreview {
+  color: var(--chat-faint);
+  font: 10px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .toolSection {
   display: grid;
-  gap: 6px;
-  padding: 10px 12px;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 8px;
+  padding: 7px 9px;
   border-top: 1px solid var(--chat-line);
 }
 
 .toolSection > span {
   color: var(--chat-muted);
-  font-size: 10px;
+  padding-top: 1px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: .1em;
   text-transform: uppercase;
 }
 
+.toolSectionBody {
+  min-width: 0;
+  max-height: 220px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.toolSectionBody > .text {
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 .subTools {
   display: grid;
-  gap: 8px;
-  padding: 0 10px 10px 22px;
+  gap: 5px;
+  padding: 0 8px 8px 16px;
 }
 
 .systemCard {
@@ -448,7 +525,11 @@ details.systemCard {
 .controls {
   display: grid;
   flex: none;
+  max-height: min(52%, 420px);
   gap: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 10px clamp(12px, 3vw, 24px) 14px;
   background: var(--chat-surface-glass);
   border-top: 1px solid var(--chat-line);
@@ -459,7 +540,7 @@ details.systemCard {
 .queue,
 .pending {
   display: grid;
-  width: min(100%, 820px);
+  width: min(100%, 1040px);
   box-sizing: border-box;
   margin: 0 auto;
   gap: 7px;
@@ -658,7 +739,7 @@ details.systemCard {
 
 .composer {
   display: grid;
-  width: min(100%, 820px);
+  width: min(100%, 1040px);
   box-sizing: border-box;
   margin: 0 auto;
   gap: 8px;
@@ -721,7 +802,7 @@ details.systemCard {
 .errorStrip,
 .readOnlyNotice {
   display: flex;
-  width: min(100%, 820px);
+  width: min(100%, 1040px);
   box-sizing: border-box;
   margin: 0 auto;
   align-items: center;
@@ -812,16 +893,16 @@ details.systemCard {
   }
 
   .header {
-    min-height: 62px;
-    padding: 10px 12px 9px 15px;
+    min-height: 50px;
+    padding: 6px 10px 6px 13px;
   }
 
   .title {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .transcript {
-    padding: 14px 10px 20px;
+    padding: 12px 8px 16px;
   }
 
   .message {
@@ -830,6 +911,23 @@ details.systemCard {
 
   .controls {
     padding: 8px;
+  }
+
+  .tool {
+    width: 100%;
+  }
+
+  .toolSummary {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .toolArgsPreview {
+    display: none;
+  }
+
+  .toolSection {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
   .queueRow {

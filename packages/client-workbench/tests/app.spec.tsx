@@ -29,8 +29,8 @@ vi.mock('../src/echarts.tsx', () => ({
 }))
 
 vi.mock('../../client-chat/src/index.tsx', () => ({
-  ChatPanel: ({ title, readOnlyReason, sessionId }: { title?: string; readOnlyReason?: string; sessionId: string }) => (
-    <section aria-label={title ?? '对话'}>{readOnlyReason ?? '可继续对话'} · {sessionId}</section>
+  ChatPanel: ({ title, readOnlyReason, sessionId, compact, hideHeader }: { title?: string; readOnlyReason?: string; sessionId: string; compact?: boolean; hideHeader?: boolean }) => (
+    <section aria-label={title ?? '对话'} data-compact={compact ? 'true' : 'false'} data-hide-header={hideHeader ? 'true' : 'false'}>{readOnlyReason ?? '可继续对话'} · {sessionId}</section>
   ),
 }))
 
@@ -669,8 +669,16 @@ describe('HanaiWorkbench old-client parity', () => {
   it('shows a read-only live process while generating and report/process/chat only after ready', async () => {
     renderAt('/judgements/judgement-generating')
     await screen.findByRole('heading', { name: /贵州茅台/ })
-    expect(screen.getByLabelText('实时研判过程').textContent).toContain('报告生成期间仅查看执行过程')
+    const liveProcess = screen.getByLabelText('实时研判过程')
+    expect(liveProcess.textContent).toContain('报告生成期间仅查看执行过程')
+    expect(liveProcess.getAttribute('data-compact')).toBe('true')
+    expect(liveProcess.getAttribute('data-hide-header')).toBe('true')
     expect(screen.queryByRole('button', { name: '继续对话' })).toBeNull()
+
+    const css = readFileSync(join(process.cwd(), 'packages/client-workbench/src/styles.module.css'), 'utf8')
+    const liveRule = /\.liveProcess\s*\{([^}]+)\}/.exec(css)?.[1] ?? ''
+    expect(liveRule).toContain('grid-template-rows: auto minmax(0, 1fr);')
+    expect(liveRule).toContain('height: calc(100vh - 150px);')
     cleanup()
 
     renderAt('/judgements/judgement-ready')
@@ -679,9 +687,13 @@ describe('HanaiWorkbench old-client parity', () => {
     expect(screen.getByRole('button', { name: '查看研判过程' })).not.toBeNull()
     expect(screen.getByRole('button', { name: '继续对话' })).not.toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '查看研判过程' }))
-    expect((await screen.findByLabelText('研判过程')).textContent).toContain('已归档的研判过程为只读记录')
+    const archivedProcess = await screen.findByLabelText('研判过程')
+    expect(archivedProcess.textContent).toContain('已归档的研判过程为只读记录')
+    expect(archivedProcess.getAttribute('data-compact')).toBe('true')
     fireEvent.click(screen.getByRole('button', { name: '继续对话' }))
-    expect((await screen.findByLabelText('继续与沃伦 · 巴菲特对话')).textContent).toContain('可继续对话')
+    const continuedChat = await screen.findByLabelText('继续与沃伦 · 巴菲特对话')
+    expect(continuedChat.textContent).toContain('可继续对话')
+    expect(continuedChat.getAttribute('data-compact')).toBe('true')
   })
 
   it('keeps judgement detail and continuation session bound to the latest route', async () => {

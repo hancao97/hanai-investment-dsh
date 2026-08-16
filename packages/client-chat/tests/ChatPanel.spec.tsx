@@ -19,6 +19,8 @@ describe('DshChatPanel', () => {
 
     render(<DshChatPanel sessions={harness.sessions} sessionId="session-1" />)
 
+    expect(screen.getByText('HANAI WORTH')).not.toBeNull()
+    expect(screen.getByRole('region', { name: '大师对话记录' })).not.toBeNull()
     expect(screen.getByText('正在检查现金流')).not.toBeNull()
     await waitFor(() => { expect(harness.open).toHaveBeenCalledWith('session-1') })
 
@@ -61,6 +63,24 @@ describe('DshChatPanel', () => {
 
     view.rerender(<DshChatPanel sessions={harness.sessions} sessionId="session-1" />)
     expect((screen.getByLabelText('继续与大师对话') as HTMLTextAreaElement).value).toBe('')
+  })
+
+  it('supports compact headerless embeds and keeps context folded by default', () => {
+    const harness = makeHarness([contextNode()], false)
+
+    render(
+      <DshChatPanel
+        sessions={harness.sessions}
+        sessionId="session-1"
+        compact
+        hideHeader
+      />,
+    )
+
+    expect(screen.queryByText('HANAI WORTH')).toBeNull()
+    expect(screen.queryByRole('heading', { name: '继续与大师对话' })).toBeNull()
+    const summary = screen.getByText('上下文 · AGENTS.md')
+    expect((summary.closest('details') as HTMLDetailsElement).open).toBe(false)
   })
 
   it('does not send the Safari closing Enter while Chinese IME composition settles', async () => {
@@ -227,7 +247,9 @@ describe('DshChatPanel', () => {
 
     render(<DshChatPanel sessions={harness.sessions} sessionId="session-1" />)
     expect(screen.getByText('financial_lookup')).not.toBeNull()
+    expect(screen.getByText('{"code":"600519"}')).not.toBeNull()
     expect(screen.getByText('运行中')).not.toBeNull()
+    expect((screen.getByText('financial_lookup').closest('details') as HTMLDetailsElement).open).toBe(true)
 
     fireEvent.click(screen.getByRole('radio', { name: /下调估值/ }))
     fireEvent.click(screen.getByRole('button', { name: '提交回答' }))
@@ -244,6 +266,7 @@ describe('DshChatPanel', () => {
     act(() => { harness.publish([toolNode(true)], false) })
     expect(screen.getByText('完成')).not.toBeNull()
     expect(screen.getByText('自由现金流为正')).not.toBeNull()
+    expect((screen.getByText('financial_lookup').closest('details') as HTMLDetailsElement).open).toBe(false)
   })
 })
 
@@ -262,6 +285,22 @@ function assistantNode(text: string, status: 'running' | 'settled') {
       step: 1,
       blocks: [{ kind: 'text', text }],
       time: 1,
+    },
+  }
+}
+
+function contextNode() {
+  return {
+    key: 'context:1',
+    id: 'context:1',
+    kind: 'context',
+    target: 'chat',
+    anchorSeq: 1,
+    location: { kind: 'unresolved' },
+    visibility: 'visible',
+    data: {
+      provenance: { role: 'system', label: 'AGENTS.md' },
+      content: [{ type: 'text', text: '研究上下文' }],
     },
   }
 }

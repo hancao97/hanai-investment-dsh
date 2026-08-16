@@ -43,6 +43,8 @@ export interface ChatPanelProps {
   clientContext: ClientContext
   sessionId: string
   compact?: boolean
+  /** Remove the inner title bar when the host already renders equivalent context. */
+  hideHeader?: boolean
   /** Temporarily hide the composer while preserving history and pending responses. */
   readOnlyReason?: string
   title?: ReactNode
@@ -56,6 +58,7 @@ export function ChatPanel({
   clientContext,
   sessionId,
   compact = false,
+  hideHeader = false,
   readOnlyReason,
   title,
   intro,
@@ -66,7 +69,8 @@ export function ChatPanel({
     <DshChatPanel
       sessions={clientContext.sessions}
       sessionId={sessionId}
-      {...compact ? { className: css.compact } : {}}
+      compact={compact}
+      hideHeader={hideHeader}
       {...readOnlyReason === undefined ? {} : { readOnlyReason }}
       {...title === undefined ? {} : { title }}
       {...intro === undefined ? {} : { intro }}
@@ -87,6 +91,10 @@ export interface DshChatPanelProps {
   intro?: ReactNode
   /** Optional controls owned by the workbench (model picker, report link, etc.). */
   headerActions?: ReactNode
+  /** Use the denser, single-line embedded layout. */
+  compact?: boolean
+  /** Remove the inner title bar when the host already renders equivalent context. */
+  hideHeader?: boolean
   className?: string
   autoOpen?: boolean
   /** Workbench lifecycle guard, e.g. while the report turn is still sealing. */
@@ -112,30 +120,36 @@ function DshChatPanelInstance({
   title = '继续与大师对话',
   intro,
   headerActions,
+  compact = false,
+  hideHeader = false,
   className,
   autoOpen,
   readOnlyReason,
   onClose,
 }: DshChatPanelProps) {
   const state = useDshChatSession({ sessions, sessionId, ...(autoOpen === undefined ? {} : { autoOpen }) })
-  const rootClassName = className === undefined ? css.panel : `${css.panel} ${className}`
+  const rootClassName = [css.panel, compact ? css.compact : '', className ?? '']
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <section className={rootClassName} aria-label="大师对话">
-      <header className={css.header}>
-        <div className={css.headingGroup}>
-          <span className={css.eyebrow}>HANAI WORTH · RESEARCH SESSION</span>
-          <h2 className={css.title}>{title}</h2>
-        </div>
-        <div className={css.headerActions}>
-          {headerActions}
-          {onClose !== undefined && (
-            <button className={css.iconButton} type="button" onClick={onClose} aria-label="关闭对话">
-              ×
-            </button>
-          )}
-        </div>
-      </header>
+      {!hideHeader && (
+        <header className={css.header}>
+          <div className={css.headingGroup}>
+            <span className={css.eyebrow}>HANAI WORTH</span>
+            <h2 className={css.title}>{title}</h2>
+          </div>
+          <div className={css.headerActions}>
+            {headerActions}
+            {onClose !== undefined && (
+              <button className={css.iconButton} type="button" onClick={onClose} aria-label="关闭对话">
+                ×
+              </button>
+            )}
+          </div>
+        </header>
+      )}
 
       {state.phase === 'idle' && (
         <EmptyState title="尚未创建对话" detail="完成大师研判后，会在这里关联可继续交流的 DSH Session。" />
@@ -266,7 +280,14 @@ const SessionView = memo(function SessionView({
 
   return (
     <div className={css.session}>
-      <div className={css.transcript} ref={scrollRef} onScroll={handleScroll}>
+      <div
+        className={css.transcript}
+        ref={scrollRef}
+        onScroll={handleScroll}
+        role="region"
+        aria-label="大师对话记录"
+        tabIndex={0}
+      >
         {hasMore && (
           <button
             className={css.loadOlder}
@@ -352,7 +373,11 @@ const ChatNodeRow = memo(function ChatNodeRow({
     case 'steering':
       return <MessageCard role="user" label="你 · 插话"><ContentBlocks blocks={node.data.content} /></MessageCard>
     case 'context':
-      return <MessageCard role="context" label={`上下文 · ${node.data.provenance.label ?? node.data.provenance.role}`}><ContentBlocks blocks={node.data.content} /></MessageCard>
+      return (
+        <ContextCard label={`上下文 · ${node.data.provenance.label ?? node.data.provenance.role}`}>
+          <ContentBlocks blocks={node.data.content} />
+        </ContextCard>
+      )
     case 'assistant-step':
       return (
         <MessageCard role="assistant" label={node.data.status === 'running' ? '大师 · 输出中' : '大师'}>
@@ -403,6 +428,15 @@ function MessageCard({ role, label, children }: { role: 'user' | 'assistant' | '
       <div className={css.messageLabel}>{label}</div>
       <div className={css.messageBody}>{children}</div>
     </article>
+  )
+}
+
+function ContextCard({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <details className={css.contextCard}>
+      <summary>{label}</summary>
+      <div className={css.contextBody}>{children}</div>
+    </details>
   )
 }
 
@@ -487,26 +521,32 @@ function ToolCard({ block, depth }: { block: ToolCallBlock; depth: number }) {
   const settled = isSettledTool(block)
   const name = settled ? block.call?.name ?? block.callId : block.name
   const args = settled ? block.call?.argsRaw ?? '' : block.argsRaw
+  const argsPreview = inlinePreview(args)
   const failed = settled && block.isError
   return (
     <article className={`${css.tool} ${failed ? css.toolError : ''}`} data-depth={depth}>
       <details open={!settled || failed || undefined}>
         <summary className={css.toolSummary}>
           <span className={settled ? css.toolSettled : css.toolRunning} aria-hidden />
-          <span>{name || 'unknown tool'}</span>
+          <span className={css.toolName} title={name || 'unknown tool'}>{name || 'unknown tool'}</span>
+          <span className={css.toolArgsPreview} title={args}>{argsPreview}</span>
           <span className={css.toolState}>{settled ? failed ? '失败' : '完成' : '运行中'}</span>
         </summary>
         {args !== '' && (
           <div className={css.toolSection}>
             <span>参数</span>
-            <pre className={css.code}>{formatJson(args)}</pre>
+            <div className={css.toolSectionBody}>
+              <pre className={css.code}>{formatJson(args)}</pre>
+            </div>
           </div>
         )}
         {settled && (
           <div className={css.toolSection}>
             <span>结果</span>
-            <ContentBlocks blocks={block.content} />
-            {block.error !== undefined && <pre className={css.code}>{formatJson(block.error)}</pre>}
+            <div className={css.toolSectionBody}>
+              <ContentBlocks blocks={block.content} />
+              {block.error !== undefined && <pre className={css.code}>{formatJson(block.error)}</pre>}
+            </div>
           </div>
         )}
       </details>
@@ -517,6 +557,12 @@ function ToolCard({ block, depth }: { block: ToolCallBlock; depth: number }) {
       )}
     </article>
   )
+}
+
+function inlinePreview(value: string, limit = 92): string {
+  const compact = value.replace(/\s+/g, ' ').trim()
+  if (compact.length <= limit) return compact
+  return `${compact.slice(0, limit - 1)}…`
 }
 
 function isSettledTool(block: ToolCallBlock): block is ToolResultNode {
