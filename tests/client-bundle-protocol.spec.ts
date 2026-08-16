@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { runInNewContext } from 'node:vm'
 import { describe, expect, it } from 'vitest'
+import ts from 'typescript'
 
 interface ClientHandoff {
   factory: (require: (specifier: string) => unknown) => unknown
@@ -40,11 +41,22 @@ function captureHandoff(source: string): ClientHandoff {
 }
 
 function literalRequires(source: string): string[] {
-  return [...source.matchAll(/\brequire\(\s*(['"])([^'"]+)\1\s*\)/g)]
-    .map((match) => match[2])
-    .filter((specifier): specifier is string => specifier !== undefined)
-    .filter((specifier, index, all) => all.indexOf(specifier) === index)
-    .sort()
+  const sourceFile = ts.createSourceFile('client.js', source, ts.ScriptTarget.ESNext, false, ts.ScriptKind.JS)
+  const specifiers: string[] = []
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node)
+      && ts.isIdentifier(node.expression)
+      && node.expression.text === 'require'
+      && node.arguments.length === 1
+    ) {
+      const argument = node.arguments[0]
+      if (argument && ts.isStringLiteralLike(argument)) specifiers.push(argument.text)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sourceFile)
+  return specifiers.filter((specifier, index, all) => all.indexOf(specifier) === index).sort()
 }
 
 describe('out-of-tree DSH client bundle adapter', () => {
@@ -52,6 +64,7 @@ describe('out-of-tree DSH client bundle adapter', () => {
     expect(adapterSource).toContain("format: 'cjs'")
     expect(adapterSource).toContain("platform: 'browser'")
     expect(adapterSource).toContain('clean: false')
+    expect(adapterSource).toContain('codeSplitting: false')
     expect(adapterSource).toContain("entryFileNames: 'client.js'")
     expect(adapterSource).toContain(
       'banner: `window.__ModuleLoader__.load({ id: ${JSON.stringify(id)}, factory: (require) => {`',

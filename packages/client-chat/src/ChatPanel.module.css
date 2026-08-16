@@ -13,14 +13,14 @@
   --chat-accent: var(--hanai-primary, #55aaff);
   --chat-accent-strong: var(--hanai-primary-strong, #2189ed);
   --chat-accent-soft: color-mix(in srgb, var(--chat-accent) 13%, var(--chat-surface));
-  --chat-on-accent: var(--hanai-bg, #07111f);
+  --chat-on-accent: var(--hanai-on-primary, #07111f);
   --chat-warn: var(--hanai-gold, #d8ae61);
   --chat-warn-soft: color-mix(in srgb, var(--chat-warn) 11%, var(--chat-surface));
   --chat-danger: var(--hanai-up, #f05d69);
   --chat-danger-soft: color-mix(in srgb, var(--chat-danger) 10%, var(--chat-surface));
   --chat-success: var(--hanai-down, #37bf91);
   --chat-shadow: var(--hanai-shadow, 0 24px 70px rgb(0 0 0 / 28%));
-  color-scheme: dark;
+  color-scheme: inherit;
   display: flex;
   min-width: min(100vw, 360px);
   min-height: 0;

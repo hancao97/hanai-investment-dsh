@@ -1,5 +1,6 @@
 .markdownSurface {
   min-width: 0;
+  color: var(--hanai-text);
   overflow-wrap: anywhere;
 }
 
@@ -28,9 +29,13 @@
 }
 
 .markdownSurface table {
+  display: block;
   width: max-content;
   min-width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
   border-collapse: collapse;
+  color: var(--hanai-text);
   font-family: ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
   line-height: 1.55;
@@ -55,14 +60,56 @@
   margin: 16px 0;
   border: 1px solid var(--hanai-border);
   border-radius: 9px;
+  color: var(--hanai-text);
   background: var(--hanai-bg);
   overflow: hidden;
 }
 
+.markdownSurface :global(.md-code-block) > div:first-child {
+  color: var(--hanai-muted);
+  background: var(--hanai-panel-solid);
+  border-bottom: 1px solid var(--hanai-border);
+}
+
+.markdownSurface :global(.md-code-block) > div:first-child > div {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 10px;
+  font: 10px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.markdownSurface :global(.md-code-block) button {
+  padding: 3px 7px;
+  border: 1px solid var(--hanai-border-strong);
+  border-radius: 5px;
+  color: var(--hanai-muted);
+  background: var(--hanai-bg-soft);
+  cursor: pointer;
+}
+
+.markdownSurface :global(.md-code-block) button:hover {
+  color: var(--hanai-primary);
+  border-color: var(--hanai-primary);
+}
+
 .markdownSurface :global(.md-code-block) pre {
   margin: 0;
+  padding: 14px;
+  overflow: auto;
   border: 0;
   border-radius: 0;
+  color: var(--hanai-text);
+  background: transparent;
+}
+
+.markdownSurface :not(pre) > code {
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: var(--hanai-primary);
+  background: var(--hanai-bg-soft);
 }
 
 .chartFrame {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { EastmoneyProvider } from '../../src/providers/eastmoney.ts'
 import { GuruFocusProvider, MemoryValuationCache } from '../../src/providers/gurufocus.ts'
 import { MarketDataService } from '../../src/providers/index.ts'
@@ -77,6 +77,31 @@ describe('EastmoneyProvider', () => {
     expect(fresh.meta.cacheState).toBe('fresh')
     expect(stale.quotes).toEqual(fresh.quotes)
     expect(stale.meta).toMatchObject({ providerId: 'eastmoney-memory-cache', cacheState: 'stale' })
+  })
+
+  it('clears the real in-memory quote fallback without changing fetch behavior', async () => {
+    const clock = new FakeClock(NOW)
+    let online = true
+    const http = new HandlerHttpClient(url => {
+      if (online && url.includes('/api/qt/ulist.np/get')) return jsonResponse(fixtures.eastmoney.quote)
+      return jsonResponse({}, 503)
+    })
+    const provider = new EastmoneyProvider(http, {
+      clock,
+      minIntervalMs: 0,
+      realtimeFailureThreshold: 99,
+      totalFailureThreshold: 99,
+    })
+
+    await provider.getQuotes(['1.600519'])
+    online = false
+    await expect(provider.getQuotes(['1.600519'])).resolves.toMatchObject({
+      meta: { providerId: 'eastmoney-memory-cache' },
+    })
+    expect(provider.clearQuoteCache()).toBe(1)
+    expect(provider.clearQuoteCache()).toBe(0)
+    const afterClear = await provider.getQuotes(['1.600519'])
+    expect(afterClear.quotes).toEqual([])
   })
 
   it('uses Tencent K-line fallback and keeps missing amount as null', async () => {
@@ -250,6 +275,7 @@ describe('MarketDataService', () => {
     expect(detail.quote?.price).toBe(1480.5)
     expect(detail.metrics?.industry).toBe('白酒')
     expect(detail.trend).toHaveLength(2)
+    expect(detail.trendPrevClose).toBe(1462.2)
     expect(detail.daily).toHaveLength(2)
     expect(detail.weekly).toHaveLength(2)
     expect(detail.monthly).toHaveLength(2)
@@ -258,5 +284,89 @@ describe('MarketDataService', () => {
     expect(detail.sources.trend?.providerId).toBe('eastmoney')
     expect(detail.sources.daily?.providerId).toBe('eastmoney')
     expect(detail.sources.valuation?.providerId).toBe('gurufocus-cn-prototype')
+  })
+
+  it('keeps the trend provider previous close when the quote surface is unavailable', async () => {
+    const clock = new FakeClock(NOW)
+    const service = new MarketDataService({
+      http: new HandlerHttpClient(() => jsonResponse({}, 503)),
+      clock,
+      eastmoney: { minIntervalMs: 0 },
+    })
+    vi.spyOn(service.eastmoney, 'getQuotes').mockRejectedValue(new Error('quote unavailable'))
+    vi.spyOn(service.eastmoney, 'getStockMetrics').mockResolvedValue(null)
+    vi.spyOn(service.eastmoney, 'getTrend').mockResolvedValue({
+      points: [{ time: '09:30', price: 1470, avgPrice: 1470, volume: 100 }],
+      prevClose: 1462.2,
+      meta: {
+        providerId: 'tencent-fallback', sourceName: '腾讯证券', sourceTimestamp: null,
+        fetchedAt: '2026-08-15T02:00:00.000Z', cacheState: 'fresh',
+      },
+    })
+    vi.spyOn(service.eastmoney, 'getKline').mockRejectedValue(new Error('kline unavailable'))
+    vi.spyOn(service.gurufocus, 'getValuation').mockResolvedValue(null)
+
+    const detail = await service.getStockDetail('1.600519')
+
+    expect(detail.quote).toBeNull()
+    expect(detail.trend).toHaveLength(1)
+    expect(detail.trendPrevClose).toBe(1462.2)
+    expect(detail.sources.quote).toBeNull()
+    expect(detail.sources.trend?.providerId).toBe('tencent-fallback')
+  })
+
+  it('fetches quote and metrics without touching trend, k-line, or valuation providers', async () => {
+    const service = new MarketDataService({
+      http: new HandlerHttpClient(() => jsonResponse({}, 503)),
+      clock: new FakeClock(NOW),
+      eastmoney: { minIntervalMs: 0 },
+    })
+    const quotes = vi.spyOn(service.eastmoney, 'getQuotes').mockRejectedValue(new Error('offline'))
+    const metrics = vi.spyOn(service.eastmoney, 'getStockMetrics').mockResolvedValue(null)
+    const trend = vi.spyOn(service.eastmoney, 'getTrend')
+    const kline = vi.spyOn(service.eastmoney, 'getKline')
+    const valuation = vi.spyOn(service.gurufocus, 'getValuation')
+
+    await expect(service.getStockQuoteMetrics('1.600519')).resolves.toEqual({
+      quote: null,
+      metrics: null,
+      sources: { quote: null, metrics: null },
+    })
+    expect(quotes).toHaveBeenCalledOnce()
+    expect(metrics).toHaveBeenCalledOnce()
+    expect(trend).not.toHaveBeenCalled()
+    expect(kline).not.toHaveBeenCalled()
+    expect(valuation).not.toHaveBeenCalled()
+  })
+
+  it('keeps independently available detail surfaces when one facade request rejects', async () => {
+    const service = new MarketDataService({
+      http: new HandlerHttpClient(() => jsonResponse({}, 503)),
+      clock: new FakeClock(NOW),
+      eastmoney: { minIntervalMs: 0 },
+    })
+    vi.spyOn(service, 'getStockQuoteMetrics').mockRejectedValue(new Error('quote facade failed'))
+    vi.spyOn(service, 'getTrend').mockResolvedValue({
+      trend: [{ time: '09:30', price: 1470, avgPrice: 1470, volume: 100 }],
+      trendPrevClose: 1462.2,
+      meta: null,
+    })
+    vi.spyOn(service, 'getKline').mockImplementation(async (_secId, period) => ({
+      period,
+      bars: period === 'daily'
+        ? [{ date: '2026-08-15', open: 1460, close: 1470, high: 1480, low: 1450, volume: 1000, amount: null }]
+        : [],
+      meta: null,
+    }))
+    vi.spyOn(service, 'getValuation').mockResolvedValue({ valuation: null, meta: null })
+
+    const detail = await service.getStockDetail('1.600519')
+
+    expect(detail.quote).toBeNull()
+    expect(detail.metrics).toBeNull()
+    expect(detail.trend).toHaveLength(1)
+    expect(detail.daily).toHaveLength(1)
+    expect(detail.weekly).toEqual([])
+    expect(detail.monthly).toEqual([])
   })
 })

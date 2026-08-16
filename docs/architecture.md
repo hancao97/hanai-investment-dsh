@@ -8,7 +8,7 @@
 
 `hanai-investment-dsh` 实现为一个树外 DeepSeek Harness Bundle。它复用 DSH 的模型、凭据、Agent、Session、会话历史、流式事件和 Web Client 插件机制；Hanai 自己拥有股票、行情、估值、自选、大师研判、报告版本和聊天呈现等业务能力。
 
-新 UI 全部使用 React 重写。首版不要求 DSH 新增通用 Router：`hanai-investment` Profile 启动后在 `shell.overlay` 中自动挂载全屏常驻的 Hanai 工作台，完成行情、自选、股票详情、估值、研判管理、报告阅读和持续对话。Hanai 自己渲染消息时间线和 composer，所有轮次仍发送给绑定的 DSH Session。
+新 UI 全部使用 React 重写，但产品基线仍是旧版客户端：一级导航固定为“今日市场、自选与发现、大师研判、专家中心、设置与诊断”，个股和研判详情仍是从这些页面进入的详情路由。`hanai-investment` Profile 启动后在 `shell.overlay` 中自动挂载全屏常驻的 Hanai 工作台；Workbench 自己同步 Hash 路由，因此无需 DSH 新增通用 Router Slot。Hanai 自己渲染消息时间线和 composer，所有轮次仍发送给绑定的 DSH Session。
 
 该结构不向 Hanai 用户展示 DSH 原生聊天页面，但仍复用 DSH 的 Session 持久化、Agent、队列、取消、恢复和事件流。Hanai 只重写呈现和交互层，不实现第二套 Agent 运行时或聊天存储。
 
@@ -17,11 +17,14 @@
 ### 2.1 目标
 
 - 以可安装的 DSH Bundle 发布，不 fork DSH。
-- 保留旧产品的行情、自选、搜索、股票详情、估值和大师研判能力。
+- 按旧版五个一级页面的名称、顺序、布局和交互，保留行情、自选、搜索、股票详情、估值、大师研判、专家与诊断能力。
+- 使用 ECharts 复原板块 `treemap`、分时/日周月 K 线、五维雷达和价值曲线的数据及交互语义。
 - 使用 DeepSeek 模型生成大师研判报告。
 - 页面可以设置、删除和验证 DeepSeek API Key，但不读取或保存明文副本。
 - 每份报告与一个持久 DSH Session 绑定，报告完成后可以和原大师持续对话。
-- 报告支持封存、校验、哈希和显式版本修订。
+- 正式报告通过校验、哈希和原子封存保持不可变；版本机制是内部实现边界，不作为新增的一级产品能力。
+- 通过 `location.hash` 提供旧路由语义对应的 deep-link、刷新恢复以及浏览器前进/后退。
+- 提供普通亮色和黑夜模式；主题切换只替换语义 token，不改变 DOM、尺寸、顺序、图表数据或业务色。
 - 新旧数据目录完全隔离，新版只初始化自己的空数据根。
 - 桌面和本地优先，不建设 Hanai 云端业务后端。
 
@@ -30,8 +33,8 @@
 - 不恢复旧 Codex Thread；它不能转换成 DSH Session。
 - 不把 Hanai 消息复制到第二套 Conversation/Message 表；DSH Session 日志是聊天事实源。
 - 不支持在已有对话中原地切换大师；切换大师创建新 Session 或 Fork。
-- 不在首版提供 Hanai 页面的 URL deep-link。需要该能力时，向 DSH 增加正式的 `shell.page`/navigation 扩展面。
 - 不引入 shadcn、Tailwind 或第二套全局主题。
+- 不增加旧版没有的一级页面、导航、筛选、状态、人物展示法、图表语义或业务动作。
 - 不检测、读取或导入旧版 `~/.hanai-investment`。
 
 ## 3. 系统结构
@@ -135,33 +138,33 @@ DSH AppFrame
 └── shell.overlay            # 最上层；Hanai Workbench 打开时占满 Frame
 ```
 
-它的交互效果是完整的全屏应用，不是新窗口、iframe 或独立 URL 页面。工作台根元素负责恢复 pointer events、焦点管理、滚动管理和窄屏布局；生产模式下 Escape 不会退出到 DSH 原生聊天。若工作台启动失败，必须渲染 Hanai 自己的故障页和重试/诊断操作，不得把原生 DSH Conversation 当作降级界面。
+它的交互效果是完整的全屏应用，不是新窗口或 iframe。工作台根元素负责恢复 pointer events、焦点管理、滚动管理和窄屏布局；生产模式下 Escape 不会退出到 DSH 原生聊天。若工作台启动失败，必须渲染 Hanai 自己的故障页和重试/诊断操作，不得把原生 DSH Conversation 当作降级界面。
 
-工作台是一个完整、常驻的 React Surface，内部导航状态由该插件自己的 Slot Store 管理。它包含：
+工作台是一个完整、常驻的 React Surface，内部导航状态与 `location.hash` 双向同步。空 Hash 默认进入 `#/dashboard`；刷新、直接访问、浏览器前进和后退均恢复同一页面。路由与旧版语义一一对应：
 
-- 市场概览；
-- 股票搜索；
-- 自选分组与自选列表；
-- 股票详情；
-- 估值分析；
-- 大师列表和研判发起器；
-- 研判任务列表、运行进度和报告版本；
-- DeepSeek 配置状态、写入/删除 Key 和可用模型目录；
-- 数据目录、缓存和运行诊断。
+| 页面 | Hash 路由 | 结构边界 |
+| --- | --- | --- |
+| 今日市场 | `#/dashboard` | 六大指数 → 市场宽度 → 左侧板块热力图、右侧榜单 |
+| 自选与发现 | `#/watch` | 分组工具栏 → 原字段/排序语义的自选表格 |
+| 大师研判 | `#/judgements` | 股票/分析人筛选 → 三列研判卡片；详情为 `#/judgements/:id` |
+| 专家中心 | `#/personas` | 普通页头 → 两列专家信息卡 |
+| 设置与诊断 | `#/settings` | Agent、数据源、本地存储、关于声明；DSH 凭据嵌入此页 |
+| 个股详情 | `#/stock/:secId` | 行情与基本面左列、估值与价值曲线右列；不是一级导航 |
 
-Overlay 只是 DSH 当前缺少通用业务页槽时的容器选择，不改变业务组件边界。未来若 DSH 提供 `shell.page`，工作台各页面可以迁入新 Slot，而 Host、Domain、RPC 和页面组件保持不变。
+全局壳层也遵循旧版几何基线：176px 左侧栏、46px 顶栏、顶栏左侧股票搜索和一致的内容起点。主题按钮可以使用旧顶栏右侧空位，但不能挤压搜索或改变内容布局。
+
+Overlay 只是 DSH 当前缺少通用业务页槽时的容器选择，不改变业务组件边界或 Hash 深链接。未来若 DSH 提供 `shell.page`，工作台各页面可以迁入新 Slot，而 Host、Domain、RPC、路由语义和页面组件保持不变。
 
 ### 6.2 报告与 Hanai 自有聊天
 
-用户打开研判后始终停留在 Hanai Workbench。研判详情通过“研判报告 / 继续对话”两个 Tab 管理信息密度；聊天 Tab 使用同一个 `dshSessionId`，不跳转到 DSH 原生 Conversation。
+用户打开研判后始终停留在 Hanai Workbench。生成中和失败时继续展示旧版执行过程；报告 `ready` 后默认展示旧版两栏报告（左侧归档信息、右侧 Markdown）。唯一新增的可见入口是“研判报告 / 继续对话”视图切换；聊天视图使用同一个 `dshSessionId`，不跳转到 DSH 原生 Conversation。
 
 报告区域展示：
 
 - 股票、大师、模型和信息时点；
 - 报告 Markdown；
 - 版本、生成时间、字节数和 SHA-256；
-- 数据来源/免责声明；
-- “创建修订版”动作。
+- 数据来源/免责声明。
 
 聊天区域由 `client-chat` 提供，负责：
 
@@ -189,11 +192,19 @@ UI 遵循 DSH Web 规范：
 - DSH Slot 和标准 Props shares；
 - DSH `ui-primitives` 优先，包括 Button、Input、Menu、Modal、Tooltip、Toast、Markdown 和图标；
 - CSS Modules 和 `clsx`；
-- Workbench 根节点继承 `--dsw-alias-*`，并在自身作用域映射“澄海蓝 / 青玉绿”两套 `--hanai-*` 语义令牌；
+- Workbench 根节点继承 `--dsw-alias-*`，并在自身作用域映射普通 `light` / `dark` 两套 `--hanai-*` 语义令牌；黑夜模式以旧版客户端为视觉基线，亮色模式只替换颜色、阴影和图表辅助线 token；
+- 两个主题复用同一 DOM、组件树、文案、尺寸、间距、断点和图表 option；A 股涨红跌绿、专家识别色与状态业务色不随主题反转；
 - 不使用 Tailwind、shadcn 或全局 reset；
 - DSH 缺少的复杂控件优先用本地 React + CSS Modules 实现；只有确有无障碍/交互价值时才引入无样式 headless primitive。
 
-图表使用树外 Client Bundle 内的轻量 React/SVG 实现，避免把 ECharts 整体内联进单文件插件；必须呈现真实序列和来源，禁止用当前价格人工合成走势。
+旧版图表语义由 ECharts `5.6.0` 复原，不用普通 DOM 方块或自绘 SVG 替代：
+
+- 今日市场使用 ECharts `treemap`；面积为板块成交额，颜色为板块涨跌幅，保留行业/概念、tooltip、“其他”合并和点击钻取。
+- 个股行情使用 ECharts 分时折线、成交量与日/周/月 K 线，默认日 K，保留 A 股红涨绿跌和 dataZoom。
+- 估值区使用 ECharts 五维雷达；价值曲线按日期分别传入真实价格与 MEDPS，逐点生成 `0.7/0.9/1.0/1.1/1.3` 倍估值带，缺失值不补零、不跨日期混配。
+- ECharts tooltip、axis、grid、legend、dataZoom 和辅助色读取主题 token，但 series 类型、顺序、字段、面积、坐标和业务色保持不变。
+
+ECharts 会进入树外 Client Bundle，因此包体门禁仍需监控；包体成本不能成为改变图表类型或数据语义的理由。
 
 详细决策见 [ADR-0001](adr/0001-dsh-native-react-ui.md)。
 
@@ -239,7 +250,7 @@ stateDiagram-v2
         Verifying --> Repairing: 校验失败且可修复
         Repairing --> Verifying: 同 Session 补全
         Verifying --> Ready: 封存报告并发布事件
-        Ready --> Revising: 用户明确创建修订版
+        Ready --> Revising: 经授权的内部修订流程
         Revising --> Ready: 封存 v2+
         Generating --> Failed
         Verifying --> Failed
@@ -281,7 +292,7 @@ turnStatus: idle | queued | running | cancelling | failed
 
 ### 7.4 Session 事件与报告协调器
 
-Host 订阅 DSH Session 的 `turn/start` 与 `turn/end`：报告状态处于生成、校验、修复或修订时，成功结束的 Turn 会进入报告校验与封存队列；普通追问只更新 `turnStatus`，不会创建报告版本。聊天页直接使用 DSH Client Runtime 已折叠的 Conversation Snapshot，因此不需要 Hanai 自定义消息 Projection。
+Host 订阅 DSH Session 的 `turn/start` 与 `turn/end`：报告状态处于生成、校验、修复或内部修订时，成功结束的 Turn 会进入报告校验与封存队列；普通追问只更新 `turnStatus`，不会创建报告版本。内部 revision 状态用于保证报告不可变和未来受控演进，不作为当前一级产品动作宣传。聊天页直接使用 DSH Client Runtime 已折叠的 Conversation Snapshot，因此不需要 Hanai 自定义消息 Projection。
 
 发布顺序是：报告文件原子封存成功 → SQLite 事务提交报告版本和最新版本指针 → RPC 下一次读取可见。报告 Markdown 不复制进 DSH 消息或第二套消息表；UI 始终从正式封存文件读取。
 
@@ -312,7 +323,7 @@ judgements/<id>/reports/0001/manifest.json
 - 来源报告工作副本；
 - Schema 版本。
 
-后续对话可以读取工作副本，但不能改变 UI 已展示的 v1。只有显式“创建修订版”才生成 `0002`。
+后续对话可以读取工作副本，但不能改变 UI 已展示的 v1。版本表和 revision 状态保留为实现边界；普通追问绝不生成 `0002`，任何未来可见的修订动作都必须另行获得产品授权。
 
 ## 8. 业务数据模型
 
@@ -429,12 +440,14 @@ Provider 传输层使用 Node/DSH Host 能力重写，不能继续依赖 Electro
 | --- | --- | --- |
 | 树外 Bundle / Client Bundle | 已实现 | 根包 sibling roles、单文件 `lib/client.js`、ModuleLoader 协议测试 |
 | Domain / SQLite / 数据隔离 | 已实现 | 路径权限、migration、Provider 与报告封存测试 |
-| 市场、自选、个股、估值 | 已实现 | React 工作台与真实 Provider 降级链；所有来源必须显示 fresh/stale/fallback |
+| 旧版五页壳层与 Hash 路由 | 已实现 | 固定导航名称/顺序，`#/dashboard` 等路由可刷新并支持前进/后退 |
+| 市场、自选、个股、估值 | 已实现 | 旧版布局、字段与真实 Provider 降级链；所有来源必须显示 fresh/stale/fallback |
+| ECharts 图表 | 已实现 | treemap、分时/K 线、雷达和价值曲线；图表语义由固定 fixture 约束 |
 | 大师研判与报告版本 | 已实现 | 独立工作区、能力包快照、同一 Session、原子封存与 SHA-256 |
 | Hanai 自绘聊天 | 已实现 | 历史、流式、工具树、queue/steer/cancel、审批、问题响应和生命周期冻结 |
-| 两套主题 | 已实现 | 澄海蓝 / 青玉绿，SQLite 持久化 |
+| 亮色/黑夜主题 | 已实现 | 只切换 Workbench 语义 token，SQLite 持久化，布局与图表语义不变 |
 | 独立 Profile | 已实现 | 临时 `DSH_HOME` 上真实安装、配置校验和随机端口启动 |
-| 后续演进 | 持续 | URL deep-link、正式树外 Client SDK、更完整附件与供应商 SLA |
+| 后续演进 | 持续 | 正式树外 Client SDK、更完整附件与供应商 SLA |
 
 ## 14. 首版验收标准
 
@@ -442,19 +455,22 @@ Provider 传输层使用 Node/DSH Host 能力重写，不能继续依赖 Electro
 
 1. 用户可以安装 Bundle 并启动 `hanai-investment` Profile，且官方 `dsh web` 不受影响。
 2. 页面可以配置 DeepSeek Key，明文不进入 Hanai 数据目录。
-3. 行情、自选、股票详情和估值功能完整可用。
+3. 五个一级页面的名称、顺序、结构与旧版一致；个股和研判详情保留原路由语义。
 4. 四位大师均可创建研判，并且每次研判有独立工作区和 DSH Session。
 5. 报告校验后形成带 SHA-256 的不可变快照。
 6. 报告和消息时间线出现在 Hanai 自有研判详情页中，不要求显示 DSH 原生聊天。
 7. 用户可以通过 Hanai composer 在同一 Session 继续追问，重启后仍可恢复。
-8. 新版不会检测或读取旧版 `~/.hanai-investment`。
-9. Agent 没有报告封存目录或凭据文件的写权限。
-10. 发布产物通过真实 DSH Profile 启动和关键链路测试。
+8. treemap、分时/K 线、雷达与价值曲线均由 ECharts 呈现，并保持旧版数据语义。
+9. 普通亮色/黑夜模式只改变 token；两种主题的布局、DOM 和业务色一致。
+10. Hash deep-link 可直接打开、刷新和前进/后退。
+11. 新版不会检测或读取旧版 `~/.hanai-investment`。
+12. Agent 没有报告封存目录或凭据文件的写权限。
+13. 发布产物通过真实 DSH Profile 启动和关键链路测试。
 
 ## 15. 已知风险
 
 - DSH 仍处于 pre-release，Client Bundle 和 Slot API 可能变化；必须锁版本并维护兼容测试。
-- 当前没有通用 Page/Router Slot，Overlay 首版没有 URL deep-link。
+- 当前没有通用 Page/Router Slot；Workbench 以 Hash Router 提供 deep-link，未来迁移 Slot 时必须保持既有路由语义。
 - Client Bundle 是单文件 closure；新增第三方 UI/图表依赖必须受包体预算约束。
 - 自有聊天页需要跟踪 DSH Session 事件语义；DSH 升级时必须通过历史折叠、流式、取消和恢复的兼容测试。
 - 东方财富实时集群会拒绝部分 Node TLS 指纹；实现必须快速降级到东财延迟行情与腾讯分时/K 线，并在 UI 明确展示来源，不能标成 LIVE。

@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync } from 'node:fs'
+import { chmodSync, lstatSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
 
@@ -44,8 +44,30 @@ export function ensureHanaiLayout(paths: HanaiPaths): void {
     paths.exportsDir,
     paths.tmpDir,
   ]
+
+  // Preflight the complete managed tree before changing any mode or creating
+  // a sibling. In particular, a pre-existing link at the new root must never
+  // turn the isolated layout initialization into a read/write of legacy data.
+  for (const directory of directories) assertManagedDirectoryNotSymlink(directory)
+
   for (const directory of directories) {
+    // Check again at each mutation boundary. This does not grant an untrusted
+    // local process access it does not already have, but it narrows accidental
+    // replacement races and keeps every normal restart fail-closed.
+    assertManagedDirectoryNotSymlink(directory)
     mkdirSync(directory, { recursive: true, mode: 0o700 })
+    assertManagedDirectoryNotSymlink(directory)
     chmodSync(directory, 0o700)
+  }
+}
+
+function assertManagedDirectoryNotSymlink(directory: string): void {
+  try {
+    if (lstatSync(directory).isSymbolicLink()) {
+      throw new Error(`拒绝使用符号链接作为 Hanai 受管目录：${directory}`)
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException | null)?.code === 'ENOENT') return
+    throw error
   }
 }

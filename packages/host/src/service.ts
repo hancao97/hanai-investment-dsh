@@ -1,18 +1,34 @@
 import { randomUUID } from 'node:crypto'
+import { spawn } from 'node:child_process'
+import {
+  existsSync,
+  lstatSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+} from 'node:fs'
+import { relative, resolve } from 'node:path'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type {
   BootstrapData,
+  CacheClearResult,
   DashboardData,
+  DefaultModelSelection,
   Diagnostics,
   HanaiEndpoint,
   HanaiRequest,
   HanaiResponse,
   Judgement,
   JudgementDetail,
+  KLinePeriod,
   ProviderMeta,
   SearchResult,
   StockDetail,
+  StockKLineData,
+  StockQuoteMetricsData,
   StockQuote,
+  StockTrendData,
+  StockValuationData,
   WatchQuote,
 } from '../../contracts/src/index.ts'
 import { getMasterPersona, listMasters } from '../../masters/src/index.ts'
@@ -27,7 +43,15 @@ export interface MarketFacade {
   getDashboard(refresh?: boolean): Promise<DashboardData>
   getSectorStocks(sectorCode: string): Promise<{ stocks: StockQuote[]; meta: ProviderMeta }>
   getStockDetail(secId: string, security?: ReturnType<HanaiDatabase['getSecurity']>): Promise<StockDetail>
+  getStockQuoteMetrics(secId: string): Promise<StockQuoteMetricsData>
+  getTrend(secId: string): Promise<StockTrendData>
+  getKline(secId: string, period: KLinePeriod): Promise<StockKLineData>
+  getValuation(
+    secId: string,
+    security?: ReturnType<HanaiDatabase['getSecurity']>,
+  ): Promise<StockValuationData>
   getQuotes(secIds: readonly string[]): Promise<{ quotes: StockQuote[]; meta: ProviderMeta }>
+  clearMarketCache(): number
   syncSecurities(database: HanaiDatabase, force?: boolean): Promise<{ count: number; updatedAt: string | null }>
   searchSecurities(database: HanaiDatabase, query: string): Promise<SearchResult[]>
 }
@@ -39,13 +63,22 @@ export interface SessionFacade {
   isRunning(sessionId: string): Promise<boolean>
 }
 
+/** The formal DSH owner for the process-wide Agent default model. */
+export interface DefaultModelFacade {
+  currentSelection(): DefaultModelSelection
+  saveSelection(next: DefaultModelSelection): Promise<void>
+}
+
 export interface HanaiServiceOptions {
   paths: HanaiPaths
   database: HanaiDatabase
   reports: ReportStore
   sessions: SessionFacade
+  defaultModel: DefaultModelFacade
   market: MarketFacade
   version: string
+  /** Test seam and platform integration; the service always supplies paths.root itself. */
+  openDirectory?: (directory: string) => Promise<void>
 }
 
 /** Coordinates Hanai business state while DSH remains the sole owner of conversation history. */
@@ -54,8 +87,10 @@ export class HanaiService {
   private readonly database: HanaiDatabase
   private readonly reports: ReportStore
   private readonly sessions: SessionFacade
+  private readonly defaultModel: DefaultModelFacade
   private readonly market: MarketFacade
   private readonly version: string
+  private readonly openDirectory: (directory: string) => Promise<void>
   private readonly reportJobs = new Map<string, Promise<void>>()
 
   constructor(options: HanaiServiceOptions) {
@@ -63,8 +98,10 @@ export class HanaiService {
     this.database = options.database
     this.reports = options.reports
     this.sessions = options.sessions
+    this.defaultModel = options.defaultModel
     this.market = options.market
     this.version = options.version
+    this.openDirectory = options.openDirectory ?? openDirectoryWithSystem
   }
 
   async call<K extends HanaiEndpoint>(
@@ -120,7 +157,9 @@ export class HanaiService {
         this.failReportAttempt(
           judgement,
           `turn-${event.data.reason.kind}`,
-          `DSH 回合未完成：${event.data.reason.kind}`,
+          event.data.reason.kind === 'error'
+            ? `DSH 回合未完成：${event.data.reason.error.message}`
+            : `DSH 回合未完成：${event.data.reason.kind}`,
         )
       }
       return
@@ -175,6 +214,35 @@ export class HanaiService {
         this.recordStockDetailSuccess(detail)
         return detail
       }
+      case 'security.quote': {
+        const input = request as HanaiRequest<'security.quote'>
+        const result = await this.market.getStockQuoteMetrics(input.secId)
+        this.recordProviderSuccess(MARKET_SUCCESS_SETTING, [
+          result.quote === null ? null : result.sources.quote,
+          result.metrics === null ? null : result.sources.metrics,
+        ])
+        return result
+      }
+      case 'security.trend': {
+        const input = request as HanaiRequest<'security.trend'>
+        const result = await this.market.getTrend(input.secId)
+        this.recordProviderSuccess(MARKET_SUCCESS_SETTING, [
+          result.trend.length === 0 && result.trendPrevClose === null ? null : result.meta,
+        ])
+        return result
+      }
+      case 'security.kline': {
+        const input = request as HanaiRequest<'security.kline'>
+        const result = await this.market.getKline(input.secId, input.period)
+        this.recordProviderSuccess(MARKET_SUCCESS_SETTING, [result.bars.length === 0 ? null : result.meta])
+        return result
+      }
+      case 'security.valuation': {
+        const input = request as HanaiRequest<'security.valuation'>
+        const result = await this.market.getValuation(input.secId, this.database.getSecurity(input.secId))
+        this.recordProviderSuccess(VALUATION_SUCCESS_SETTING, [result.valuation === null ? null : result.meta])
+        return result
+      }
       case 'watch.list': return this.database.listWatchGroups()
       case 'watch.quotes': return this.watchQuotes((request as HanaiRequest<'watch.quotes'>).groupId)
       case 'watch.group.create': return this.database.createWatchGroup(
@@ -204,12 +272,21 @@ export class HanaiService {
       case 'judgement.create': return this.createJudgement(request as HanaiRequest<'judgement.create'>, signal)
       case 'judgement.get': return this.getJudgementDetail((request as HanaiRequest<'judgement.get'>).id)
       case 'judgement.revise': return this.reviseJudgement(request as HanaiRequest<'judgement.revise'>)
+      case 'model.default.get': return this.currentDefaultModel()
+      case 'model.default.set': return this.saveDefaultModel(
+        request as HanaiRequest<'model.default.set'>,
+      )
       case 'theme.set': {
         const { theme } = request as HanaiRequest<'theme.set'>
         this.database.setTheme(theme)
         return { theme }
       }
       case 'diagnostics.get': return this.diagnostics()
+      case 'cache.clear': return this.clearCache((request as HanaiRequest<'cache.clear'>).scope)
+      case 'storage.openDataRoot': {
+        await this.openDirectory(this.paths.root)
+        return { opened: true, dataRoot: this.paths.root }
+      }
       default: return assertNever(endpoint)
     }
   }
@@ -234,7 +311,45 @@ export class HanaiService {
     }
   }
 
+  private currentDefaultModel(): DefaultModelSelection {
+    const selection = this.defaultModel.currentSelection()
+    return {
+      provider: String(selection.provider),
+      model: String(selection.model),
+      ...(selection.reasoningEffort === undefined
+        ? {}
+        : { reasoningEffort: String(selection.reasoningEffort) }),
+    }
+  }
+
+  private async saveDefaultModel(selection: DefaultModelSelection): Promise<DefaultModelSelection> {
+    await this.defaultModel.saveSelection({
+      provider: selection.provider,
+      model: selection.model,
+      ...(selection.reasoningEffort === undefined
+        ? {}
+        : { reasoningEffort: selection.reasoningEffort }),
+    })
+    // Read through DSH again so the response reflects the settings owner's
+    // committed value rather than echoing an unpersisted browser request.
+    const committed = this.currentDefaultModel()
+    if (committed.provider !== selection.provider
+      || committed.model !== selection.model
+      || committed.reasoningEffort !== selection.reasoningEffort) {
+      // AgentDefaultModel deliberately no-ops when a composition mounts no
+      // Settings provider. Treat that deployment shape as non-writable instead
+      // of telling the browser that a selection was saved when it was not.
+      throw new Error('DSH 当前未提供可写的默认模型设置')
+    }
+    return committed
+  }
+
   private diagnostics(): Diagnostics {
+    const total = directoryStats(this.paths.root)
+    const cache = directoryStats(this.paths.cacheDir)
+    const marketCache = directoryStats(this.paths.marketCacheDir)
+    const valuationCache = directoryStats(this.paths.valuationCacheDir)
+    const judgements = directoryStats(this.paths.judgementsDir)
     return {
       dataRoot: this.paths.root,
       databasePath: this.paths.databasePath,
@@ -244,20 +359,47 @@ export class HanaiService {
       judgementCount: this.database.judgementCount(),
       latestMarketSuccess: this.database.getSetting('market.latestSuccess'),
       latestValuationSuccess: this.database.getSetting('valuation.latestSuccess'),
+      storage: {
+        totalBytes: total.bytes,
+        cacheBytes: cache.bytes,
+        marketCacheBytes: marketCache.bytes,
+        valuationCacheBytes: valuationCache.bytes,
+        judgementsBytes: judgements.bytes,
+      },
       version: this.version,
+    }
+  }
+
+  private clearCache(scope: CacheClearResult['scope']): CacheClearResult {
+    const target = scope === 'market' ? this.paths.marketCacheDir : this.paths.valuationCacheDir
+    assertDedicatedCacheTarget(this.paths.cacheDir, target, scope)
+    if (scope === 'market') this.market.clearMarketCache()
+    const before = directoryStats(target)
+    if (existsSync(target)) {
+      for (const entry of readdirSync(target)) {
+        rmSync(resolve(target, entry), { recursive: true, force: true })
+      }
+    }
+    const after = directoryStats(target)
+    return {
+      scope,
+      removedFiles: Math.max(0, before.files - after.files),
+      freedBytes: Math.max(0, before.bytes - after.bytes),
     }
   }
 
   private recordStockDetailSuccess(detail: StockDetail): void {
     this.recordProviderSuccess(MARKET_SUCCESS_SETTING, [
-      detail.sources.quote,
-      detail.sources.metrics,
-      detail.sources.trend,
-      detail.sources.daily,
-      detail.sources.weekly,
-      detail.sources.monthly,
+      detail.quote === null ? null : detail.sources.quote,
+      detail.metrics === null ? null : detail.sources.metrics,
+      detail.trend.length === 0 && detail.trendPrevClose === null ? null : detail.sources.trend,
+      detail.daily.length === 0 ? null : detail.sources.daily,
+      detail.weekly.length === 0 ? null : detail.sources.weekly,
+      detail.monthly.length === 0 ? null : detail.sources.monthly,
     ])
-    this.recordProviderSuccess(VALUATION_SUCCESS_SETTING, [detail.sources.valuation])
+    this.recordProviderSuccess(VALUATION_SUCCESS_SETTING, [
+      detail.valuation === null ? null : detail.sources.valuation,
+    ])
   }
 
   private recordProviderSuccess(setting: string, values: ReadonlyArray<ProviderMeta | null>): void {
@@ -495,9 +637,11 @@ function initialReportPrompt(
   customPrompt?: string,
 ): string {
   return `你是 Hanai Investment 绑定的${masterName}大师。请先完整读取当前工作区的 AGENTS.md、你的 SKILL.md 和 RESEARCH_CONTEXT.md。\n\n`
-    + `现在为 ${stockName}（${code}）完成首次正式研判。你可以使用可用工具补充并核验公开资料；明确区分事实、推断和未知项。`
-    + `请把完整中文 Markdown 报告覆盖写入工作区根目录 REPORT.md，必须包含一级标题、核心结论、关键依据、估值或交易条件、反方证据、风险与待验证清单，篇幅要充分。`
-    + `写入成功后，再向用户简短说明报告已经完成。\n\n`
+    + `现在为 ${stockName}（${code}）完成首次正式研判。必须使用该大师能力包的分析框架、启发式和表达方式。`
+    + `请主动联网检索公司公告、财报、监管披露、行业资料及其他必要的一手或可信来源，获取最新公开信息并交叉核验；不要向用户提问，也不要等待用户补充材料。`
+    + `事实、推断、假设和未知项必须清楚分开；关键事实注明来源链接和日期，关键数字写明口径与日期。严禁编造数据、来源或引文，证据不足时明确标记不确定性。`
+    + `请把完整中文 Markdown 报告覆盖写入工作区根目录 REPORT.md。报告必须可独立阅读，并至少包含一级标题、执行摘要、信息时点与来源、业务与护城河或竞争格局、财务质量、估值与关键假设或交易条件、催化剂、反方证据、核心风险、乐观/基准/悲观情景、待持续验证清单，以及符合该大师框架的最终研判。`
+    + `不要给出收益承诺或伪造精确目标。写入成功后，只用一句话向用户确认报告已经完成，不要在回复中重复整份报告。\n\n`
     + (customPrompt === undefined ? '' : `用户补充要求：\n${customPrompt}\n`)
 }
 
@@ -535,5 +679,88 @@ function unavailableMarketMeta(): ProviderMeta {
     sourceTimestamp: null,
     fetchedAt: new Date().toISOString(),
     cacheState: 'unavailable',
+  }
+}
+
+/** Open one directory using the operating system's standard file browser. */
+export async function openDirectoryWithSystem(directory: string): Promise<void> {
+  const invocation = process.platform === 'darwin'
+    ? { command: 'open', args: [directory] }
+    : process.platform === 'win32'
+      ? { command: 'explorer', args: [directory] }
+      : process.platform === 'linux'
+        ? { command: 'xdg-open', args: [directory] }
+        : null
+  if (invocation === null) {
+    throw new Error(`当前平台不支持打开数据目录：${process.platform}`)
+  }
+  await new Promise<void>((resolvePromise, rejectPromise) => {
+    const child = spawn(invocation.command, invocation.args, {
+      stdio: 'ignore',
+      windowsHide: true,
+    })
+    child.once('error', (error) => {
+      rejectPromise(new Error(`无法启动文件浏览器 ${invocation.command}：${messageOf(error)}`, { cause: error }))
+    })
+    child.once('close', (code, signal) => {
+      if (code === 0) {
+        resolvePromise()
+        return
+      }
+      const reason = code === null ? `signal ${signal ?? 'unknown'}` : `exit ${code}`
+      rejectPromise(new Error(`文件浏览器 ${invocation.command} 打开数据目录失败（${reason}）`))
+    })
+  })
+}
+
+interface DirectoryStats {
+  bytes: number
+  files: number
+}
+
+/** Count file payloads without following symlinks outside the isolated data root. */
+function directoryStats(path: string): DirectoryStats {
+  let stat: ReturnType<typeof lstatSync>
+  try {
+    stat = lstatSync(path)
+  } catch {
+    return { bytes: 0, files: 0 }
+  }
+  if (stat.isSymbolicLink() || !stat.isDirectory()) {
+    return { bytes: stat.size, files: 1 }
+  }
+  let bytes = 0
+  let files = 0
+  for (const entry of readdirSync(path)) {
+    const child = directoryStats(resolve(path, entry))
+    bytes += child.bytes
+    files += child.files
+  }
+  return { bytes, files }
+}
+
+function assertDedicatedCacheTarget(
+  cacheRoot: string,
+  target: string,
+  scope: CacheClearResult['scope'],
+): void {
+  const expectedName = scope === 'market' ? 'market' : 'valuation'
+  const normalizedRoot = resolve(cacheRoot)
+  const normalizedTarget = resolve(target)
+  if (normalizedTarget !== resolve(normalizedRoot, expectedName)) {
+    throw new Error('拒绝清理非专用缓存目录')
+  }
+  if (existsSync(normalizedRoot) && lstatSync(normalizedRoot).isSymbolicLink()) {
+    throw new Error('拒绝通过符号链接清理缓存目录')
+  }
+  if (!existsSync(normalizedTarget)) return
+  if (lstatSync(normalizedTarget).isSymbolicLink()) {
+    throw new Error('拒绝通过符号链接清理缓存目录')
+  }
+  const realRoot = realpathSync(normalizedRoot)
+  const realTarget = realpathSync(normalizedTarget)
+  const realRelative = relative(realRoot, realTarget)
+  if (realRelative !== expectedName) {
+    throw new Error('拒绝清理数据根目录之外的路径')
   }
 }

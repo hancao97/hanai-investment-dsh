@@ -1,0 +1,2 @@
+# Master assets are immutable byte-for-byte snapshots. Markdown hard breaks intentionally use two trailing spaces.
+packages/masters/assets/** whitespace=-trailing-space

@@ -4,6 +4,8 @@ import { RpcId } from '@deepseek-ai/dsh-host-apiproxy'
 import { SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
 import type { ModelSelectionInput } from '../../contracts/src/index.ts'
 
+const HANAI_AGENT_PRESET = 'standard'
+
 export class DshSessionGateway {
   constructor(private readonly ctx: Context) {}
 
@@ -11,9 +13,16 @@ export class DshSessionGateway {
     const requestedId = SessionId(`hanai-${judgementId}`)
     const response = await this.ctx.apiProxy.sessions.create({
       rpcId: RpcId(randomUUID()),
-      payload: { cwd, sessionId: requestedId },
+      payload: { cwd, sessionId: requestedId, agentPreset: HANAI_AGENT_PRESET },
     })
     const created = unwrap(response.result)
+    if (created.agentPreset !== HANAI_AGENT_PRESET) {
+      const actual = created.agentPreset === undefined ? '未返回' : `"${created.agentPreset}"`
+      await this.rejectCreatedSession(
+        created.sessionId,
+        new Error(`DSH Session 未使用必需的 Agent Preset "${HANAI_AGENT_PRESET}"（实际：${actual}）`),
+      )
+    }
     if (model !== undefined) {
       try {
         const selected = await this.ctx.apiProxy.sessions.selectModel({
@@ -27,18 +36,22 @@ export class DshSessionGateway {
         })
         unwrap(selected.result)
       } catch (error) {
-        try {
-          await this.archive(created.sessionId)
-        } catch (cleanupError) {
-          throw new Error(
-            `${messageOf(error)}；未绑定 Session 归档失败：${messageOf(cleanupError)}`,
-            { cause: error },
-          )
-        }
-        throw error
+        await this.rejectCreatedSession(created.sessionId, error)
       }
     }
     return created.sessionId
+  }
+
+  private async rejectCreatedSession(sessionId: string, error: unknown): Promise<never> {
+    try {
+      await this.archive(sessionId)
+    } catch (cleanupError) {
+      throw new Error(
+        `${messageOf(error)}；未绑定 Session 归档失败：${messageOf(cleanupError)}`,
+        { cause: error },
+      )
+    }
+    throw error
   }
 
   /** DSH has no session deletion API; archiving is its durable orphan-cleanup primitive. */

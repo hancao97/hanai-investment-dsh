@@ -1,9 +1,20 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import { stripPnpmRunSeparator } from './pnpm-run-args.ts'
+import {
+  assertComposedLayers,
+  assertProfileContract,
+  assertRuntimeIdentity,
+  assertSafeProfileManifest,
+  manifestPathFor,
+  normalizeProfileManifest,
+  profileDirForManifest,
+  readManifest,
+  writeManifestAtomic,
+} from './profile-contract.ts'
 
 interface Options {
   dshBin: string
@@ -16,20 +27,9 @@ assertSafeExistingProfile(options.profile)
 const dshVersion = commandOutput(options.dshBin, ['--version']).match(/\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/)?.[0]
 if (dshVersion === undefined) throw new Error('无法从 dsh --version 识别版本')
 
-console.log(`Creating isolated DSH profile ${options.profile} with DSH ${dshVersion}…`)
-run(options.dshBin, [
-  'plugin',
-  '--profile',
-  options.profile,
-  'add',
-  '--ignore-scripts',
-  '--workspace-root',
-  `@deepseek-ai/dsh-web-app@${dshVersion}`,
-])
-// Both the released package and the source-install flow are built before this
-// script runs. Skipping dependency lifecycle scripts avoids pnpm >= 10
-// rejecting DSH's native transitive dependencies while still letting the DSH
-// installation own the executable copies of its in-box bundles.
+console.log(`Creating or migrating isolated DSH profile ${options.profile} with DSH ${dshVersion}…`)
+// The released package and source-install flow are built before this script
+// runs. Skipping lifecycle scripts avoids pnpm rebuilding the linked package.
 run(options.dshBin, [
   'plugin',
   '--profile',
@@ -39,7 +39,32 @@ run(options.dshBin, [
   '--workspace-root',
   options.packageSpec,
 ])
-run(options.dshBin, ['--profile', options.profile, '--dump-default-config'])
+
+const profileManifestPath = resolveProfileManifestPath(options.profile)
+const installedManifest = readManifest(profileManifestPath)
+assertSafeProfileManifest(installedManifest, options.profile)
+const normalizedManifest = normalizeProfileManifest(installedManifest)
+writeManifestAtomic(profileManifestPath, normalizedManifest)
+
+// DSH resolves in-box bundles from its own installation first. Keeping the Web
+// app in dsh.profile.bundles while removing it from dependencies prevents a
+// profile-local dsh-tools copy from shadowing the agent loop's service symbols.
+run(options.dshBin, [
+  'plugin',
+  '--profile',
+  options.profile,
+  'install',
+  '--ignore-scripts',
+  '--workspace-root',
+])
+
+const finalManifest = readManifest(profileManifestPath)
+assertProfileContract(finalManifest, options.profile)
+const composed = commandOutput(options.dshBin, ['--profile', options.profile, '--dump-default-config'])
+assertComposedLayers(composed)
+// Profile boot heals DSH's installation-owned parent module fallback. Resolve
+// identity only after the config dump has exercised that boot preparation.
+assertRuntimeIdentity(profileDirForManifest(profileManifestPath))
 console.log(`\nProfile ready. Start Hanai with:\n  dsh --profile ${options.profile}\n\nThe stock UI remains available with:\n  dsh web`)
 
 function parse(args: string[]): Options {
@@ -61,15 +86,14 @@ function parse(args: string[]): Options {
 }
 
 function assertSafeExistingProfile(profile: string): void {
-  const dshHome = process.env.DSH_HOME?.trim() || join(homedir(), '.dsh')
-  const manifestPath = join(dshHome, 'profiles', profile, 'package.json')
+  const manifestPath = resolveProfileManifestPath(profile)
   if (!existsSync(manifestPath)) return
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { dependencies?: Record<string, unknown> }
-  const allowed = new Set(['@deepseek-ai/dsh-web-app', 'hanai-investment-dsh'])
-  const unexpected = Object.keys(manifest.dependencies ?? {}).filter(name => !allowed.has(name))
-  if (unexpected.length > 0) {
-    throw new Error(`profile ${profile} 已存在且含有其他插件（${unexpected.join(', ')}），为避免污染已拒绝修改`)
-  }
+  assertSafeProfileManifest(readManifest(manifestPath), profile)
+}
+
+function resolveProfileManifestPath(profile: string): string {
+  const dshHome = process.env.DSH_HOME?.trim() || join(homedir(), '.dsh')
+  return manifestPathFor(dshHome, profile)
 }
 
 function requiredValue(args: string[], index: number, flag: string): string {

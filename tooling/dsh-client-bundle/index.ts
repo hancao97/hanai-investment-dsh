@@ -88,6 +88,9 @@ export function hanaiClientBundle(id: string, entry: string): UserConfig {
       },
     }],
     outputOptions: {
+      // Keep browser-only dynamic modules lazy, but inline them into the single
+      // distributable required by the DSH ModuleLoader protocol.
+      codeSplitting: false,
       entryFileNames: 'client.js',
       banner: `window.__ModuleLoader__.load({ id: ${JSON.stringify(id)}, factory: (require) => {`,
       footer: 'return module.exports; } });',

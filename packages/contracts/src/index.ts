@@ -1,6 +1,7 @@
 /** JSON-safe contracts shared by the Hanai Host and browser client. */
 
-export type ThemeId = 'ocean' | 'jade'
+/** Conventional application appearance. Theme changes must not alter layout or product semantics. */
+export type ThemeId = 'light' | 'dark'
 export type MarketStatus = 'pre' | 'trading' | 'break' | 'closed' | 'unknown'
 export type CacheState = 'fresh' | 'cached' | 'stale' | 'unavailable'
 
@@ -103,6 +104,8 @@ export interface TrendPoint {
   avgPrice: number | null
   volume: number
 }
+
+export type KLinePeriod = 'daily' | 'weekly' | 'monthly'
 
 export interface StockMetrics {
   secId: string
@@ -268,6 +271,8 @@ export interface StockDetail {
   quote: StockQuote | null
   metrics: StockMetrics | null
   trend: TrendPoint[]
+  /** The trend provider's own previous close; it remains available when the quote request fails. */
+  trendPrevClose: number | null
   daily: KLineBar[]
   weekly: KLineBar[]
   monthly: KLineBar[]
@@ -282,6 +287,33 @@ export interface StockDetail {
     monthly: ProviderMeta | null
     valuation: ProviderMeta | null
   }
+}
+
+/** Independently refreshable stock-detail surfaces. Each response is JSON-safe and carries provenance. */
+export interface StockQuoteMetricsData {
+  quote: StockQuote | null
+  metrics: StockMetrics | null
+  sources: {
+    quote: ProviderMeta | null
+    metrics: ProviderMeta | null
+  }
+}
+
+export interface StockTrendData {
+  trend: TrendPoint[]
+  trendPrevClose: number | null
+  meta: ProviderMeta | null
+}
+
+export interface StockKLineData {
+  period: KLinePeriod
+  bars: KLineBar[]
+  meta: ProviderMeta | null
+}
+
+export interface StockValuationData {
+  valuation: ValuationSummary | null
+  meta: ProviderMeta | null
 }
 
 export interface DashboardData {
@@ -300,7 +332,20 @@ export interface Diagnostics {
   judgementCount: number
   latestMarketSuccess: string | null
   latestValuationSuccess: string | null
+  storage: {
+    totalBytes: number
+    cacheBytes: number
+    marketCacheBytes: number
+    valuationCacheBytes: number
+    judgementsBytes: number
+  }
   version: string
+}
+
+export interface CacheClearResult {
+  scope: 'market' | 'valuation'
+  removedFiles: number
+  freedBytes: number
 }
 
 export interface BootstrapData {
@@ -317,6 +362,12 @@ export interface ModelSelectionInput {
   reasoningEffort?: string
 }
 
+/**
+ * Process-wide DSH model selection used when a new Agent has no session-local
+ * override. Hanai transports this value but never owns a parallel setting.
+ */
+export type DefaultModelSelection = ModelSelectionInput
+
 export interface CreateJudgementInput {
   secId: string
   masterId: string
@@ -331,6 +382,10 @@ export interface HanaiEndpointMap {
   'security.sync': { request: { force?: boolean }; response: { count: number; updatedAt: string | null } }
   'security.search': { request: { query: string }; response: SearchResult[] }
   'security.detail': { request: { secId: string }; response: StockDetail }
+  'security.quote': { request: { secId: string }; response: StockQuoteMetricsData }
+  'security.trend': { request: { secId: string }; response: StockTrendData }
+  'security.kline': { request: { secId: string; period: KLinePeriod }; response: StockKLineData }
+  'security.valuation': { request: { secId: string }; response: StockValuationData }
   'watch.list': { request: Record<string, never>; response: WatchGroup[] }
   'watch.quotes': {
     request: { groupId: string }
@@ -346,8 +401,21 @@ export interface HanaiEndpointMap {
   'judgement.create': { request: CreateJudgementInput; response: Judgement }
   'judgement.get': { request: { id: string }; response: JudgementDetail }
   'judgement.revise': { request: { id: string; instruction: string }; response: Judgement }
+  'model.default.get': {
+    request: Record<string, never>
+    response: DefaultModelSelection
+  }
+  'model.default.set': {
+    request: DefaultModelSelection
+    response: DefaultModelSelection
+  }
   'theme.set': { request: { theme: ThemeId }; response: { theme: ThemeId } }
   'diagnostics.get': { request: Record<string, never>; response: Diagnostics }
+  'cache.clear': { request: { scope: 'market' | 'valuation' }; response: CacheClearResult }
+  'storage.openDataRoot': {
+    request: Record<string, never>
+    response: { opened: true; dataRoot: string }
+  }
 }
 
 export type HanaiEndpoint = keyof HanaiEndpointMap

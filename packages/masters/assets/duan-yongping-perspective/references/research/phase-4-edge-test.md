@@ -1,8 +1,8 @@
 # Phase 4 独立边缘问题测试
 
-> 测试日期：2026-07-18
-> 测试对象：`duan-yongping-perspective`
-> 测试性质：段永平未公开讨论过的虚构问题
+> 测试日期：2026-07-18  
+> 测试对象：`duan-yongping-perspective`  
+> 测试性质：段永平未公开讨论过的虚构问题  
 > 依据：`SKILL.md` 与 `phase-2-synthesis.md`
 
 ## 一、测试问题

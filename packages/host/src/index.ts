@@ -1,5 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import type {} from '@deepseek-ai/dsh-agent-default-model'
 import type {} from '@deepseek-ai/dsh-client-connection'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { HanaiDatabase } from '../../domain/src/database.ts'
@@ -15,7 +16,7 @@ import { badRequest, internalError, isHanaiEndpoint, ok, parseHanaiRequest } fro
 import { HanaiService } from './service.ts'
 
 export const name = 'hanai-investment-dsh'
-export const inject = ['connection', 'apiProxy', 'sessions']
+export const inject = ['connection', 'apiProxy', 'sessions', 'agentDefaultModel']
 export const VERSION = '0.1.0'
 
 export interface Config {
@@ -48,6 +49,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     database,
     reports,
     sessions: new DshSessionGateway(ctx),
+    defaultModel: ctx.agentDefaultModel,
     market,
     version: VERSION,
   })

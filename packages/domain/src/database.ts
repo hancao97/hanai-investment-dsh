@@ -186,7 +186,10 @@ export class HanaiDatabase {
     const row = this.sqlite.prepare("SELECT value FROM app_settings WHERE key = 'theme'").get() as
       | { value: string }
       | undefined
-    return row?.value === 'jade' ? 'jade' : 'ocean'
+    // `ocean` and `jade` were shipped briefly before the UI was restored to
+    // conventional light/dark appearance. Both were dark palettes, so retain
+    // the user's effective contrast preference when reading an existing DB.
+    return row?.value === 'light' ? 'light' : 'dark'
   }
 
   setTheme(theme: ThemeId): void {

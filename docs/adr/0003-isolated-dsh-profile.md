@@ -7,16 +7,19 @@
 
 DSH 的 `dsh web` 使用内置 `web` Profile。若把 Hanai Bundle 直接添加到该 Profile，全屏 Workbench、Host Service 和配置层会同时影响用户原有的通用 DSH Web，两个产品也无法独立启动、升级或排障。
 
-DSH 当前没有 Profile clone 命令；一个自定义 Profile 首次初始化时只包含 Base，因此还必须显式安装与 CLI 版本一致的 Web App Bundle。
+DSH 当前没有 Profile clone 命令；一个自定义 Profile 首次初始化时只包含 Base，因此需要在 Profile manifest 中显式保留 Web App Bundle 层。但 DSH 的 Bundle 解析是 installation-first，内置 Base、Web App 及其 runtime 必须来自当前 CLI 安装，不能作为 Profile dependency 再安装一份。
 
 ## 决策
 
-发布包提供安装器，默认创建 `hanai-investment` Profile，并按顺序加入：
+发布包提供安装器，默认创建 `hanai-investment` Profile，并把 Bundle 顺序固定为：
 
-1. `@deepseek-ai/dsh-web-app@<当前 DSH 版本>`；
-2. `hanai-investment-dsh`。
+1. `@deepseek-ai/dsh-base`；
+2. `@deepseek-ai/dsh-web-app`；
+3. `hanai-investment-dsh`。
 
-插件命令显式使用 pnpm workspace-root 语义。安装器拒绝 `web`、`headless`、`node_modules`、`.` 和 `..` 等保留名称；若目标 Profile 已含无关的直接依赖，则 fail closed，不继续修改。
+Profile dependencies 只安装 `hanai-investment-dsh`。Base 和 Web App 由 DSH installation fallback 解析，绝不通过 pnpm 写进目标 Profile。安装器会自动迁移早期含 `@deepseek-ai/dsh-web-app` dependency 的 Hanai Profile，并清理其传递依赖；manifest 使用原子替换。安装器拒绝 `web`、`headless`、`node_modules`、`.` 和 `..` 等保留名称；若目标 Profile 已含无关直接依赖或 Bundle，则 fail closed，不继续修改。
+
+这样做不只是减少重复依赖。rc.6 的工具调度器使用模块私有的 `Symbol(...)` 协议；若 Profile-local `dsh-tools` 遮蔽 CLI 安装中的 `dsh-tools`，而 `dsh-agent-loop` 仍从 CLI 安装加载，即使版本和文件哈希相同，服务符号也不相等，第一次工具调用会在 scheduler `prepare` 前失败。
 
 正常启动命令为：
 
@@ -34,11 +37,11 @@ dsh web
 
 ## 验证
 
-仓库中的 `profile:install` 与 `profile:verify` 脚本已使用临时 `DSH_HOME`、DSH `0.1.0-rc.6` 做过真实安装和配置装配验证；Hanai Host/Web 随后可以在随机 loopback 端口启动。发布流程还会检查安装脚本已编译并包含在 npm 包内。
+仓库中的 `profile:install` 与 `profile:verify` 会验证 exact Bundle 顺序、Web App 不在 dependencies、Profile 内不存在 `@deepseek-ai/dsh-*` shadow package，并通过真实路径确认 Profile 与 `dsh-agent-loop` 解析到同一个 `dsh-tools` 模块。脚本仍使用临时 `DSH_HOME` 做装配 smoke，发布流程会检查安装脚本已编译并包含在 npm 包内。
 
 ## 后果
 
 - Hanai 不会污染官方 `web` Profile。
 - 用户可以同时运行通用 DSH Web 与 Hanai Workbench。
-- 安装要求 DSH CLI 与可发布的 Web App Bundle 版本匹配；pre-release 版本不匹配时安装器会明确失败。
+- Web App 与 Base 始终来自正在运行的 DSH CLI，因此不会由 Profile dependency 偷偷引入第二套 rc runtime。
 - DSH 升级必须重新执行兼容性矩阵和临时 Profile 冒烟，而不能假设 rc 版本之间兼容。

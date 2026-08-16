@@ -40,6 +40,7 @@
     "lib/**",
     "cordis.patch.yml",
     "packages/masters/assets/**",
+    "THIRD_PARTY_NOTICES.md",
     "README.md",
     "LICENSE"
   ],
@@ -70,11 +71,13 @@
     "prepare": "pnpm run build"
   },
   "dependencies": {
+    "echarts": "5.6.0",
     "pinyin-pro": "3.27.0",
     "zod": "4.1.11"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": ">=4 <5",
+    "@deepseek-ai/dsh-agent-default-model": ">=0.1.0-rc.5 <0.2.0",
     "@deepseek-ai/dsh-client-connection": ">=0.1.0-rc.5 <0.2.0",
     "@deepseek-ai/dsh-client-runtime": ">=0.1.0-rc.5 <0.2.0",
     "@deepseek-ai/dsh-client-ui-conversation": ">=0.1.0-rc.5 <0.2.0",
@@ -90,6 +93,7 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/dsh-agent-default-model": "0.1.0-rc.6",
     "@deepseek-ai/dsh-client-connection": "0.1.0-rc.6",
     "@deepseek-ai/dsh-client-runtime": "0.1.0-rc.6",
     "@deepseek-ai/dsh-client-ui-conversation": "0.1.0-rc.6",

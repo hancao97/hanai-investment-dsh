@@ -14,6 +14,10 @@ const schemas = {
   'security.sync': z.object({ force: z.boolean().optional() }).strict(),
   'security.search': z.object({ query: z.string().trim().min(1).max(80) }).strict(),
   'security.detail': z.object({ secId }).strict(),
+  'security.quote': z.object({ secId }).strict(),
+  'security.trend': z.object({ secId }).strict(),
+  'security.kline': z.object({ secId, period: z.enum(['daily', 'weekly', 'monthly']) }).strict(),
+  'security.valuation': z.object({ secId }).strict(),
   'watch.list': empty,
   'watch.quotes': z.object({ groupId: identifier }).strict(),
   'watch.group.create': z.object({ name: groupName }).strict(),
@@ -35,8 +39,16 @@ const schemas = {
   }).strict(),
   'judgement.get': z.object({ id: identifier }).strict(),
   'judgement.revise': z.object({ id: identifier, instruction: z.string().trim().min(1).max(4000) }).strict(),
-  'theme.set': z.object({ theme: z.enum(['ocean', 'jade']) }).strict(),
+  'model.default.get': empty,
+  'model.default.set': z.object({
+    provider: z.string().trim().min(1).max(100),
+    model: z.string().trim().min(1).max(200),
+    reasoningEffort: z.string().trim().min(1).max(50).optional(),
+  }).strict(),
+  'theme.set': z.object({ theme: z.enum(['light', 'dark']) }).strict(),
   'diagnostics.get': empty,
+  'cache.clear': z.object({ scope: z.enum(['market', 'valuation']) }).strict(),
+  'storage.openDataRoot': empty,
 } satisfies Record<HanaiEndpoint, z.ZodType>
 
 export function isHanaiEndpoint(endpoint: string): endpoint is HanaiEndpoint {

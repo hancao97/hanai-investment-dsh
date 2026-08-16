@@ -1,14 +1,26 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { ProviderMeta, StockDetail } from '../../contracts/src/index.ts'
+import type { DefaultModelSelection, ProviderMeta, StockDetail } from '../../contracts/src/index.ts'
 import { HanaiDatabase } from '../../domain/src/database.ts'
 import { ensureHanaiLayout, resolveHanaiPaths } from '../../domain/src/paths.ts'
 import { ReportStore } from '../../domain/src/reports.ts'
-import { HanaiService, type MarketFacade, type SessionFacade } from '../src/service.ts'
+import {
+  HanaiService,
+  type DefaultModelFacade,
+  type MarketFacade,
+  type SessionFacade,
+} from '../src/service.ts'
 
 const roots: string[] = []
 const assets = resolve(dirname(fileURLToPath(import.meta.url)), '../../masters/assets')
@@ -29,10 +41,29 @@ class FakeSessions implements SessionFacade {
   async isRunning(): Promise<boolean> { return this.running }
 }
 
+class FakeDefaultModel implements DefaultModelFacade {
+  selection: DefaultModelSelection = {
+    provider: 'deepseek-official',
+    model: 'deepseek-v4-pro',
+    reasoningEffort: 'high',
+  }
+
+  currentSelection() { return { ...this.selection } }
+
+  async saveSelection(next: Parameters<DefaultModelFacade['saveSelection']>[0]): Promise<void> {
+    this.selection = {
+      provider: next.provider,
+      model: next.model,
+      ...(next.reasoningEffort === undefined ? {} : { reasoningEffort: next.reasoningEffort }),
+    }
+  }
+}
+
 function stockDetail(): StockDetail {
   return {
     security: { secId: '1.600519', code: '600519', name: '贵州茅台', exchange: 'SH', pinyinFull: 'guizhoumaotai', pinyinInitial: 'gzmt' },
-    quote: null, metrics: null, trend: [], daily: [], weekly: [], monthly: [], valuation: null,
+    quote: null, metrics: null, trend: [], trendPrevClose: null,
+    daily: [], weekly: [], monthly: [], valuation: null,
     sources: { quote: null, metrics: null, trend: null, daily: null, weekly: null, monthly: null, valuation: null },
   }
 }
@@ -44,6 +75,7 @@ function fixture(minChars = 100) {
   ensureHanaiLayout(paths)
   const database = new HanaiDatabase(paths.databasePath)
   const sessions = new FakeSessions()
+  const defaultModel = new FakeDefaultModel()
   const meta = {
     providerId: 'fake', sourceName: 'fake', sourceTimestamp: null,
     fetchedAt: new Date(0).toISOString(), cacheState: 'fresh' as const,
@@ -52,13 +84,25 @@ function fixture(minChars = 100) {
     getDashboard: async () => { throw new Error('unused') },
     getSectorStocks: async () => ({ stocks: [], meta }),
     getStockDetail: async () => stockDetail(),
+    getStockQuoteMetrics: async () => ({
+      quote: null,
+      metrics: null,
+      sources: { quote: null, metrics: null },
+    }),
+    getTrend: async () => ({ trend: [], trendPrevClose: null, meta: null }),
+    getKline: async (_secId, period) => ({ period, bars: [], meta: null }),
+    getValuation: async () => ({ valuation: null, meta: null }),
     getQuotes: async () => ({ quotes: [], meta }),
+    clearMarketCache: () => 0,
     syncSecurities: async () => ({ count: 0, updatedAt: null }),
     searchSecurities: async () => [],
   }
   const reports = new ReportStore(paths, assets, minChars)
-  const service = new HanaiService({ paths, database, reports, sessions, market, version: 'test' })
-  return { database, market, paths, reports, service, sessions }
+  const openDirectory = vi.fn(async (_directory: string): Promise<void> => {})
+  const service = new HanaiService({
+    paths, database, reports, sessions, defaultModel, market, version: 'test', openDirectory,
+  })
+  return { database, defaultModel, market, openDirectory, paths, reports, service, sessions }
 }
 
 function completed(turn = 1): SessionEvent {
@@ -83,6 +127,13 @@ describe('HanaiService report lifecycle', () => {
     expect(created.dshSessionId).toBe(`hanai-${created.id}`)
     expect(sessions.prompts).toHaveLength(1)
     expect(sessions.prompts[0]?.text).toContain('永久损失风险')
+    expect(sessions.prompts[0]?.text).toContain('主动联网检索公司公告、财报、监管披露')
+    expect(sessions.prompts[0]?.text).toContain('不要向用户提问，也不要等待用户补充材料')
+    expect(sessions.prompts[0]?.text).toContain('关键事实注明来源链接和日期')
+    expect(sessions.prompts[0]?.text).toContain('严禁编造数据、来源或引文')
+    expect(sessions.prompts[0]?.text).toContain('证据不足时明确标记不确定性')
+    expect(sessions.prompts[0]?.text).toContain('只用一句话向用户确认报告已经完成')
+    expect(sessions.prompts[0]?.text).toContain('不要在回复中重复整份报告')
     writeFileSync(reports.workingReportPath(created.id), `# 正式研判\n\n${'事实、推断、风险与验证条件。'.repeat(20)}`)
     service.handleSessionEvent(created.dshSessionId!, completed())
     await eventually(() => expect(database.getJudgement(created.id)?.reportStatus).toBe('ready'))
@@ -131,6 +182,34 @@ describe('HanaiService report lifecycle', () => {
     expect(database.getJudgement(created.id)?.latestReportVersion).toBe(2)
     expect(database.getRepairAttempts(created.id)).toBe(0)
     expect(database.listReportRows(created.id)).toHaveLength(2)
+    database.close()
+  })
+
+  it('keeps the concrete DSH failure message when an initial report turn crashes', async () => {
+    const { database, service } = fixture()
+    const created = await service.call('judgement.create', {
+      secId: '1.600519', masterId: 'duan-yongping-perspective',
+    }, new AbortController().signal)
+
+    service.handleSessionEvent(created.dshSessionId!, {
+      type: 'turn/end',
+      seq: 1,
+      time: Date.now(),
+      data: {
+        turn: 1,
+        reason: {
+          kind: 'error',
+          error: { code: 'UNKNOWN', message: "Cannot read properties of undefined (reading 'prepare')" },
+        },
+      },
+    })
+
+    expect(database.getJudgement(created.id)).toMatchObject({
+      reportStatus: 'failed',
+      turnStatus: 'failed',
+      errorCode: 'turn-error',
+      errorMessage: "DSH 回合未完成：Cannot read properties of undefined (reading 'prepare')",
+    })
     database.close()
   })
 
@@ -265,9 +344,19 @@ describe('HanaiService report lifecycle', () => {
     }
     market.getStockDetail = async () => ({
       ...stockDetail(),
+      trend: [{ time: '09:30', price: 10, avgPrice: 10, volume: 100 }],
+      trendPrevClose: 9.8,
+      valuation: {
+        stockId: 'SHSE:600519', ivDcf: null, medps: 10, gfScore: null, valuationRank: null,
+        dimensions: {
+          financialStrength: null, profitability: null, growth: null, gfValue: null, momentum: null,
+        },
+        series: { price: [], medps: [] },
+        meta: valuationMeta,
+      },
       sources: {
         ...stockDetail().sources,
-        quote: marketMeta,
+        trend: marketMeta,
         valuation: valuationMeta,
       },
     })
@@ -278,9 +367,19 @@ describe('HanaiService report lifecycle', () => {
 
     market.getStockDetail = async () => ({
       ...stockDetail(),
+      trend: [{ time: '09:30', price: 10, avgPrice: 10, volume: 100 }],
+      trendPrevClose: 9.8,
+      valuation: {
+        stockId: 'SHSE:600519', ivDcf: null, medps: 10, gfScore: null, valuationRank: null,
+        dimensions: {
+          financialStrength: null, profitability: null, growth: null, gfValue: null, momentum: null,
+        },
+        series: { price: [], medps: [] },
+        meta: { ...valuationMeta, fetchedAt: '2026-08-14T01:03:00.000Z' },
+      },
       sources: {
         ...stockDetail().sources,
-        quote: { ...marketMeta, fetchedAt: '2026-08-14T01:02:00.000Z' },
+        trend: { ...marketMeta, fetchedAt: '2026-08-14T01:02:00.000Z' },
         valuation: { ...valuationMeta, fetchedAt: '2026-08-14T01:03:00.000Z' },
       },
     })
@@ -288,6 +387,175 @@ describe('HanaiService report lifecycle', () => {
     const diagnostics = await service.call('diagnostics.get', {}, new AbortController().signal)
     expect(diagnostics.latestMarketSuccess).toBe('2026-08-15T01:02:00.000Z')
     expect(diagnostics.latestValuationSuccess).toBe('2026-08-15T01:03:00.000Z')
+    database.close()
+  })
+})
+
+describe('HanaiService parity endpoints and diagnostics', () => {
+  it('reads and writes the DSH-owned default model without a Hanai settings copy', async () => {
+    const { database, defaultModel, service } = fixture()
+
+    await expect(service.call(
+      'model.default.get',
+      {},
+      new AbortController().signal,
+    )).resolves.toEqual({
+      provider: 'deepseek-official',
+      model: 'deepseek-v4-pro',
+      reasoningEffort: 'high',
+    })
+
+    await expect(service.call(
+      'model.default.set',
+      { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      new AbortController().signal,
+    )).resolves.toEqual({
+      provider: 'deepseek-official',
+      model: 'deepseek-v4-flash',
+    })
+    expect(defaultModel.currentSelection()).toEqual({
+      provider: 'deepseek-official',
+      model: 'deepseek-v4-flash',
+    })
+    database.close()
+  })
+
+  it('fails loudly when DSH exposes only the composition default and cannot persist', async () => {
+    const { database, defaultModel, service } = fixture()
+    vi.spyOn(defaultModel, 'saveSelection').mockResolvedValueOnce()
+
+    await expect(service.call(
+      'model.default.set',
+      { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      new AbortController().signal,
+    )).rejects.toThrow('未提供可写的默认模型设置')
+    expect(defaultModel.currentSelection()).toEqual({
+      provider: 'deepseek-official',
+      model: 'deepseek-v4-pro',
+      reasoningEffort: 'high',
+    })
+    database.close()
+  })
+
+  it('opens only the isolated data root through the injected platform launcher', async () => {
+    const { database, openDirectory, paths, service } = fixture()
+
+    await expect(service.call(
+      'storage.openDataRoot',
+      {},
+      new AbortController().signal,
+    )).resolves.toEqual({ opened: true, dataRoot: paths.root })
+    expect(openDirectory).toHaveBeenCalledOnce()
+    expect(openDirectory).toHaveBeenCalledWith(paths.root)
+
+    openDirectory.mockRejectedValueOnce(new Error('Finder launch failed'))
+    await expect(service.call(
+      'storage.openDataRoot',
+      {},
+      new AbortController().signal,
+    )).rejects.toThrow('Finder launch failed')
+    database.close()
+  })
+
+  it('refreshes stock-detail surfaces independently instead of refetching the aggregate detail', async () => {
+    const { database, market, service } = fixture()
+    const aggregate = vi.spyOn(market, 'getStockDetail')
+    const quote = vi.spyOn(market, 'getStockQuoteMetrics')
+    const trendMeta: ProviderMeta = {
+      providerId: 'eastmoney', sourceName: '东方财富', sourceTimestamp: null,
+      fetchedAt: '2026-08-15T01:01:00.000Z', cacheState: 'fresh',
+    }
+    const trend = vi.spyOn(market, 'getTrend').mockResolvedValue({
+      trend: [{ time: '09:30', price: 10, avgPrice: 10, volume: 100 }],
+      trendPrevClose: 9.8,
+      meta: trendMeta,
+    })
+    const kline = vi.spyOn(market, 'getKline')
+    const valuation = vi.spyOn(market, 'getValuation')
+
+    await service.call('security.quote', { secId: '1.600519' }, new AbortController().signal)
+    expect(quote).toHaveBeenCalledOnce()
+    expect(aggregate).not.toHaveBeenCalled()
+    expect(trend).not.toHaveBeenCalled()
+    expect(kline).not.toHaveBeenCalled()
+    expect(valuation).not.toHaveBeenCalled()
+
+    const refreshedTrend = await service.call(
+      'security.trend',
+      { secId: '1.600519' },
+      new AbortController().signal,
+    )
+    expect(refreshedTrend.trendPrevClose).toBe(9.8)
+    expect(trend).toHaveBeenCalledOnce()
+    expect(aggregate).not.toHaveBeenCalled()
+    expect(database.getSetting('market.latestSuccess')).toBe('2026-08-15T01:01:00.000Z')
+
+    await service.call(
+      'security.kline',
+      { secId: '1.600519', period: 'weekly' },
+      new AbortController().signal,
+    )
+    expect(kline).toHaveBeenCalledWith('1.600519', 'weekly')
+    expect(aggregate).not.toHaveBeenCalled()
+    database.close()
+  })
+
+  it('reports real storage categories and clears only the selected cache contents idempotently', async () => {
+    const { database, market, paths, service } = fixture()
+    const clearMemory = vi.spyOn(market, 'clearMarketCache').mockReturnValue(3)
+    const nestedMarket = join(paths.marketCacheDir, 'nested')
+    const nestedJudgement = join(paths.judgementsDir, 'archive')
+    mkdirSync(nestedMarket)
+    mkdirSync(nestedJudgement)
+    writeFileSync(join(paths.marketCacheDir, 'quote.json'), Buffer.alloc(4))
+    writeFileSync(join(nestedMarket, 'board.json'), Buffer.alloc(3))
+    writeFileSync(join(paths.valuationCacheDir, 'value.json'), Buffer.alloc(5))
+    writeFileSync(join(nestedJudgement, 'report.md'), Buffer.alloc(6))
+    writeFileSync(join(paths.root, 'keep.txt'), Buffer.alloc(8))
+
+    const before = await service.call('diagnostics.get', {}, new AbortController().signal)
+    expect(before.storage).toMatchObject({
+      marketCacheBytes: 7,
+      valuationCacheBytes: 5,
+      cacheBytes: 12,
+      judgementsBytes: 6,
+    })
+    expect(before.storage.totalBytes).toBeGreaterThanOrEqual(26)
+
+    const cleared = await service.call(
+      'cache.clear',
+      { scope: 'market' },
+      new AbortController().signal,
+    )
+    expect(cleared).toEqual({ scope: 'market', removedFiles: 2, freedBytes: 7 })
+    expect(clearMemory).toHaveBeenCalledOnce()
+    expect(existsSync(paths.marketCacheDir)).toBe(true)
+    expect(existsSync(join(paths.root, 'keep.txt'))).toBe(true)
+    expect(existsSync(join(paths.valuationCacheDir, 'value.json'))).toBe(true)
+    expect(existsSync(join(nestedJudgement, 'report.md'))).toBe(true)
+
+    await expect(service.call(
+      'cache.clear',
+      { scope: 'market' },
+      new AbortController().signal,
+    )).resolves.toEqual({ scope: 'market', removedFiles: 0, freedBytes: 0 })
+    database.close()
+  })
+
+  it('rejects a dedicated cache directory replaced by a symlink and leaves its target untouched', async () => {
+    const { database, paths, service } = fixture()
+    const outside = mkdtempSync(join(tmpdir(), 'hanai-dsh-cache-outside-'))
+    roots.push(outside)
+    writeFileSync(join(outside, 'sentinel.txt'), 'do-not-delete')
+    rmSync(paths.marketCacheDir, { recursive: true })
+    symlinkSync(outside, paths.marketCacheDir, 'dir')
+
+    await expect(service.call(
+      'cache.clear',
+      { scope: 'market' },
+      new AbortController().signal,
+    )).rejects.toThrow('符号链接')
+    expect(existsSync(join(outside, 'sentinel.txt'))).toBe(true)
     database.close()
   })
 })

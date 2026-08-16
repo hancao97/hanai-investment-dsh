@@ -1,10 +1,15 @@
 import type {
   DashboardData,
+  KLinePeriod,
   ProviderMeta,
   SearchResult,
   SecurityMaster,
   StockDetail,
+  StockKLineData,
+  StockQuoteMetricsData,
   StockQuote,
+  StockTrendData,
+  StockValuationData,
 } from '../../../contracts/src/index.ts'
 import type { HanaiDatabase } from '../database.ts'
 import { NodeFetchHttpClient, systemClock, type Clock, type HttpClient } from '../http.ts'
@@ -111,28 +116,27 @@ export class MarketDataService {
   }
 
   async getStockDetail(secId: string, security?: SecurityMaster | null): Promise<StockDetail> {
-    const identity = security ?? inferredSecurity(secId)
-    const [quotes, metrics, trend, daily, weekly, monthly, valuation] = await Promise.all([
-      optional(this.eastmoney.getQuotes([secId])),
-      optional(this.eastmoney.getStockMetrics(secId)),
-      optional(this.eastmoney.getTrend(secId)),
-      optional(this.eastmoney.getKline(secId, '101')),
-      optional(this.eastmoney.getKline(secId, '102')),
-      optional(this.eastmoney.getKline(secId, '103')),
-      optional(this.gurufocus.getValuation(identity.exchange, identity.code)),
+    const [quoteMetrics, trend, daily, weekly, monthly, valuation] = await Promise.all([
+      optional(this.getStockQuoteMetrics(secId)),
+      optional(this.getTrend(secId)),
+      optional(this.getKline(secId, 'daily')),
+      optional(this.getKline(secId, 'weekly')),
+      optional(this.getKline(secId, 'monthly')),
+      optional(this.getValuation(secId, security)),
     ])
     return {
       security: security ?? null,
-      quote: quotes?.quotes.find(item => item.secId === secId) ?? null,
-      metrics,
-      trend: trend?.points ?? [],
+      quote: quoteMetrics?.quote ?? null,
+      metrics: quoteMetrics?.metrics ?? null,
+      trend: trend?.trend ?? [],
+      trendPrevClose: trend?.trendPrevClose ?? null,
       daily: daily?.bars ?? [],
       weekly: weekly?.bars ?? [],
       monthly: monthly?.bars ?? [],
-      valuation,
+      valuation: valuation?.valuation ?? null,
       sources: {
-        quote: quotes?.meta ?? null,
-        metrics: metrics?.meta ?? null,
+        quote: quoteMetrics?.sources.quote ?? null,
+        metrics: quoteMetrics?.sources.metrics ?? null,
         trend: trend?.meta ?? null,
         daily: daily?.meta ?? null,
         weekly: weekly?.meta ?? null,
@@ -142,8 +146,55 @@ export class MarketDataService {
     }
   }
 
+  async getStockQuoteMetrics(secId: string): Promise<StockQuoteMetricsData> {
+    const [quotes, metrics] = await Promise.all([
+      optional(this.eastmoney.getQuotes([secId])),
+      optional(this.eastmoney.getStockMetrics(secId)),
+    ])
+    return {
+      quote: quotes?.quotes.find(item => item.secId === secId) ?? null,
+      metrics,
+      sources: {
+        quote: quotes?.meta ?? null,
+        metrics: metrics?.meta ?? null,
+      },
+    }
+  }
+
+  async getTrend(secId: string): Promise<StockTrendData> {
+    const result = await optional(this.eastmoney.getTrend(secId))
+    return {
+      trend: result?.points ?? [],
+      trendPrevClose: result?.prevClose ?? null,
+      meta: result?.meta ?? null,
+    }
+  }
+
+  async getKline(secId: string, period: KLinePeriod): Promise<StockKLineData> {
+    const klt = period === 'daily' ? '101' : period === 'weekly' ? '102' : '103'
+    const result = await optional(this.eastmoney.getKline(secId, klt))
+    return {
+      period,
+      bars: result?.bars ?? [],
+      meta: result?.meta ?? null,
+    }
+  }
+
+  async getValuation(secId: string, security?: SecurityMaster | null): Promise<StockValuationData> {
+    const identity = security ?? inferredSecurity(secId)
+    const valuation = await optional(this.gurufocus.getValuation(identity.exchange, identity.code))
+    return {
+      valuation,
+      meta: valuation?.meta ?? null,
+    }
+  }
+
   getQuotes(secIds: readonly string[]): Promise<{ quotes: StockQuote[]; meta: ProviderMeta }> {
     return this.eastmoney.getQuotes(secIds)
+  }
+
+  clearMarketCache(): number {
+    return this.eastmoney.clearQuoteCache()
   }
 
   syncSecurities(

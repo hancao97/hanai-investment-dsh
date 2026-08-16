@@ -32,6 +32,7 @@ const EXPECTED_FILES = [
   'lib/**',
   'cordis.patch.yml',
   'packages/masters/assets/**',
+  'THIRD_PARTY_NOTICES.md',
   'README.md',
   'LICENSE',
 ] as const
@@ -54,12 +55,15 @@ const PRIVATE_BUILD_PATH_PATTERN = /(?:\/(?:Users|home)\/[^/\s]+\/|[A-Za-z]:\\Us
 const REQUIRED_PACKED_FILES = [
   'LICENSE',
   'README.md',
+  'THIRD_PARTY_NOTICES.md',
   'cordis.patch.yml',
   'lib/client.js',
   'lib/client.js.map',
   'lib/index.d.ts',
   'lib/index.js',
   'lib/index.js.map',
+  'lib/install-profile.js',
+  'lib/verify-profile.js',
   'package.json',
 ] as const
 
@@ -195,6 +199,7 @@ export function verifyPackedArtifacts(packedFiles: readonly string[]): void {
       file === 'package.json'
         || file === 'README.md'
         || file === 'LICENSE'
+        || file === 'THIRD_PARTY_NOTICES.md'
         || file === 'cordis.patch.yml'
         || file.startsWith('lib/')
         || file.startsWith('packages/masters/assets/'),
@@ -235,6 +240,17 @@ export function verifyPackedArtifacts(packedFiles: readonly string[]): void {
       && sourceMap.sourcesContent.every((source) => typeof source === 'string'),
     'lib/client.js.map must embed one sourcesContent entry per source',
   )
+
+  const notices = readFileSync(resolve(PROJECT_ROOT, 'THIRD_PARTY_NOTICES.md'), 'utf8')
+  for (const marker of [
+    'Apache ECharts 5.6.0 — Apache License 2.0',
+    'Apache ECharts 5.6.0 — NOTICE',
+    'Apache ECharts bundled d3-derived code — BSD 3-Clause',
+    'zrender 5.6.1 — BSD 3-Clause',
+    'tslib 2.3.0 — ISC-style license',
+  ]) {
+    invariant(notices.includes(marker), `THIRD_PARTY_NOTICES.md is missing: ${marker}`)
+  }
 }
 
 function assertNoLegacyDataDirectory(source: string, label: string): void {

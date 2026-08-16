@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type {
   BootstrapData,
   DashboardData,
+  Judgement,
+  JudgementDetail,
   MasterPersona,
   ProviderMeta,
   StockDetail,
@@ -14,7 +18,26 @@ import type {
 import { HanaiWorkbench } from '../src/app.tsx'
 import type { HanaiClient } from '../src/api.ts'
 
-afterEach(() => { cleanup() })
+vi.mock('../src/echarts.tsx', () => ({
+  EChart: ({ ariaLabel, onChartClick }: { ariaLabel?: string; onChartClick?: (params: unknown) => void }) => (
+    <div
+      role="img"
+      aria-label={ariaLabel ?? 'ECharts 图表'}
+      onClick={() => onChartClick?.({ data: { sectorCode: 'BK0475', name: '电子' } })}
+    />
+  ),
+}))
+
+vi.mock('../../client-chat/src/index.tsx', () => ({
+  ChatPanel: ({ title, readOnlyReason, sessionId }: { title?: string; readOnlyReason?: string; sessionId: string }) => (
+    <section aria-label={title ?? '对话'}>{readOnlyReason ?? '可继续对话'} · {sessionId}</section>
+  ),
+}))
+
+afterEach(() => {
+  cleanup()
+  window.history.replaceState(null, '', '#/dashboard')
+})
 
 const fresh: ProviderMeta = {
   providerId: 'eastmoney',
@@ -23,28 +46,19 @@ const fresh: ProviderMeta = {
   fetchedAt: '2026-08-15T10:00:01+08:00',
   cacheState: 'fresh',
 }
-const delayed: ProviderMeta = {
+
+const stale: ProviderMeta = {
   ...fresh,
-  providerId: 'eastmoney-delay',
-  sourceName: '东方财富（延迟行情）',
-  cacheState: 'stale',
-}
-const fallback: ProviderMeta = {
-  ...fresh,
-  providerId: 'tencent-fallback',
-  sourceName: '腾讯行情（备源）',
-}
-const snapshot: ProviderMeta = {
-  ...fresh,
-  providerId: 'eastmoney-memory-cache',
+  providerId: 'eastmoney-cache',
   sourceName: '东方财富（最近成功快照）',
   cacheState: 'stale',
 }
 
 const masters: MasterPersona[] = [
-  { id: 'buffett', name: '巴菲特', shortName: '巴', description: '关注护城河', color: '#55aaff', roleTag: '价值投资', tags: ['护城河'], defaultPrompt: '', version: '1.0.0' },
-  { id: 'munger', name: '芒格', shortName: '芒', description: '坚持多元思维与纪律', color: '#d8ae61', roleTag: '多元思维', tags: ['纪律'], defaultPrompt: '', version: '1.0.0' },
+  { id: 'buffett', name: '沃伦 · 巴菲特', shortName: '巴', description: '关注护城河、内在价值与资本配置。', color: '#43bc83', roleTag: '价值投资', tags: ['护城河', '内在价值'], defaultPrompt: '', version: '1.0.0' },
+  { id: 'munger', name: '查理 · 芒格', shortName: '芒', description: '坚持多元思维与认知纪律。', color: '#6d98ef', roleTag: '多元思维', tags: ['逆向思考', '纪律'], defaultPrompt: '', version: '1.0.0' },
 ]
+
 const group: WatchGroup = {
   id: 'default',
   name: '默认自选',
@@ -52,122 +66,763 @@ const group: WatchGroup = {
   secIds: ['1.600519'],
   items: [{ secId: '1.600519', addedAt: '2026-08-01T00:00:00Z', basePrice: 1400 }],
 }
+
+const secondGroup: WatchGroup = {
+  id: 'second',
+  name: '观察组',
+  isDefault: false,
+  secIds: ['0.000001'],
+  items: [{ secId: '0.000001', addedAt: '2026-08-02T00:00:00Z', basePrice: 10 }],
+}
+
+const readyJudgement: Judgement = {
+  id: 'judgement-ready',
+  secId: '1.600519',
+  code: '600519',
+  stockName: '贵州茅台',
+  masterId: 'buffett',
+  masterName: '沃伦 · 巴菲特',
+  masterVersion: '1.0.0',
+  dshSessionId: 'session-ready',
+  reportStatus: 'ready',
+  turnStatus: 'idle',
+  latestReportVersion: 1,
+  modelProvider: 'deepseek',
+  model: 'deepseek-chat',
+  reasoningEffort: null,
+  createdAt: '2026-08-15T09:00:00+08:00',
+  updatedAt: '2026-08-15T09:10:00+08:00',
+  completedAt: '2026-08-15T09:10:00+08:00',
+  errorCode: null,
+  errorMessage: null,
+}
+
+const generatingJudgement: Judgement = {
+  ...readyJudgement,
+  id: 'judgement-generating',
+  dshSessionId: 'session-generating',
+  reportStatus: 'generating',
+  turnStatus: 'running',
+  latestReportVersion: null,
+  completedAt: null,
+}
+
+const failedJudgement: Judgement = {
+  ...generatingJudgement,
+  id: 'judgement-failed',
+  reportStatus: 'failed',
+  turnStatus: 'idle',
+  errorCode: 'RUN_FAILED',
+  errorMessage: '研判执行失败',
+}
+
 const bootstrap: BootstrapData = {
-  theme: 'ocean',
+  theme: 'dark',
   masters,
   groups: [group],
-  judgements: [],
+  judgements: [readyJudgement, generatingJudgement],
   diagnostics: {
     dataRoot: '/tmp/hanai',
     databasePath: '/tmp/hanai/hanai.db',
     dshHomeOwnedByHost: true,
     securityCount: 1,
     masterCount: 2,
-    judgementCount: 0,
-    latestMarketSuccess: null,
-    latestValuationSuccess: null,
+    judgementCount: 2,
+    latestMarketSuccess: fresh.fetchedAt,
+    latestValuationSuccess: fresh.fetchedAt,
+    storage: { totalBytes: 4096, cacheBytes: 2048, marketCacheBytes: 1024, valuationCacheBytes: 1024, judgementsBytes: 512 },
     version: '0.1.0',
   },
 }
+
 const dashboard: DashboardData = {
   overview: {
-    indices: [{ code: '000001', name: '上证指数', price: 3500, change: 12, changePct: .34, amount: 800_000_000_000, upCount: 1200, downCount: 900, flatCount: 100 }],
-    breadth: { up: 1200, down: 900, flat: 100, limitUp: 30, limitDown: 5, totalAmount: 800_000_000_000 },
+    indices: [
+      { code: '000001', name: '上证指数', price: 3500, change: 12, changePct: .34, amount: 800_000_000_000, upCount: 1200, downCount: 900, flatCount: 100 },
+      { code: '399001', name: '深证成指', price: 11000, change: -8, changePct: -.07, amount: 700_000_000_000, upCount: null, downCount: null, flatCount: null },
+    ],
+    breadth: { up: 1200, down: 900, flat: 100, limitUp: 30, limitDown: 5, totalAmount: 1_500_000_000_000 },
     marketStatus: 'closed',
     meta: fresh,
   },
-  industry: { type: 'industry', sectors: [], meta: fresh },
+  industry: {
+    type: 'industry',
+    sectors: [{ code: 'BK0475', name: '电子', changePct: 1.78, amount: 320_000_000_000, upCount: 80, downCount: 25, leaderName: '示例股份', leaderCode: '600000', leaderChangePct: 4.1 }],
+    meta: fresh,
+  },
   concept: { type: 'concept', sectors: [], meta: fresh },
   ranks: { gainers: [], losers: [], amount: [], turnover: [] },
 }
+
 const watchQuote: WatchQuote = {
   secId: '1.600519', code: '600519', name: '贵州茅台', price: 1500, change: 10, changePct: .67,
   amount: 1_000_000, volume: 1000, turnoverRate: 1, marketCap: 2_000_000, floatCap: 1_800_000,
   pe: 25, pb: 8, high: 1510, low: 1480, open: 1490, prevClose: 1490,
   groupId: 'default', addedAt: '2026-08-01T00:00:00Z', basePrice: 1400, sinceAddedPct: 7.14,
 }
+
+const watchQuoteMissing: WatchQuote = {
+  ...watchQuote,
+  secId: '0.000001',
+  code: '000001',
+  name: '缺失数据',
+  change: null,
+  changePct: null,
+  amount: null,
+  marketCap: null,
+  pe: null,
+  addedAt: '2026-07-01T00:00:00Z',
+}
+
+const secondWatchQuote: WatchQuote = {
+  ...watchQuoteMissing,
+  name: '观察组股票',
+  groupId: secondGroup.id,
+  addedAt: secondGroup.items[0]?.addedAt ?? '2026-08-02T00:00:00Z',
+}
+
 const stockDetail: StockDetail = {
   security: { secId: '1.600519', code: '600519', name: '贵州茅台', exchange: 'SH', pinyinFull: 'guizhoumaotai', pinyinInitial: 'gzmt' },
   quote: watchQuote,
   metrics: null,
-  trend: [], daily: [], weekly: [], monthly: [], valuation: null,
-  sources: { quote: delayed, metrics: null, trend: fallback, daily: fresh, weekly: fresh, monthly: fresh, valuation: null },
+  trend: [{ time: '09:30', price: 1495, avgPrice: 1495, volume: 100 }],
+  trendPrevClose: 1490,
+  daily: [
+    { date: '2026-08-14', open: 1480, close: 1490, high: 1500, low: 1470, volume: 2000, amount: 2_000_000 },
+    { date: '2026-08-15', open: 1490, close: 1500, high: 1510, low: 1480, volume: 2500, amount: 2_500_000 },
+  ],
+  weekly: [],
+  monthly: [],
+  valuation: {
+    stockId: '600519',
+    ivDcf: 1470,
+    medps: 1450,
+    gfScore: 78,
+    valuationRank: 2,
+    dimensions: { financialStrength: 8, profitability: 9, growth: 7, gfValue: 6, momentum: 5 },
+    series: { price: [['2026-08-14', 1490], ['2026-08-15', 1500]], medps: [['2026-08-14', 1440], ['2026-08-15', 1450]] },
+    meta: fresh,
+  },
+  sources: { quote: fresh, metrics: null, trend: fresh, daily: fresh, weekly: null, monthly: null, valuation: fresh },
 }
 
-describe('HanaiWorkbench parity flows', () => {
-  it('opens judgement creation with the master selected from the persona gallery', async () => {
-    render(<HanaiWorkbench client={makeClient()} />)
-    await screen.findByRole('heading', { name: '市场全景' })
-
-    fireEvent.click(screen.getByRole('button', { name: /大师图鉴/ }))
-    fireEvent.click(screen.getByRole('button', { name: '与芒格开始研判 →' }))
-
-    await screen.findByRole('heading', { name: '大师研判' })
-    expect(screen.getByRole('button', { name: /芒格/, pressed: true })).not.toBeNull()
-    expect(screen.getByRole('button', { name: /巴菲特/, pressed: false })).not.toBeNull()
+describe('HanaiWorkbench old-client parity', () => {
+  it('pins the original shell and chart geometry while light/dark stays token-only', () => {
+    const css = readFileSync(join(process.cwd(), 'packages/client-workbench/src/styles.module.css'), 'utf8')
+    expect(css).toContain('width: 176px;')
+    expect(css).toContain('height: 46px;')
+    expect(css).toContain('padding: 14px 8px 18px;')
+    expect(css).toContain('grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr);')
+    expect(css).toContain('.priceChart { height: 380px;')
+    expect(css).toContain('.radarChart { height: 210px;')
+    expect(css).toContain('.valuationChart { height: 260px;')
+    expect(css.match(/\[data-theme='light'\]/g)?.length).toBe(1)
+    expect(css).not.toMatch(/ocean|jade|marketing/i)
   })
 
-  it('shows session-aware dashboard, watch provenance, and independent stock/chart sources', async () => {
-    render(<HanaiWorkbench client={makeClient()} />)
-    await screen.findByRole('heading', { name: '市场全景' })
+  it('restores the five original navigation entries, body title, H brand, and hash history', async () => {
+    const { container } = renderAt('/dashboard')
+    await screen.findByRole('heading', { name: '今日市场' })
 
-    await waitFor(() => {
-      expect(document.querySelector('[data-data-status="session"]')?.textContent).toBe('已收盘')
+    expect(screen.getByLabelText('Hanai Investment').textContent).toContain('H')
+    const nav = screen.getByRole('navigation', { name: '主导航' })
+    expect(within(nav).getAllByRole('button').map(button => button.querySelector('span:last-child')?.textContent)).toEqual([
+      '今日市场', '自选与发现', '大师研判', '专家中心', '设置与诊断',
+    ])
+    expect(container.querySelector('[data-theme="dark"]')).not.toBeNull()
+    expect(screen.queryByText('市场全景')).toBeNull()
+    expect(screen.queryByText('大师图鉴')).toBeNull()
+
+    fireEvent.click(within(nav).getByRole('button', { name: /自选与发现/ }))
+    await screen.findByRole('heading', { name: '自选与发现' })
+    expect(window.location.hash).toBe('#/watch')
+  })
+
+  it('shows only a real sidebar health timestamp and omits unavailable status placeholders', async () => {
+    renderAt('/dashboard')
+    await screen.findByRole('heading', { name: '今日市场' })
+    expect(screen.getByText('行情源')).not.toBeNull()
+    expect(screen.queryByText(/DSH 状态/)).toBeNull()
+    cleanup()
+
+    for (const timestamp of [null, '', 'invalid-date'] as const) {
+      const client = makeClient({
+        bootstrap: () => ({
+          ...bootstrap,
+          diagnostics: { ...bootstrap.diagnostics, latestMarketSuccess: timestamp },
+        }),
+      })
+      renderAt('/dashboard', client)
+      await screen.findByRole('heading', { name: '今日市场' })
+      expect(screen.queryByText('行情源')).toBeNull()
+      expect(screen.queryByText(/未提供|尚无成功记录/)).toBeNull()
+      cleanup()
+    }
+  })
+
+  it('uses the standard Fullscreen API and follows browser-driven exit state', async () => {
+    const documentDescriptors = {
+      fullscreenEnabled: Object.getOwnPropertyDescriptor(document, 'fullscreenEnabled'),
+      fullscreenElement: Object.getOwnPropertyDescriptor(document, 'fullscreenElement'),
+      exitFullscreen: Object.getOwnPropertyDescriptor(document, 'exitFullscreen'),
+    }
+    const requestDescriptor = Object.getOwnPropertyDescriptor(document.documentElement, 'requestFullscreen')
+    let fullscreenElement: Element | null = null
+    const requestFullscreen = vi.fn(async (_options?: FullscreenOptions) => {
+      fullscreenElement = document.documentElement
+      document.dispatchEvent(new Event('fullscreenchange'))
     })
-    expect(screen.queryByText('LIVE')).toBeNull()
-    expect(screen.getAllByText('成交额').length).toBeGreaterThan(0)
-    expect(document.querySelector('[aria-label="走势折线图"]')).toBeNull()
+    const exitFullscreen = vi.fn(async () => {
+      fullscreenElement = null
+      document.dispatchEvent(new Event('fullscreenchange'))
+    })
 
-    fireEvent.click(screen.getByRole('button', { name: /自选观察/ }))
-    expect((await screen.findAllByText('历史快照')).length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText(/最近成功快照/).length).toBeGreaterThanOrEqual(1)
+    Object.defineProperty(document, 'fullscreenEnabled', { configurable: true, get: () => true })
+    Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => fullscreenElement })
+    Object.defineProperty(document, 'exitFullscreen', { configurable: true, value: exitFullscreen })
+    Object.defineProperty(document.documentElement, 'requestFullscreen', { configurable: true, value: requestFullscreen })
 
-    fireEvent.click(screen.getByRole('button', { name: /搜索股票/ }))
-    const dialog = await screen.findByRole('dialog', { name: '全局股票搜索' })
-    const searchInput = within(dialog).getByPlaceholderText('输入代码、名称或拼音首字母…')
-    fireEvent.change(searchInput, { target: { value: '茅台' } })
-    await within(dialog).findByRole('button', { name: /贵州.*茅台/ })
-    fireEvent.keyDown(searchInput, { key: 'Enter' })
+    try {
+      renderAt('/dashboard')
+      await screen.findByRole('heading', { name: '今日市场' })
+      fireEvent.click(await screen.findByRole('button', { name: '进入网页全屏' }))
+      await waitFor(() => expect(requestFullscreen).toHaveBeenCalledWith({ navigationUI: 'hide' }))
+      expect(await screen.findByRole('button', { name: '退出网页全屏' })).not.toBeNull()
 
+      await act(async () => {
+        fullscreenElement = null
+        document.dispatchEvent(new Event('fullscreenchange'))
+      })
+      expect(await screen.findByRole('button', { name: '进入网页全屏' })).not.toBeNull()
+
+      await act(async () => {
+        fullscreenElement = document.documentElement
+        document.dispatchEvent(new Event('fullscreenchange'))
+      })
+      fireEvent.click(await screen.findByRole('button', { name: '退出网页全屏' }))
+      await waitFor(() => expect(exitFullscreen).toHaveBeenCalledTimes(1))
+      expect(await screen.findByRole('button', { name: '进入网页全屏' })).not.toBeNull()
+    } finally {
+      cleanup()
+      restoreOwnProperty(document, 'fullscreenEnabled', documentDescriptors.fullscreenEnabled)
+      restoreOwnProperty(document, 'fullscreenElement', documentDescriptors.fullscreenElement)
+      restoreOwnProperty(document, 'exitFullscreen', documentDescriptors.exitFullscreen)
+      restoreOwnProperty(document.documentElement, 'requestFullscreen', requestDescriptor)
+    }
+  })
+
+  it('does not show a fullscreen control when the browser disables the API', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(document, 'fullscreenEnabled')
+    Object.defineProperty(document, 'fullscreenEnabled', { configurable: true, get: () => false })
+    try {
+      renderAt('/dashboard')
+      await screen.findByRole('heading', { name: '今日市场' })
+      expect(screen.queryByRole('button', { name: /网页全屏/ })).toBeNull()
+    } finally {
+      cleanup()
+      restoreOwnProperty(document, 'fullscreenEnabled', descriptor)
+    }
+  })
+
+  it('requires both fullscreen entry and exit methods before showing the control', async () => {
+    const enabledDescriptor = Object.getOwnPropertyDescriptor(document, 'fullscreenEnabled')
+    const exitDescriptor = Object.getOwnPropertyDescriptor(document, 'exitFullscreen')
+    const requestDescriptor = Object.getOwnPropertyDescriptor(document.documentElement, 'requestFullscreen')
+    Object.defineProperty(document, 'fullscreenEnabled', { configurable: true, get: () => true })
+    try {
+      Object.defineProperty(document, 'exitFullscreen', { configurable: true, value: vi.fn() })
+      Object.defineProperty(document.documentElement, 'requestFullscreen', { configurable: true, value: undefined })
+      renderAt('/dashboard')
+      await screen.findByRole('heading', { name: '今日市场' })
+      expect(screen.queryByRole('button', { name: /网页全屏/ })).toBeNull()
+      cleanup()
+
+      Object.defineProperty(document.documentElement, 'requestFullscreen', { configurable: true, value: vi.fn() })
+      Object.defineProperty(document, 'exitFullscreen', { configurable: true, value: undefined })
+      renderAt('/dashboard')
+      await screen.findByRole('heading', { name: '今日市场' })
+      expect(screen.queryByRole('button', { name: /网页全屏/ })).toBeNull()
+    } finally {
+      cleanup()
+      restoreOwnProperty(document, 'fullscreenEnabled', enabledDescriptor)
+      restoreOwnProperty(document, 'exitFullscreen', exitDescriptor)
+      restoreOwnProperty(document.documentElement, 'requestFullscreen', requestDescriptor)
+    }
+  })
+
+  it('keeps the fullscreen label stable when the browser rejects entry or exit', async () => {
+    const enabledDescriptor = Object.getOwnPropertyDescriptor(document, 'fullscreenEnabled')
+    const elementDescriptor = Object.getOwnPropertyDescriptor(document, 'fullscreenElement')
+    const exitDescriptor = Object.getOwnPropertyDescriptor(document, 'exitFullscreen')
+    const requestDescriptor = Object.getOwnPropertyDescriptor(document.documentElement, 'requestFullscreen')
+    let fullscreenElement: Element | null = null
+    const requestFullscreen = vi.fn().mockRejectedValue(new Error('entry denied'))
+    const exitFullscreen = vi.fn().mockRejectedValue(new Error('exit denied'))
+    Object.defineProperty(document, 'fullscreenEnabled', { configurable: true, get: () => true })
+    Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => fullscreenElement })
+    Object.defineProperty(document, 'exitFullscreen', { configurable: true, value: exitFullscreen })
+    Object.defineProperty(document.documentElement, 'requestFullscreen', { configurable: true, value: requestFullscreen })
+    try {
+      renderAt('/dashboard')
+      await screen.findByRole('heading', { name: '今日市场' })
+      fireEvent.click(await screen.findByRole('button', { name: '进入网页全屏' }))
+      await waitFor(() => expect(requestFullscreen).toHaveBeenCalledTimes(1))
+      expect(screen.getByRole('button', { name: '进入网页全屏' })).not.toBeNull()
+
+      await act(async () => {
+        fullscreenElement = document.documentElement
+        document.dispatchEvent(new Event('fullscreenchange'))
+      })
+      fireEvent.click(await screen.findByRole('button', { name: '退出网页全屏' }))
+      await waitFor(() => expect(exitFullscreen).toHaveBeenCalledTimes(1))
+      expect(screen.getByRole('button', { name: '退出网页全屏' })).not.toBeNull()
+    } finally {
+      cleanup()
+      restoreOwnProperty(document, 'fullscreenEnabled', enabledDescriptor)
+      restoreOwnProperty(document, 'fullscreenElement', elementDescriptor)
+      restoreOwnProperty(document, 'exitFullscreen', exitDescriptor)
+      restoreOwnProperty(document.documentElement, 'requestFullscreen', requestDescriptor)
+    }
+  })
+
+  it('keeps the dashboard order and renders an ECharts treemap with in-place sector drill-down', async () => {
+    renderAt('/dashboard')
+    await screen.findByRole('heading', { name: '今日市场' })
+
+    const breadth = screen.getByRole('heading', { name: '市场宽度' })
+    const heat = screen.getByRole('heading', { name: '板块热力' })
+    const rank = screen.getByRole('heading', { name: '榜单' })
+    expect(breadth.compareDocumentPosition(heat) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(heat.compareDocumentPosition(rank) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('img', { name: '板块成交额热力图' }))
+    await screen.findByRole('heading', { name: '板块热力 · 电子' })
+    expect(screen.queryByRole('dialog', { name: /电子/ })).toBeNull()
+  })
+
+  it('keeps only the latest sector drill response when an aborted request resolves late', async () => {
+    const first = deferred<{ stocks: WatchQuote[]; meta: ProviderMeta }>()
+    const second = deferred<{ stocks: WatchQuote[]; meta: ProviderMeta }>()
+    const signals: AbortSignal[] = []
+    let requestIndex = 0
+    const client = makeClient({
+      'sector.stocks': (_request, signal) => {
+        if (signal !== undefined) signals.push(signal)
+        return requestIndex++ === 0 ? first.promise : second.promise
+      },
+    })
+    renderAt('/dashboard', client)
+    await screen.findByRole('heading', { name: '今日市场' })
+
+    fireEvent.click(screen.getByRole('img', { name: '板块成交额热力图' }))
+    fireEvent.click(await screen.findByRole('button', { name: '← 返回板块' }))
+    expect(signals[0]?.aborted).toBe(true)
+    fireEvent.click(screen.getByRole('img', { name: '板块成交额热力图' }))
+
+    await act(async () => {
+      second.resolve({ stocks: [{ ...watchQuote, name: '最新批次' }], meta: fresh })
+      await second.promise
+    })
+    expect(await screen.findByText('最新批次')).not.toBeNull()
+
+    await act(async () => {
+      first.resolve({ stocks: [{ ...watchQuote, name: '迟到批次' }], meta: fresh })
+      await first.promise
+    })
+    expect(screen.queryByText('迟到批次')).toBeNull()
+    expect(screen.getByText('最新批次')).not.toBeNull()
+  })
+
+  it('restores watch columns, default added-date sort, three-state sorting, and group manager', async () => {
+    renderAt('/watch')
+    await screen.findByRole('heading', { name: '自选与发现' })
+    const table = screen.getByRole('table')
+    expect(within(table).getAllByRole('columnheader').map(cell => cell.textContent?.trim())).toEqual([
+      '名称', '最新价', '涨跌幅', '成交额', '换手率', '总市值', 'PE(动)', 'PB', '加入日期 ↓', '加入以来', '',
+    ])
+    expect(within(table).getByLabelText('查看 贵州茅台 600519').tabIndex).toBe(0)
+
+    const changeHead = within(table).getByRole('button', { name: '涨跌幅' })
+    fireEvent.click(changeHead)
+    expect(changeHead.closest('th')?.getAttribute('aria-sort')).toBe('descending')
+    expect(within(table).getAllByLabelText(/查看 /).map(row => row.getAttribute('aria-label'))).toEqual(['查看 贵州茅台 600519', '查看 缺失数据 000001'])
+    fireEvent.click(changeHead)
+    expect(changeHead.closest('th')?.getAttribute('aria-sort')).toBe('ascending')
+    expect(within(table).getAllByLabelText(/查看 /).map(row => row.getAttribute('aria-label'))).toEqual(['查看 贵州茅台 600519', '查看 缺失数据 000001'])
+    fireEvent.click(changeHead)
+    expect(within(table).getByRole('button', { name: /加入日期/ }).closest('th')?.getAttribute('aria-sort')).toBe('descending')
+
+    fireEvent.click(screen.getByRole('button', { name: '管理分组' }))
+    expect(await screen.findByRole('dialog', { name: '管理自选分组' })).not.toBeNull()
+  })
+
+  it('cancels a previous watch-group batch and ignores its late rows', async () => {
+    const first = deferred<{ quotes: WatchQuote[]; meta: ProviderMeta }>()
+    const second = deferred<{ quotes: WatchQuote[]; meta: ProviderMeta }>()
+    const requests: Array<{ groupId: string; signal?: AbortSignal }> = []
+    const client = makeClient({
+      bootstrap: () => ({ ...bootstrap, groups: [group, secondGroup] }),
+      'watch.quotes': (request, signal) => {
+        const groupId = (request as { groupId: string }).groupId
+        requests.push({ groupId, ...(signal === undefined ? {} : { signal }) })
+        return groupId === group.id ? first.promise : second.promise
+      },
+    })
+    renderAt('/watch', client)
+    await screen.findByRole('heading', { name: '自选与发现' })
+    await waitFor(() => expect(requests.some(request => request.groupId === group.id)).toBe(true))
+
+    fireEvent.click(screen.getByRole('button', { name: /观察组/ }))
+    await waitFor(() => expect(requests.some(request => request.groupId === secondGroup.id)).toBe(true))
+    expect(requests.find(request => request.groupId === group.id)?.signal?.aborted).toBe(true)
+
+    await act(async () => {
+      second.resolve({ quotes: [secondWatchQuote], meta: fresh })
+      await second.promise
+    })
+    expect(await screen.findByLabelText('查看 观察组股票 000001')).not.toBeNull()
+
+    await act(async () => {
+      first.resolve({ quotes: [watchQuote], meta: fresh })
+      await first.promise
+    })
+    expect(screen.queryByLabelText('查看 贵州茅台 600519')).toBeNull()
+    expect(screen.getByLabelText('查看 观察组股票 000001')).not.toBeNull()
+  })
+
+  it('binds a watch-row mutation to the group batch that produced the row', async () => {
+    const removal = deferred<WatchGroup[]>()
+    const removeRequests: unknown[] = []
+    const client = makeClient({
+      bootstrap: () => ({ ...bootstrap, groups: [group, secondGroup] }),
+      'watch.quotes': request => (request as { groupId: string }).groupId === group.id
+        ? { quotes: [watchQuote], meta: fresh }
+        : { quotes: [secondWatchQuote], meta: fresh },
+      'watch.item.remove': request => {
+        removeRequests.push(request)
+        return removal.promise
+      },
+    })
+    renderAt('/watch', client)
+    await screen.findByLabelText('查看 贵州茅台 600519')
+
+    fireEvent.click(screen.getByRole('button', { name: '移除' }))
+    fireEvent.click(screen.getByRole('button', { name: /观察组/ }))
+
+    expect(removeRequests).toEqual([{ groupId: group.id, secId: watchQuote.secId }])
+    await act(async () => {
+      removal.resolve([group, secondGroup])
+      await removal.promise
+    })
+    expect(await screen.findByLabelText('查看 观察组股票 000001')).not.toBeNull()
+  })
+
+  it('deep-links to the old stock layout with daily K-line and a separate valuation curve', async () => {
+    renderAt('/stock/1.600519')
     await screen.findByRole('heading', { name: '贵州茅台' })
-    expect(screen.getByText('延迟行情')).not.toBeNull()
-    expect(screen.getByText('备源降级')).not.toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: '日K' }))
-    expect(screen.getByText('最新数据')).not.toBeNull()
+
+    expect(window.location.hash).toBe('#/stock/1.600519')
+    expect(screen.getByRole('button', { name: '日K' })).not.toBeNull()
+    expect(screen.getByRole('img', { name: '日K线图' })).not.toBeNull()
+    expect(screen.getByRole('heading', { name: '价值判断' })).not.toBeNull()
+    expect(screen.getByText('大师价值')).not.toBeNull()
+    expect(screen.getByRole('heading', { name: '价值曲线' })).not.toBeNull()
+    expect(screen.getByRole('img', { name: '价格与大师价值曲线' })).not.toBeNull()
+    expect(screen.getByText(/价值线末端为供应商预测/)).not.toBeNull()
   })
 
-  it('removes any live claim when refreshing retained dashboard data fails', async () => {
-    render(<HanaiWorkbench client={makeClient({ failDashboardRefresh: true })} />)
-    await screen.findByRole('heading', { name: '市场全景' })
-
-    fireEvent.click(screen.getByRole('button', { name: '刷新数据 ↻' }))
-    await waitFor(() => {
-      expect(document.querySelector('[data-data-status="refresh-failed"]')?.textContent).toBe('刷新失败')
+  it('loads quote, daily K, and valuation independently and lazily requests longer periods', async () => {
+    const quote = deferred<{
+      quote: StockDetail['quote']
+      metrics: StockDetail['metrics']
+      sources: Pick<StockDetail['sources'], 'quote' | 'metrics'>
+    }>()
+    const daily = deferred<{ period: 'daily'; bars: StockDetail['daily']; meta: ProviderMeta | null }>()
+    const weekly = deferred<{ period: 'weekly'; bars: StockDetail['weekly']; meta: ProviderMeta | null }>()
+    const valuation = deferred<never>()
+    const surfaceCalls: Array<{ endpoint: string; request: unknown }> = []
+    const client = makeClient({
+      'security.quote': request => {
+        surfaceCalls.push({ endpoint: 'security.quote', request })
+        return quote.promise
+      },
+      'security.kline': request => {
+        surfaceCalls.push({ endpoint: 'security.kline', request })
+        const period = (request as { period: string }).period
+        if (period === 'daily') return daily.promise
+        if (period === 'weekly') return weekly.promise
+        throw new Error(`unexpected period: ${period}`)
+      },
+      'security.valuation': request => {
+        surfaceCalls.push({ endpoint: 'security.valuation', request })
+        return valuation.promise
+      },
     })
-    expect(screen.getByText(/刷新失败，保留上次数据/)).not.toBeNull()
+    renderAt('/stock/1.600519', client)
+    await screen.findByRole('heading', { name: '贵州茅台' })
+
+    expect(surfaceCalls.some(call => call.endpoint === 'security.quote')).toBe(true)
+    expect(surfaceCalls.some(call => call.endpoint === 'security.kline' && (call.request as { period: string }).period === 'daily')).toBe(true)
+    expect(surfaceCalls.some(call => call.endpoint === 'security.valuation')).toBe(true)
+    expect(surfaceCalls.some(call => call.endpoint === 'security.kline' && (call.request as { period: string }).period === 'weekly')).toBe(false)
+    expect(surfaceCalls.some(call => call.endpoint === 'security.kline' && (call.request as { period: string }).period === 'monthly')).toBe(false)
+    expect(client.call).not.toHaveBeenCalledWith('security.detail', expect.anything())
+    expect(client.call).not.toHaveBeenCalledWith('security.detail', expect.anything(), expect.anything())
+
+    await act(async () => {
+      daily.resolve({ period: 'daily', bars: stockDetail.daily, meta: fresh })
+      await daily.promise
+    })
+    expect(await screen.findByRole('img', { name: '日K线图' })).not.toBeNull()
+
+    await act(async () => {
+      valuation.reject(new Error('valuation offline'))
+      try { await valuation.promise } catch { /* expected */ }
+    })
+    expect(screen.getByRole('img', { name: '日K线图' })).not.toBeNull()
+    expect(screen.getByText('估值数据暂不可用')).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: '周K' }))
+    await waitFor(() => expect(surfaceCalls.some(call => call.endpoint === 'security.kline' && (call.request as { period: string }).period === 'weekly')).toBe(true))
+    expect(surfaceCalls.some(call => call.endpoint === 'security.kline' && (call.request as { period: string }).period === 'monthly')).toBe(false)
+    await act(async () => {
+      weekly.resolve({ period: 'weekly', bars: stockDetail.daily, meta: fresh })
+      await weekly.promise
+    })
+    expect(await screen.findByRole('img', { name: '周K线图' })).not.toBeNull()
+
+    await act(async () => {
+      quote.resolve({ quote: stockDetail.quote, metrics: stockDetail.metrics, sources: { quote: fresh, metrics: null } })
+      await quote.promise
+    })
+    expect(screen.getByRole('heading', { name: '贵州茅台' })).not.toBeNull()
+  })
+
+  it('keeps experts informational and exposes only conventional light/dark themes', async () => {
+    const { client } = renderAt('/personas')
+    await screen.findByRole('heading', { name: '专家中心' })
+    expect(screen.getByText('沃伦 · 巴菲特')).not.toBeNull()
+    expect(screen.queryByRole('button', { name: /开始研判/ })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /设置与诊断/ }))
+    await screen.findByRole('heading', { name: '设置与诊断' })
+    const lightTheme = screen.getByText('亮色模式').closest('button')
+    const darkTheme = screen.getByText('黑夜模式').closest('button')
+    expect(lightTheme).not.toBeNull()
+    expect(darkTheme).not.toBeNull()
+    expect(screen.queryByText(/Ocean|Jade|花|澄|青/i)).toBeNull()
+    if (lightTheme !== null) fireEvent.click(lightTheme)
+    await waitFor(() => expect(client.call).toHaveBeenCalledWith('theme.set', { theme: 'light' }))
+  })
+
+  it('renders the complete Host-provided expert description and methods without a UI summary or clamp', async () => {
+    const fullDescription = '使用公开材料提炼本分、消费者导向、组织授权和长期价值投资框架，以中性思维顾问方式分析企业、投资、经营、合作或人生决策。基于 6 维调研和 79 个可追溯引用标识，含 6 个模型、10 条启发式。仅当用户明确点名段永平、要求分析其公开观点或思维方式时触发；默认不角色扮演。'
+    const longFormMaster: MasterPersona = {
+      ...masters[0]!,
+      name: '段永平',
+      shortName: '段',
+      description: fullDescription,
+      roleTag: '价值投资',
+      tags: ['本分', '消费者导向', '长期价值'],
+    }
+    const client = makeClient({ bootstrap: () => ({ ...bootstrap, masters: [longFormMaster, masters[1]!] }) })
+    renderAt('/personas', client)
+
+    const card = await screen.findByRole('article', { name: '段永平专家信息' })
+    expect(within(card).getByText(fullDescription).textContent).toBe(fullDescription)
+    expect(within(card).getByText('价值投资')).not.toBeNull()
+    expect(within(card).getByText('本分')).not.toBeNull()
+    expect(within(card).getByText('消费者导向')).not.toBeNull()
+    expect(within(card).getByText('长期价值')).not.toBeNull()
+    expect(within(card).queryByRole('button')).toBeNull()
+
+    const css = readFileSync(join(process.cwd(), 'packages/client-workbench/src/styles.module.css'), 'utf8')
+    const descriptionRule = /\.personaDescription\s*\{([^}]+)\}/.exec(css)?.[1] ?? ''
+    expect(descriptionRule).toContain('white-space: pre-wrap;')
+    expect(descriptionRule).toContain('overflow-wrap: anywhere;')
+    expect(descriptionRule).not.toMatch(/line-clamp|max-height|text-overflow|overflow:\s*hidden/)
+  })
+
+  it('keeps every settings and diagnostic control in the compact hierarchy', async () => {
+    const { client } = renderAt('/settings')
+    await screen.findByRole('heading', { name: '设置与诊断' })
+    await waitFor(() => expect(client.credential).toHaveBeenCalled())
+
+    for (const section of ['DSH Agent', 'DeepSeek API Key', '数据源', '本地存储', '界面主题', '关于与声明']) {
+      expect(screen.getByRole('heading', { name: section })).not.toBeNull()
+    }
+    expect(screen.getByLabelText('默认模型')).not.toBeNull()
+    const keyInput = screen.getByLabelText('写入新的 API Key')
+    expect(keyInput.getAttribute('type')).toBe('password')
+    expect(keyInput.getAttribute('autocomplete')).toBe('off')
+    for (const action of ['重新检测连接', '安全保存', '移除', '立即同步主数据', '打开数据目录', '清理行情缓存', '清理估值缓存', '亮色模式', '黑夜模式']) {
+      expect(screen.getByRole('button', { name: new RegExp(`^${action}`) })).not.toBeNull()
+    }
+    expect(screen.getByText('清理缓存不会删除自选、专家与研判报告。')).not.toBeNull()
+    expect(screen.getAllByText(bootstrap.diagnostics.dataRoot).length).toBeGreaterThan(0)
+  })
+
+  it('shows a read-only live process while generating and report/process/chat only after ready', async () => {
+    renderAt('/judgements/judgement-generating')
+    await screen.findByRole('heading', { name: /贵州茅台/ })
+    expect(screen.getByLabelText('实时研判过程').textContent).toContain('报告生成期间仅查看执行过程')
+    expect(screen.queryByRole('button', { name: '继续对话' })).toBeNull()
+    cleanup()
+
+    renderAt('/judgements/judgement-ready')
+    await screen.findByRole('heading', { name: /贵州茅台/ })
+    expect(screen.getByRole('heading', { name: '研判报告' })).not.toBeNull()
+    expect(screen.getByRole('button', { name: '查看研判过程' })).not.toBeNull()
+    expect(screen.getByRole('button', { name: '继续对话' })).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '查看研判过程' }))
+    expect((await screen.findByLabelText('研判过程')).textContent).toContain('已归档的研判过程为只读记录')
+    fireEvent.click(screen.getByRole('button', { name: '继续对话' }))
+    expect((await screen.findByLabelText('继续与沃伦 · 巴菲特对话')).textContent).toContain('可继续对话')
+  })
+
+  it('keeps judgement detail and continuation session bound to the latest route', async () => {
+    const oldRequest = deferred<JudgementDetail>()
+    const nextRequest = deferred<JudgementDetail>()
+    const signals = new Map<string, AbortSignal>()
+    const nextJudgement: Judgement = {
+      ...readyJudgement,
+      id: 'judgement-next',
+      stockName: '新路由公司',
+      dshSessionId: 'session-next',
+    }
+    const nextDetail: JudgementDetail = {
+      judgement: nextJudgement,
+      reports: [{
+        judgementId: nextJudgement.id,
+        version: 1,
+        content: '# 新报告',
+        sha256: 'next',
+        sizeBytes: 64,
+        sealedAt: nextJudgement.completedAt ?? nextJudgement.updatedAt,
+        modelProvider: nextJudgement.modelProvider,
+        model: nextJudgement.model,
+      }],
+    }
+    const client = makeClient({
+      'judgement.get': (request, signal) => {
+        const requestId = (request as { id: string }).id
+        if (signal !== undefined) signals.set(requestId, signal)
+        return requestId === nextJudgement.id ? nextRequest.promise : oldRequest.promise
+      },
+    })
+    renderAt('/judgements/judgement-ready', client)
+    await waitFor(() => expect(signals.has(readyJudgement.id)).toBe(true))
+
+    await act(async () => {
+      window.history.pushState(null, '', `#/judgements/${nextJudgement.id}`)
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
+    await waitFor(() => expect(signals.has(nextJudgement.id)).toBe(true))
+    expect(signals.get(readyJudgement.id)?.aborted).toBe(true)
+
+    await act(async () => {
+      nextRequest.resolve(nextDetail)
+      await nextRequest.promise
+    })
+    expect(await screen.findByRole('heading', { name: /新路由公司/ })).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '继续对话' }))
+    expect((await screen.findByLabelText('继续与沃伦 · 巴菲特对话')).textContent).toContain('session-next')
+
+    await act(async () => {
+      oldRequest.resolve(detailFor(readyJudgement.id))
+      await oldRequest.promise
+    })
+    expect(screen.queryByRole('heading', { name: /贵州茅台/ })).toBeNull()
+    expect(screen.getByLabelText('继续与沃伦 · 巴菲特对话').textContent).toContain('session-next')
+  })
+
+  it('retries a failed judgement with the original stock and master preselected', async () => {
+    renderAt('/judgements/judgement-failed')
+    await screen.findByRole('heading', { name: /贵州茅台/ })
+    fireEvent.click(screen.getByRole('button', { name: '重新研判' }))
+
+    const dialog = await screen.findByRole('dialog', { name: '新建大师研判' })
+    expect(within(dialog).getByText('贵州茅台')).not.toBeNull()
+    expect(within(dialog).getByRole('button', { name: /沃伦 · 巴菲特/, pressed: true })).not.toBeNull()
+    expect(window.location.hash).toBe('#/judgements')
   })
 })
 
-function makeClient(options: { failDashboardRefresh?: boolean } = {}): HanaiClient {
-  const call = vi.fn(async (endpoint: string, request?: unknown) => {
+function renderAt(path: string, client = makeClient()): { client: HanaiClient } & ReturnType<typeof render> {
+  window.history.replaceState(null, '', `#${path}`)
+  return { client, ...render(<HanaiWorkbench client={client} />) }
+}
+
+type CallOverride = (request: unknown, signal?: AbortSignal) => unknown | Promise<unknown>
+
+function makeClient(overrides: Record<string, CallOverride> = {}): HanaiClient {
+  const call = vi.fn(async (endpoint: string, request?: unknown, signal?: AbortSignal) => {
+    const override = overrides[endpoint]
+    if (override !== undefined) return override(request, signal)
     switch (endpoint) {
       case 'bootstrap': return bootstrap
-      case 'dashboard.get': {
-        if (options.failDashboardRefresh === true && (request as { refresh?: boolean } | undefined)?.refresh === true) {
-          throw new Error('行情源暂时不可达')
-        }
-        return dashboard
-      }
-      case 'watch.quotes': return { quotes: [watchQuote], meta: snapshot }
+      case 'dashboard.get': return dashboard
+      case 'sector.stocks': return { stocks: [watchQuote], meta: fresh }
+      case 'watch.quotes': return { quotes: [watchQuote, watchQuoteMissing], meta: stale }
       case 'watch.list': return [group]
       case 'security.search': return [{ ...stockDetail.security, price: 1500, changePct: .67 }]
       case 'security.detail': return stockDetail
+      case 'security.quote': return { quote: stockDetail.quote, metrics: stockDetail.metrics, sources: { quote: fresh, metrics: null } }
+      case 'security.trend': return { trend: stockDetail.trend, trendPrevClose: stockDetail.trendPrevClose, meta: fresh }
+      case 'security.kline': {
+        const period = (request as { period: 'daily' | 'weekly' | 'monthly' }).period
+        return { period, bars: stockDetail[period], meta: stockDetail.sources[period] }
+      }
+      case 'security.valuation': return { valuation: stockDetail.valuation, meta: fresh }
+      case 'judgement.list': return bootstrap.judgements
+      case 'judgement.get': return detailFor((request as { id: string }).id)
+      case 'theme.set': return request
+      case 'cache.clear': return { scope: (request as { scope: 'market' | 'valuation' }).scope, removedFiles: 0, freedBytes: 0 }
+      case 'storage.openDataRoot': return { opened: true, dataRoot: bootstrap.diagnostics.dataRoot }
       default: throw new Error(`unexpected endpoint: ${endpoint}`)
     }
   })
   return {
     ctx: {},
     call,
+    isLoopback: true,
+    credential: vi.fn().mockResolvedValue({ configured: false, writable: true }),
+    setDeepSeekKey: vi.fn().mockResolvedValue(undefined),
+    unsetDeepSeekKey: vi.fn().mockResolvedValue(undefined),
     models: vi.fn().mockResolvedValue([]),
+    defaultModel: vi.fn().mockResolvedValue(null),
+    setDefaultModel: vi.fn(),
   } as unknown as HanaiClient
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((next, fail) => {
+    resolve = next
+    reject = fail
+  })
+  return { promise, resolve, reject }
+}
+
+function restoreOwnProperty(target: object, key: PropertyKey, descriptor: PropertyDescriptor | undefined) {
+  if (descriptor === undefined) Reflect.deleteProperty(target, key)
+  else Object.defineProperty(target, key, descriptor)
+}
+
+function detailFor(id: string): JudgementDetail {
+  const judgement = id === generatingJudgement.id ? generatingJudgement : id === failedJudgement.id ? failedJudgement : readyJudgement
+  return {
+    judgement,
+    reports: judgement.reportStatus === 'ready' ? [{
+      judgementId: judgement.id,
+      version: 1,
+      content: '# 投资结论\n\n价值与风险并重。',
+      sha256: 'test',
+      sizeBytes: 128,
+      sealedAt: judgement.completedAt ?? judgement.updatedAt,
+      modelProvider: judgement.modelProvider,
+      model: judgement.model,
+    }] : [],
+  }
 }

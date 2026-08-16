@@ -8,7 +8,7 @@
 - insert:
     - id: hanai-investment
       name: hanai-investment-dsh
-      inject: [connection, apiProxy, sessions]
+      inject: [connection, apiProxy, sessions, agentDefaultModel]
       config:
         dataRoot: !!js process.env.HANAI_INVESTMENT_DSH_HOME
         requestTimeoutMs: 12000

@@ -12,6 +12,14 @@ import type {
 
 export const DEEPSEEK_CREDENTIAL_REF = 'DEEPSEEK_API_KEY'
 
+export interface DefaultModelView {
+  provider: string
+  model: string
+  reasoningEffort?: string
+  writable: boolean
+  revision: number
+}
+
 export class HanaiClient {
   constructor(readonly ctx: ClientContext) {}
 
@@ -64,6 +72,27 @@ export class HanaiClient {
     return response.result.value.groups
   }
 
+  /** Read DSH's process-wide Agent default through the loopback Hanai Host bridge. */
+  async defaultModel(): Promise<DefaultModelView | null> {
+    this.assertLoopback()
+    return defaultModelView(await this.call('model.default.get', {}))
+  }
+
+  /**
+   * Save the complete DSH default route. Omitting reasoning effort deliberately
+   * clears any effort inherited from the previously selected model.
+   */
+  async setDefaultModel(
+    selection: { provider: string; model: string },
+    _expectedRevision?: number,
+  ): Promise<DefaultModelView> {
+    this.assertLoopback()
+    const provider = selection.provider.trim()
+    const model = selection.model.trim()
+    if (provider === '' || model === '') throw new Error('请选择有效的模型')
+    return defaultModelView(await this.call('model.default.set', { provider, model }))
+  }
+
   openSession(sessionId: string): void {
     this.ctx.sessions.open(sessionId as never)
   }
@@ -79,4 +108,27 @@ export function normalizeApiKey(raw: string): string {
   if (value.includes('=')) throw new Error('请只粘贴 Key，不要包含变量名或等号')
   if (!/^[\x21-\x7E]+$/.test(value) || /["']/.test(value)) throw new Error('API Key 包含不支持的字符')
   return value
+}
+
+function defaultModelView(value: unknown): DefaultModelView {
+  if (!isRecord(value) || typeof value.provider !== 'string' || typeof value.model !== 'string') {
+    throw new Error('DSH 默认模型设置格式无效')
+  }
+  const reasoningEffort = typeof value.reasoningEffort === 'string' && value.reasoningEffort !== ''
+    ? value.reasoningEffort
+    : undefined
+  return {
+    provider: value.provider,
+    model: value.model,
+    ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
+    writable: true,
+    // agentDefaultModel intentionally exposes no Settings revision. This
+    // compatibility field keeps the current page contract stable while all
+    // writes are serialized and validated by the DSH owner service itself.
+    revision: 0,
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

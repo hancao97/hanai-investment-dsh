@@ -140,6 +140,13 @@ export class EastmoneyProvider {
     this.breakerOpenMs = options.breakerOpenMs ?? 60_000
   }
 
+  /** Clear only the provider's last-success quote fallback; network/rate-limit state is unchanged. */
+  clearQuoteCache(): number {
+    const removed = this.quoteCache.size
+    this.quoteCache.clear()
+    return removed
+  }
+
   private nextRealtimeHost(): string {
     this.realtimeHostSequence = (this.realtimeHostSequence + 1) % 50
     return this.realtimeHostSequence === 0 ? 'push2.eastmoney.com' : `${this.realtimeHostSequence}.push2.eastmoney.com`

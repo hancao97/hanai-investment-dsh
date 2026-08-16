@@ -7,26 +7,40 @@
 [![Tests](https://img.shields.io/badge/tests-passing-2EA44F)](packages)
 [![License](https://img.shields.io/badge/license-MIT-111827)](LICENSE)
 
-Hanai Investment 把行情、自选、个股与估值研究、四位大师研判、不可变报告和报告后的持续对话，组合在一个完整的 React 工作台中。DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件和会话持久化；Hanai 负责投资业务、研究资料、报告版本和全部产品界面。
+Hanai Investment 将旧版客户端按原有信息架构迁移到 React 工作台：保留“今日市场、自选与发现、大师研判、专家中心、设置与诊断”五个一级页面以及个股、研判详情，不重新发明页面和业务语义。DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件和会话持久化；Hanai 负责投资业务、研究资料、不可变报告快照和全部产品界面。
 
-![Hanai Investment 产品愿景](docs/assets/product-vision.png)
+![Hanai Investment 产品愿景](docs/assets/product-vision.webp)
+
+## 界面预览
+
+黑夜模式保留原客户端的信息密度、页面位置与 A 股涨红跌绿语义；市场热力图由 ECharts `treemap` 绘制，面积对应板块成交额。
+
+![Hanai Investment 黑夜模式市场页](docs/assets/dashboard-dark.jpg)
+
+亮色模式只替换语义色彩 token，侧栏、顶栏、卡片、表格和图表的位置与尺寸保持不变。
+
+![Hanai Investment 亮色模式市场页](docs/assets/dashboard-light.jpg)
+
+个股详情恢复旧版左右布局：左侧为默认日 K、行情快照和基本面，右侧为五维雷达与独立价值曲线；金线是供应商大师价值序列，蓝线是股价，红/绿带分别表示高估与低估区间。
+
+![Hanai Investment 个股详情与价值曲线](docs/assets/stock-detail-dark.jpg)
 
 ## 核心体验
 
-- 市场全景：六大指数、市场宽度、涨跌榜、成交/换手榜、行业与概念热力、板块成分。
-- 自选观察：多分组、移动与删除、加入成本和区间表现、周期行情刷新、来源与过期状态。
-- 个股研究：分时、日/周/月 K 线、交易和基本面指标、GuruFocus 估值摘要与数据出处。
-- 四位大师：段永平、查理·芒格、沃伦·巴菲特、混江龙；每位大师都有独立 Skill 与参考资料快照。
-- 大师研判：每次研判创建独立工作区与持久 DSH Session，报告通过校验后原子封存并记录 SHA-256。
-- 报告后续聊：报告完成不归档 Session；Hanai 自绘聊天继续连接同一位大师，支持历史、流式输出、工具树、队列、steer、取消、审批和问题响应。
-- 显式修订：普通追问不会覆盖报告；只有“创建修订版”才生成 v2、v3 等新的不可变快照。
-- DeepSeek 设置：页面可写入或移除 Key、查看模型目录；Key 由 DSH Credentials 托管，不进入 Hanai 数据库。
-- 两套主题：澄海蓝与青玉绿，均限定在 Workbench 根节点，不污染 DSH 全局样式。
+- 今日市场：按旧版顺序展示六大指数、市场宽度，以及左侧 ECharts 行业/概念 `treemap` 与右侧四类榜单；面积代表成交额，颜色代表涨跌幅。
+- 自选与发现：保留分组管理、添加/移动/删除、三态排序、加入日期、加入以来表现和行情新鲜度。
+- 大师研判：保留研判列表、筛选、执行过程、失败态、归档信息与报告默认视图；每次研判绑定独立工作区和持久 DSH Session。
+- 专家中心：按旧版两列信息卡展示段永平、查理·芒格、沃伦·巴菲特和混江龙，不增加人物营销入口。
+- 设置与诊断：保留 Agent、数据源、本地存储和关于声明；在原页面内增加 DSH Credentials 管理的 DeepSeek API Key 与模型状态。
+- 个股详情：从全局搜索、自选或榜单进入，保留 ECharts 分时、日/周/月 K 线、五维雷达和独立价值曲线，以及旧版行情、基本面和估值字段。
+- 报告后继续对话：报告 `ready` 后默认仍展示报告；用户可切换到“继续对话”，在同一个 `dshSessionId` 中和生成报告的大师追问，不复制消息或另建会话。
+- 普通亮色/黑夜模式：两套主题只替换语义色彩 token，页面 DOM、文案、尺寸、顺序、图表数据和业务色保持一致。
+- Hash 深链接：`#/dashboard`、`#/watch`、`#/judgements`、`#/personas`、`#/settings` 以及个股/研判详情均可刷新、前进、后退和直接打开。
 - 完全自有界面：使用 React 18、DSH Slot/Runtime 和 CSS Modules；不显示或复用 DSH 原生聊天 UI。
 
 ## 架构
 
-![Hanai Investment 架构](docs/assets/product-architecture.png)
+![Hanai Investment 架构](docs/assets/product-architecture.webp)
 
 ```mermaid
 flowchart LR
@@ -73,7 +87,7 @@ pnpm run profile:verify
 dsh --profile hanai-investment
 ```
 
-安装器会创建独立 `hanai-investment` Profile，先加入与当前 DSH CLI 同版本的 Web App，再加入 Hanai Bundle。它会拒绝修改 `web`、`headless` 等保留 Profile，也会在目标 Profile 含无关依赖时停止。
+安装器会创建或安全迁移独立的 `hanai-investment` Profile。最终 Bundle 顺序固定为 DSH Base、DSH Web App、Hanai；只有 `hanai-investment-dsh` 是 Profile dependency。Base 与 Web App 必须由当前 DSH CLI 的 installation fallback 提供，不能再用 `dsh plugin add @deepseek-ai/dsh-web-app` 安装到 Profile，否则相同版本的 DSH runtime 仍可能被加载成两个模块实例。安装器会拒绝修改 `web`、`headless` 等保留 Profile，也会在目标 Profile 含无关依赖或 Bundle 时停止。
 
 通用 DSH Web 仍按原方式启动：
 
@@ -83,17 +97,18 @@ dsh web
 
 两者可以使用不同端口同时运行。详见 [ADR-0003](docs/adr/0003-isolated-dsh-profile.md)。
 
-### 手工安装发布包
+### 安装发布包或修复旧 Profile
 
-发布到 npm 后，也可以显式完成同样的两层装配：
+在包含本仓库安装脚本的发布目录中，把 `--package` 换成 npm 包名即可。重复执行是安全的，也会迁移早期错误安装过 Web App dependency 的 Profile：
 
 ```bash
-dsh plugin --profile hanai-investment add --workspace-root @deepseek-ai/dsh-web-app@0.1.0-rc.6
-dsh plugin --profile hanai-investment add --workspace-root hanai-investment-dsh
+pnpm run build
+pnpm run profile:install -- --package hanai-investment-dsh
+pnpm run profile:verify
 dsh --profile hanai-investment
 ```
 
-请把示例中的 rc 版本替换为 `dsh --version` 输出的精确版本。
+迁移前请先停止正在运行的 `dsh --profile hanai-investment` 进程。不要手工执行 `dsh plugin ... add @deepseek-ai/dsh-web-app`；它会重新引入 Profile-local DSH runtime shadow。
 
 ## 数据与隐私
 
@@ -157,6 +172,8 @@ pnpm run check
 
 真实装配验证使用临时 `DSH_HOME` 安装 `hanai-investment` Profile，再以随机 loopback 端口启动 Host/Web；不会触碰用户的官方 `web` Profile。
 
+完整的已验证启动步骤、首次设置、浏览器矩阵和故障排查见 [启动与验收报告](docs/startup-and-verification.md)。逐页功能与布局约束见 [客户端迁移与验收基线](docs/client-parity.md)。
+
 ## 目录结构
 
 ```text
@@ -175,7 +192,7 @@ docs/                   架构与 ADR
 
 ## 当前边界
 
-- `shell.overlay` 是 DSH AppFrame 的全屏插件画布，不是弹窗、iframe 或命令行 Shell。它让 Hanai 在不 fork DSH 的前提下拥有完整页面；当前没有 URL deep-link。
+- `shell.overlay` 是 DSH AppFrame 的全屏插件画布，不是弹窗、iframe 或命令行 Shell。它让 Hanai 在不 fork DSH 的前提下拥有完整页面；Workbench 通过 `location.hash` 提供页面深链接，不要求 DSH 增加通用 Router Slot。
 - DSH 尚未发布稳定的树外 Client Plugin 构建 SDK，因此仓库维护了一个最小、版本锁定的 bundler adapter。
 - DSH Session 删除与跨版本迁移能力仍有限；备份持续对话时，需要同时保留 Hanai 数据根和 DSH Session 数据。
 - 本项目是研究辅助工具，不构成投资建议，不承诺数据实时性、完整性或投资收益。
@@ -183,3 +200,5 @@ docs/                   架构与 ADR
 ## License
 
 [MIT](LICENSE)
+
+客户端 bundle 内联依赖的许可证与声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

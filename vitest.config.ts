@@ -3,7 +3,12 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['packages/**/tests/**/*.spec.ts', 'packages/**/tests/**/*.spec.tsx', 'tests/**/*.spec.ts'],
+    include: [
+      'packages/**/tests/**/*.spec.ts',
+      'packages/**/tests/**/*.spec.tsx',
+      'scripts/**/*.spec.ts',
+      'tests/**/*.spec.ts',
+    ],
     server: {
       // The shared DSH Markdown primitive imports its KaTeX stylesheet. Keep
       // the package inside Vite's transform pipeline so jsdom tests do not ask

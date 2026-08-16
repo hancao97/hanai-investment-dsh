@@ -1,0 +1,116 @@
+.chart {
+  width: 100%;
+  height: 100%;
+}
+
+:global(.other-tooltip) {
+  width: min(390px, calc(100vw - 24px));
+}
+
+:global(.other-tooltip-head) {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+:global(.other-tooltip-head b) {
+  font-size: 13px;
+}
+
+:global(.other-tooltip-head span),
+:global(.other-tooltip-summary),
+:global(.other-tooltip-hint) {
+  color: var(--hanai-muted, #64748b);
+  font-size: 10.5px;
+}
+
+:global(.other-tooltip-summary) {
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--hanai-border, rgba(127, 127, 127, .18));
+}
+
+:global(.other-tooltip-columns),
+:global(.other-tooltip-row) {
+  display: grid;
+  grid-template-columns: 27px minmax(0, 1fr) 82px 62px;
+  gap: 7px;
+}
+
+:global(.other-tooltip-columns) {
+  padding: 5px 8px 3px;
+  color: var(--hanai-muted, #64748b);
+  font-size: 10px;
+}
+
+:global(.other-tooltip-columns span:nth-child(1)),
+:global(.other-tooltip-columns span:nth-child(3)),
+:global(.other-tooltip-columns span:nth-child(4)) {
+  text-align: right;
+}
+
+:global(.other-tooltip-list) {
+  max-height: 238px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 3px -5px 0;
+  padding: 0 3px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hanai-border-strong, rgba(127, 127, 127, .32)) transparent;
+}
+
+:global(.other-tooltip-row) {
+  align-items: center;
+  width: 100%;
+  padding: 6px 5px;
+  border: 0;
+  border-bottom: 1px solid var(--hanai-border, rgba(127, 127, 127, .12));
+  background: transparent;
+  color: var(--hanai-muted, #64748b);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+:global(.other-tooltip-row:hover) {
+  background: var(--hanai-panel-hover, rgba(127, 127, 127, .1));
+  color: var(--hanai-text, #e8eaf0);
+}
+
+:global(.other-tooltip-rank),
+:global(.other-tooltip-pct),
+:global(.other-tooltip-amount) {
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+:global(.other-tooltip-rank) {
+  color: var(--hanai-muted, #64748b);
+  font-size: 10px;
+}
+
+:global(.other-tooltip-name) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:global(.other-tooltip-pct.is-up) {
+  color: var(--hanai-up, #f04a55);
+}
+
+:global(.other-tooltip-pct.is-down) {
+  color: var(--hanai-down, #2fac74);
+}
+
+:global(.other-tooltip-pct.is-flat),
+:global(.other-tooltip-amount) {
+  color: var(--hanai-muted, #64748b);
+}
+
+:global(.other-tooltip-hint) {
+  padding-top: 6px;
+  text-align: right;
+}
