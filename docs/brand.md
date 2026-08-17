@@ -37,8 +37,8 @@
 - DSH Profile `hanai-investment`；
 - 数据根 `~/.hanai-investment-dsh`；
 - 环境变量 `HANAI_INVESTMENT_DSH_HOME`；
-- 当前 Git remote、仓库 URL、RPC 路径和已发布入口。
+- RPC 路径、已发布入口，以及尚未单独迁移的运行时兼容标识。
 
 因此，文档首次提及兼容标识时应同时说明品牌名；命令、路径、配置键和历史记录不得为了视觉统一而直接替换。
 
-计划中的仓库名 `worth-dsh` 与 `worth-desktop` 需要在远程 owner 确定并实际改名后，统一更新 clone 地址、repository/homepage/bugs 元数据和本地 remote，不能提前写成尚不存在的链接。
+GitHub 仓库使用统一的品牌组织与仓库名：`hanai-labs/worth-dsh` 和 `hanai-labs/worth-desktop`。clone 地址、repository/homepage/bugs 元数据和本地 remote 必须保持一致。

@@ -7,11 +7,11 @@
   "author": "Hanai Worth contributors",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hancao97/hanai-investment-dsh.git"
+    "url": "git+https://github.com/hanai-labs/worth-dsh.git"
   },
-  "homepage": "https://github.com/hancao97/hanai-investment-dsh#readme",
+  "homepage": "https://github.com/hanai-labs/worth-dsh#readme",
   "bugs": {
-    "url": "https://github.com/hancao97/hanai-investment-dsh/issues"
+    "url": "https://github.com/hanai-labs/worth-dsh/issues"
   },
   "keywords": [
     "deepseek",

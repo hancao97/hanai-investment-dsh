@@ -80,8 +80,8 @@ DSH 仍处于 pre-release，rc 之间不承诺兼容。仓库把 Host、Client �
 ## 从源码安装
 
 ```bash
-git clone git@github.com:hancao97/hanai-investment-dsh.git
-cd hanai-investment-dsh
+git clone git@github.com:hanai-labs/worth-dsh.git
+cd worth-dsh
 pnpm install
 pnpm run build
 pnpm run profile:install -- --package .

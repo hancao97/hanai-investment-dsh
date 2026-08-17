@@ -81,7 +81,7 @@ flowchart LR
 ## 4. 仓库结构
 
 ```text
-hanai-investment-dsh/
+worth-dsh/
 ├── docs/
 ├── packages/
 │   ├── contracts/              # Host/Client 共享的 JSON-safe TypeScript 合约
