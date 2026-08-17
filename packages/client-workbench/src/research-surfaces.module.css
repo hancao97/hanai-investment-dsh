@@ -1,7 +1,36 @@
 .markdownSurface {
+  /* MarkdownText is a shared DSH primitive. The DSH shell keeps its own theme,
+     so bridge every primitive token back to the active Hanai workbench theme
+     instead of inheriting the shell's dark palette inside a light report. */
+  --dsw-alias-bg-base: var(--hanai-panel-solid);
+  --dsw-alias-label-primary: var(--hanai-text);
+  --dsw-alias-label-secondary: var(--hanai-muted);
+  --dsw-alias-label-tertiary: var(--hanai-faint);
+  --dsw-alias-label-caption: var(--hanai-faint);
+  --dsw-alias-state-business-primary: var(--hanai-primary);
+  --dsw-alias-border-l2: var(--hanai-border);
+  --dsw-alias-border-l3: var(--hanai-border-strong);
+  --dsw-alias-markdown-code-block-banner: var(--hanai-panel-solid);
+  --dsw-alias-markdown-code-block: var(--hanai-bg);
+  --dsw-alias-markdown-inline-code: var(--hanai-bg-soft);
+
   min-width: 0;
   color: var(--hanai-text);
   overflow-wrap: anywhere;
+}
+
+:global([data-theme='light']) .markdownSurface {
+  /* The shell's Shiki palette is also dark. Keep highlighted source readable
+     when the Hanai overlay independently switches to its light theme. */
+  --shiki-token-constant: #1c7ed6;
+  --shiki-token-string: #2f7d42;
+  --shiki-token-comment: #667085;
+  --shiki-token-keyword: #b4235d;
+  --shiki-token-parameter: #b54708;
+  --shiki-token-function: #6941c6;
+  --shiki-token-string-expression: #287a3d;
+  --shiki-token-punctuation: #475467;
+  --shiki-token-link: #175cd3;
 }
 
 .markdownSurface a {

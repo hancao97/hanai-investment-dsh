@@ -1,5 +1,4 @@
 import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
-import styles from './styles.module.css'
 import researchStyles from './research-surfaces.module.css'
 
 const CODE_LABELS = {
@@ -14,7 +13,7 @@ const CODE_LABELS = {
  */
 export function MarkdownView({ content }: { content: string }) {
   return (
-    <article className={`${styles['markdown']} ${researchStyles['markdownSurface']}`}>
+    <article className={researchStyles['markdownSurface']}>
       <MarkdownText text={content} codeLabels={CODE_LABELS} />
     </article>
   )

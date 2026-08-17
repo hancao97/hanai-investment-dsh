@@ -59,6 +59,12 @@ describe('workbench theme contract', () => {
 
   it('keeps report links, tables, and code blocks on semantic theme tokens', () => {
     expect(researchCss).toMatch(/\.markdownSurface\s*\{[^}]*color: var\(--hanai-text\)/s)
+    expect(researchCss).toMatch(/\.markdownSurface\s*\{[^}]*--dsw-alias-label-primary: var\(--hanai-text\)/s)
+    expect(researchCss).toMatch(/\.markdownSurface\s*\{[^}]*--dsw-alias-label-secondary: var\(--hanai-muted\)/s)
+    expect(researchCss).toMatch(/\.markdownSurface\s*\{[^}]*--dsw-alias-label-caption: var\(--hanai-faint\)/s)
+    expect(researchCss).toMatch(/\.markdownSurface\s*\{[^}]*--dsw-alias-state-business-primary: var\(--hanai-primary\)/s)
+    expect(researchCss).toMatch(/\.markdownSurface\s*\{[^}]*--dsw-alias-markdown-inline-code: var\(--hanai-bg-soft\)/s)
+    expect(researchCss).toMatch(/:global\(\[data-theme='light'\]\) \.markdownSurface\s*\{[^}]*--shiki-token-comment: #667085/s)
     expect(researchCss).toMatch(/\.markdownSurface a\s*\{[^}]*color: var\(--hanai-primary\)/s)
     expect(researchCss).toMatch(/\.markdownSurface table\s*\{[^}]*overflow-x: auto/s)
     expect(researchCss).toContain('background: rgba(var(--hanai-primary-rgb), .06);')

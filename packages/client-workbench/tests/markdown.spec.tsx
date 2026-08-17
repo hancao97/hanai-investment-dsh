@@ -29,6 +29,7 @@ const alpha = 1
 \`\`\``} />)
 
     expect(screen.getByRole('heading', { level: 1, name: '研判结论' })).toBeInTheDocument()
+    expect(container.querySelector('article')?.className).not.toContain('undefined')
     expect(screen.getByRole('table')).toBeInTheDocument()
     expect(container.querySelector('ul ol')).not.toBeNull()
     expect(container.querySelector('blockquote')).toHaveTextContent('引用数据仅用于研究。')
