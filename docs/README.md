@@ -6,6 +6,7 @@
 
 | 文档 | 内容 | 状态 |
 | --- | --- | --- |
+| [product-capability-analysis-2026-08-17.md](product-capability-analysis-2026-08-17.md) | 参考产品/仓库解读、能力差距、目标产品形态与分阶段升级路线 | 建议方案 |
 | [architecture.md](architecture.md) | 已实现架构、插件装配、Agent/报告/续聊链路、数据模型和验收证据 | 已实现 |
 | [client-parity.md](client-parity.md) | 旧版客户端功能、页面位置、图表语义和逐项验收基线 | 已实现 |
 | [startup-and-verification.md](startup-and-verification.md) | 已实测的安装、启动、数据隔离与浏览器验收报告 | 已验证 |
