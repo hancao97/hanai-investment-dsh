@@ -20,6 +20,7 @@ import type {
   ToolResultNode,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ChatNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
   answerApproval,
   answerQuestion,
@@ -37,6 +38,11 @@ import {
   toError,
 } from './session.ts'
 import css from './ChatPanel.module.css'
+
+const CODE_LABELS = {
+  copyLabel: '复制代码',
+  copiedLabel: '已复制',
+} as const
 
 /** Stable workbench-facing integration contract. */
 export interface ChatPanelProps {
@@ -226,6 +232,7 @@ const SessionView = memo(function SessionView({
   const subagent = useSessionSelector(session, snapshot => snapshot.subagent)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const atBottomRef = useRef(true)
+  const flowRows = useMemo(() => groupFlowRows(order, session), [order, session])
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     const viewport = scrollRef.current
@@ -312,14 +319,23 @@ const SessionView = memo(function SessionView({
           aria-live="polite"
           aria-relevant="additions"
         >
-          {order.map(nodeKey => (
-            <ChatNodeRow
-              key={nodeKey}
-              nodeKey={nodeKey}
-              session={session}
-              onUpdated={handleNodeUpdate}
-            />
-          ))}
+          {flowRows.map(row => row.kind === 'assistant-turn'
+            ? (
+                <AssistantTurn
+                  key={row.key}
+                  nodeKeys={row.nodeKeys}
+                  session={session}
+                  onUpdated={handleNodeUpdate}
+                />
+              )
+            : (
+                <ChatNodeRow
+                  key={row.nodeKey}
+                  nodeKey={row.nodeKey}
+                  session={session}
+                  onUpdated={handleNodeUpdate}
+                />
+              ))}
           {running && (
             <div className={css.runningStatus} role="status">
               <span className={css.pulse} aria-hidden />
@@ -347,6 +363,165 @@ const SessionView = memo(function SessionView({
           : <Composer actions={actions} running={running} canSteer={subagent === null} />}
       </div>
     </div>
+  )
+})
+
+type FlowRow = {
+  kind: 'node'
+  nodeKey: string
+} | {
+  kind: 'assistant-turn'
+  key: string
+  nodeKeys: string[]
+}
+
+/** Keep one assistant turn visually cohesive instead of spacing every internal event like a message. */
+function groupFlowRows(order: readonly string[], session: SessionFace): FlowRow[] {
+  const rows: FlowRow[] = []
+  let assistantKeys: string[] = []
+  const snapshot = session.getSnapshot()
+  const flushAssistant = () => {
+    const first = assistantKeys[0]
+    if (first !== undefined) {
+      rows.push({ kind: 'assistant-turn', key: `assistant-turn:${first}`, nodeKeys: assistantKeys })
+      assistantKeys = []
+    }
+  }
+
+  for (const nodeKey of order) {
+    const node = snapshot.chat.nodes.get(nodeKey) as ChatNode | undefined
+    if (node?.kind === 'assistant-step' || node?.kind === 'tool-call') {
+      assistantKeys.push(nodeKey)
+      continue
+    }
+    flushAssistant()
+    rows.push({ kind: 'node', nodeKey })
+  }
+  flushAssistant()
+  return rows
+}
+
+function equalNodeLists(
+  left: readonly (ChatNode | undefined)[],
+  right: readonly (ChatNode | undefined)[],
+): boolean {
+  return left.length === right.length && left.every((node, index) => Object.is(node, right[index]))
+}
+
+const AssistantTurn = memo(function AssistantTurn({
+  nodeKeys,
+  session,
+  onUpdated,
+}: {
+  nodeKeys: readonly string[]
+  session: SessionFace
+  onUpdated(): void
+}) {
+  const nodes = useSessionSelector(
+    session,
+    snapshot => nodeKeys.map(nodeKey => snapshot.chat.nodes.get(nodeKey) as ChatNode | undefined),
+    equalNodeLists,
+  )
+
+  useLayoutEffect(() => {
+    if (nodes.some(node => node !== undefined)) onUpdated()
+  }, [nodes, onUpdated])
+
+  const visibleNodes = nodes.filter((node): node is ChatNode => (
+    node !== undefined && node.visibility !== 'hidden' && node.kind !== 'turn-tail'
+  ))
+  const actualCallIds = new Set(visibleNodes.flatMap(node => (
+    node.kind === 'tool-call' ? [node.data.root.callId] : []
+  )))
+  const processItems: ReactNode[] = []
+  const answerItems: ReactNode[] = []
+  let running = false
+
+  for (const node of visibleNodes) {
+    if (node.kind === 'tool-call') {
+      if (!isSettledTool(node.data.root)) running = true
+      processItems.push(
+        <ToolCard key={node.id} block={node.data.root} depth={0} compact />,
+      )
+      continue
+    }
+    if (node.kind !== 'assistant-step') continue
+    if (node.data.status === 'running') running = true
+
+    node.data.blocks.forEach((block, index) => {
+      const key = `${node.id}:${index}`
+      switch (block.kind) {
+        case 'text':
+          if (block.text !== '') {
+            answerItems.push(
+              <MarkdownBlock
+                key={key}
+                text={block.text}
+                streaming={node.data.status === 'running' && index === node.data.blocks.length - 1}
+              />,
+            )
+          }
+          break
+        case 'reasoning':
+          processItems.push(
+            <details className={css.processItem} key={key}>
+              <summary>
+                <span className={css.processKind}>思考</span>
+                <span className={css.processPreview}>{inlinePreview(block.text, 96) || '正在推演判断依据'}</span>
+              </summary>
+              <div className={css.processText}>{block.text}</div>
+            </details>,
+          )
+          break
+        case 'tool-call':
+          if (!actualCallIds.has(block.callId)) {
+            processItems.push(
+              <details className={css.processItem} key={key}>
+                <summary>
+                  <span className={css.processKind}>工具</span>
+                  <span className={css.processPreview}>{block.name || 'unknown tool'}</span>
+                  <span className={css.processState}>准备</span>
+                </summary>
+                <pre className={css.code}>{formatJson(block.argsRaw)}</pre>
+              </details>,
+            )
+          }
+          break
+        case 'image':
+          answerItems.push(<div className={css.attachment} key={key}>大师生成的图片</div>)
+          break
+        case 'other':
+          answerItems.push(<pre className={css.code} key={key}>{formatJson(block.block)}</pre>)
+          break
+      }
+    })
+
+    if (node.data.status === 'interrupted') {
+      answerItems.push(<span className={css.interrupted} key={`${node.id}:interrupted`}>已停止</span>)
+    }
+  }
+
+  if (visibleNodes.length === 0) return null
+  if (answerItems.length === 0 && processItems.length === 0 && running) {
+    answerItems.push(<span className={css.muted} key="organizing">正在组织观点…</span>)
+  }
+
+  return (
+    <article className={css.assistantTurn}>
+      <div className={css.messageLabel}>{running ? '大师 · 研判中' : '大师'}</div>
+      <div className={css.assistantTurnBody}>
+        {processItems.length > 0 && (
+          <details className={css.processGroup} open={running || undefined} aria-label="研判过程">
+            <summary className={css.processSummary}>
+              <span className={css.processTitle}>研判过程</span>
+              <span className={css.processCount}>{running ? '进行中' : `${processItems.length} 个步骤`}</span>
+            </summary>
+            <div className={css.processList}>{processItems}</div>
+          </details>
+        )}
+        {answerItems.length > 0 && <div className={css.assistantAnswer}>{answerItems}</div>}
+      </div>
+    </article>
   )
 })
 
@@ -460,7 +635,7 @@ function ContentBlockView({ block }: { block: unknown }) {
   const value = block as Record<string, unknown>
   switch (value.type) {
     case 'text':
-      return <div className={css.text}>{typeof value.text === 'string' ? value.text : ''}</div>
+      return <MarkdownBlock text={typeof value.text === 'string' ? value.text : ''} />
     case 'reasoning':
       return (
         <details className={css.reasoning}>
@@ -492,7 +667,7 @@ function AssistantBlocks({ blocks, running }: { blocks: readonly AssistantBlock[
     <>
       {blocks.map((block, index) => {
         switch (block.kind) {
-          case 'text': return <div className={css.text} key={index}>{block.text}<StreamingCaret show={running && index === blocks.length - 1} /></div>
+          case 'text': return <MarkdownBlock key={index} text={block.text} streaming={running && index === blocks.length - 1} />
           case 'reasoning': return (
             <details className={css.reasoning} key={index} open={running || undefined}>
               <summary>{running ? '正在思考' : '思考过程'}</summary>
@@ -513,18 +688,27 @@ function AssistantBlocks({ blocks, running }: { blocks: readonly AssistantBlock[
   )
 }
 
+function MarkdownBlock({ text, streaming = false }: { text: string; streaming?: boolean }) {
+  return (
+    <div className={css.markdown}>
+      <MarkdownText text={text} codeLabels={CODE_LABELS} />
+      <StreamingCaret show={streaming} />
+    </div>
+  )
+}
+
 function StreamingCaret({ show }: { show: boolean }) {
   return show ? <span className={css.caret} aria-hidden /> : null
 }
 
-function ToolCard({ block, depth }: { block: ToolCallBlock; depth: number }) {
+function ToolCard({ block, depth, compact = false }: { block: ToolCallBlock; depth: number; compact?: boolean }) {
   const settled = isSettledTool(block)
   const name = settled ? block.call?.name ?? block.callId : block.name
   const args = settled ? block.call?.argsRaw ?? '' : block.argsRaw
   const argsPreview = inlinePreview(args)
   const failed = settled && block.isError
   return (
-    <article className={`${css.tool} ${failed ? css.toolError : ''}`} data-depth={depth}>
+    <article className={`${css.tool} ${compact ? css.toolCompact : ''} ${failed ? css.toolError : ''}`} data-depth={depth}>
       <details open={!settled || failed || undefined}>
         <summary className={css.toolSummary}>
           <span className={settled ? css.toolSettled : css.toolRunning} aria-hidden />
@@ -552,7 +736,7 @@ function ToolCard({ block, depth }: { block: ToolCallBlock; depth: number }) {
       </details>
       {block.subCalls.length > 0 && (
         <div className={css.subTools}>
-          {block.subCalls.map(child => <ToolCard key={child.callId} block={child} depth={depth + 1} />)}
+          {block.subCalls.map(child => <ToolCard key={child.callId} block={child} depth={depth + 1} compact={compact} />)}
         </div>
       )}
     </article>

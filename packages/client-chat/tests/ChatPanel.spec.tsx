@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type {
   ConversationSnapshot,
@@ -48,6 +48,38 @@ describe('DshChatPanel', () => {
       harness.publish([assistantNode('现金流检查完成', 'settled')], false)
     })
     expect(screen.getByText('现金流检查完成')).not.toBeNull()
+  })
+
+  it('renders assistant GFM and folds one turn of reasoning and tools into a compact process group', () => {
+    const assistant = assistantBlocksNode([
+      { kind: 'reasoning', text: '检查现金流质量和估值假设' },
+      {
+        kind: 'tool-call',
+        callId: 'tool-1',
+        name: 'financial_lookup',
+        argsRaw: '{"code":"600519"}',
+      },
+      {
+        kind: 'text',
+        text: `**价格有容错空间**\n\n| 情景 | 估值 |\n| --- | ---: |\n| 基准 | 300 亿 |`,
+      },
+    ], 'settled')
+    const harness = makeHarness([assistant, toolNode(true)], false)
+
+    render(<DshChatPanel sessions={harness.sessions} sessionId="session-1" />)
+
+    expect(screen.getByText('价格有容错空间').tagName).toBe('STRONG')
+    const table = screen.getByRole('table')
+    expect(within(table).getByRole('columnheader', { name: '情景' })).not.toBeNull()
+    expect(within(table).getByRole('cell', { name: '300 亿' })).not.toBeNull()
+    expect(screen.queryByText(/\| --- \|/)).toBeNull()
+
+    const process = screen.getByLabelText('研判过程') as HTMLDetailsElement
+    expect(process.open).toBe(false)
+    expect(within(process).getByText('2 个步骤')).not.toBeNull()
+    expect(within(process).getByText('financial_lookup')).not.toBeNull()
+    expect(within(process).getAllByText('检查现金流质量和估值假设')).toHaveLength(2)
+    expect(screen.getAllByText('大师')).toHaveLength(1)
   })
 
   it('resets local composer state when the linked session id changes', () => {
@@ -271,6 +303,10 @@ describe('DshChatPanel', () => {
 })
 
 function assistantNode(text: string, status: 'running' | 'settled') {
+  return assistantBlocksNode([{ kind: 'text', text }], status)
+}
+
+function assistantBlocksNode(blocks: unknown[], status: 'running' | 'settled') {
   return {
     key: 'assistant:1:1',
     id: 'assistant:1:1',
@@ -283,7 +319,7 @@ function assistantNode(text: string, status: 'running' | 'settled') {
       status,
       turn: 1,
       step: 1,
-      blocks: [{ kind: 'text', text }],
+      blocks,
       time: 1,
     },
   }
