@@ -31,6 +31,13 @@
   --control-shadow: 0 1px 2px rgba(0, 0, 0, .2);
   --input-bg: #0f141c;
   --placeholder: #6f7889;
+  --button-primary-bg: #e0b34c;
+  --button-primary-bg-hover: #f0c866;
+  --button-primary-text: #17130a;
+  --button-primary-rgb: 224, 179, 76;
+  --button-disabled-bg: #151a23;
+  --button-disabled-border: rgba(184, 194, 211, .12);
+  --button-disabled-text: #667085;
 
   /*
    * Shared research/chat surfaces still consume the original Hanai token
@@ -99,6 +106,13 @@
   --control-shadow: 0 1px 2px rgba(26, 39, 60, .07);
   --input-bg: #fff;
   --placeholder: #98a2b3;
+  --button-primary-bg: #24324a;
+  --button-primary-bg-hover: #17243a;
+  --button-primary-text: #fff;
+  --button-primary-rgb: 36, 50, 74;
+  --button-disabled-bg: #eef1f5;
+  --button-disabled-border: #d8dee8;
+  --button-disabled-text: #98a2b3;
   color-scheme: light;
 }
 
@@ -106,10 +120,7 @@
 .app *,
 .splash,
 .splash * { box-sizing: border-box; }
-.app button,
-.app input,
-.app select,
-.app textarea { color: inherit; font: inherit; }
+.app :where(button, input, select, textarea) { color: inherit; font: inherit; }
 .app button { border: 0; }
 .app input::placeholder,
 .app textarea::placeholder { color: var(--placeholder); opacity: 1; }
@@ -261,17 +272,17 @@
 .buttonSelected,
 .buttonDanger { min-height: 29px; padding: 0 12px; border: 1px solid var(--control-border) !important; border-radius: 7px; cursor: pointer; color: var(--text); font-size: 11px; font-weight: 550; white-space: nowrap; background: var(--control-bg); box-shadow: var(--control-shadow); transition: border-color 120ms ease, color 120ms ease, background 120ms ease, transform 120ms ease, box-shadow 120ms ease; }
 .button:hover:not(:disabled) { border-color: var(--control-border-hover) !important; color: var(--gold-strong); background: var(--control-bg-hover); }
-.buttonPrimary { border-color: var(--primary) !important; color: var(--on-primary); background: var(--primary); box-shadow: 0 5px 14px rgba(var(--primary-rgb), .18); }
-.buttonPrimary:hover:not(:disabled) { border-color: var(--primary-strong) !important; background: var(--primary-strong); transform: translateY(-1px); box-shadow: 0 7px 18px rgba(var(--primary-rgb), .24); }
+.buttonPrimary { border-color: var(--button-primary-bg) !important; color: var(--button-primary-text); background: var(--button-primary-bg); box-shadow: 0 5px 14px rgba(var(--button-primary-rgb), .18); }
+.buttonPrimary:hover:not(:disabled) { border-color: var(--button-primary-bg-hover) !important; color: var(--button-primary-text); background: var(--button-primary-bg-hover); transform: translateY(-1px); box-shadow: 0 7px 18px rgba(var(--button-primary-rgb), .24); }
 .buttonSelected { border-color: color-mix(in srgb, var(--gold) 58%, var(--control-border)) !important; color: var(--gold-strong); background: var(--gold-soft); box-shadow: inset 0 0 0 1px rgba(var(--primary-rgb), .05); }
 .buttonSelected:hover:not(:disabled) { border-color: var(--gold) !important; background: color-mix(in srgb, var(--gold-soft) 76%, var(--control-bg-hover)); }
 .buttonDanger { border-color: rgba(240, 74, 85, .45) !important; color: var(--up); background: var(--up-soft); }
 .buttonGhost { background: transparent; box-shadow: none; }
 .button:disabled,
-.buttonPrimary:disabled,
 .buttonSelected:disabled,
 .buttonDanger:disabled,
-.app button:disabled { cursor: not-allowed; opacity: .45; }
+.app :where(button:disabled) { cursor: not-allowed; opacity: .45; }
+.buttonPrimary:disabled { border-color: var(--button-disabled-border) !important; color: var(--button-disabled-text); background: var(--button-disabled-bg); box-shadow: none; transform: none; opacity: 1; }
 .buttonGroup { display: flex; gap: 5px; }
 .buttonGroup .button,
 .buttonGroup .buttonPrimary,

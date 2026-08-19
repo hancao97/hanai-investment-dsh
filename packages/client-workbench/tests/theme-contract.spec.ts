@@ -61,13 +61,20 @@ describe('workbench theme contract', () => {
     for (const token of [
       '--control-bg', '--control-bg-hover', '--control-border', '--control-border-hover',
       '--control-focus', '--control-shadow', '--input-bg', '--placeholder',
+      '--button-primary-bg', '--button-primary-bg-hover', '--button-primary-text',
+      '--button-primary-rgb', '--button-disabled-bg', '--button-disabled-border', '--button-disabled-text',
     ]) {
       expect(shellCss).toContain(`${token}:`)
     }
-    expect(shellCss).toMatch(/\.buttonPrimary\s*\{[^}]*background: var\(--primary\)/s)
+    expect(shellCss).toContain('.app :where(button, input, select, textarea)')
+    expect(shellCss).toMatch(/\.buttonPrimary\s*\{[^}]*color: var\(--button-primary-text\)[^}]*background: var\(--button-primary-bg\)/s)
+    expect(shellCss).toMatch(/\.buttonPrimary:disabled\s*\{[^}]*background: var\(--button-disabled-bg\)[^}]*opacity: 1/s)
     expect(shellCss).toMatch(/\.buttonSelected\s*\{[^}]*background: var\(--gold-soft\)/s)
     expect(shellCss).toMatch(/\.inlineStockSearch > input,[\s\S]*background: var\(--input-bg\)/)
     expect(shellCss).toContain('box-shadow: var(--control-focus);')
+    const lightControls = shellCss.match(/\.app\[data-theme='light'\]\s*\{([\s\S]*?)\n\}/)?.[1]
+    expect(lightControls).toContain('--button-primary-bg: #24324a;')
+    expect(lightControls).toContain('--button-primary-text: #fff;')
   })
 
   it('uses A-share rise and fall colors for valuation gaps', () => {
