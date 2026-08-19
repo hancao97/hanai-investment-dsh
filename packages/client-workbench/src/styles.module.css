@@ -407,10 +407,10 @@
 .valuationCell small { margin-top: 2px !important; font-family: inherit !important; }
 .valuePositive,
 .valuePositive b,
-.valuePositive small { color: var(--down) !important; }
+.valuePositive small { color: var(--up) !important; }
 .valueNegative,
 .valueNegative b,
-.valueNegative small { color: var(--up) !important; }
+.valueNegative small { color: var(--down) !important; }
 .cellSkeleton { display: inline-block; width: 58px; height: 9px; border-radius: 999px; background: linear-gradient(90deg, var(--hover), var(--control-border), var(--hover)); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
 .refreshIcon { display: inline-block; margin-right: 5px; font-size: 14px; line-height: 1; }
 .refreshIconSpinning { animation: spin 900ms linear infinite; }

@@ -70,6 +70,11 @@ describe('workbench theme contract', () => {
     expect(shellCss).toContain('box-shadow: var(--control-focus);')
   })
 
+  it('uses A-share rise and fall colors for valuation gaps', () => {
+    expect(shellCss).toMatch(/\.valuePositive[\s\S]*?\{ color: var\(--up\) !important; \}/)
+    expect(shellCss).toMatch(/\.valueNegative[\s\S]*?\{ color: var\(--down\) !important; \}/)
+  })
+
   it('keeps report links, tables, and code blocks on semantic theme tokens', () => {
     expect(researchCss).toMatch(/\.markdownSurface\s*\{[^}]*color: var\(--hanai-text\)/s)
     expect(researchCss).toMatch(/\.markdownSurface\s*\{[^}]*--dsw-alias-label-primary: var\(--hanai-text\)/s)
