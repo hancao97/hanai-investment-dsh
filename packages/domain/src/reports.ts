@@ -145,6 +145,13 @@ export class ReportStore {
     return existsSync(this.workingReportPath(judgementId))
   }
 
+  removeJudgement(judgementId: string): void {
+    assertIdentifier(judgementId)
+    const directory = join(this.paths.judgementsDir, judgementId)
+    this.assertInDataRoot(directory)
+    rmSync(directory, { recursive: true, force: true })
+  }
+
   /** Recover an already-renamed version whose following SQLite transaction did not commit. */
   private readExistingSeal(
     judgement: Judgement,

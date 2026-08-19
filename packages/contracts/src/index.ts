@@ -185,6 +185,14 @@ export interface WatchQuote extends StockQuote {
   sinceAddedPct: number | null
 }
 
+/** A lightweight, watch-list-safe projection of the daily valuation surface. */
+export interface WatchValuation {
+  secId: string
+  fairValue: number | null
+  valuationRank: number | null
+  meta: ProviderMeta | null
+}
+
 export interface ValuationSummary {
   stockId: string
   ivDcf: number | null
@@ -391,6 +399,10 @@ export interface HanaiEndpointMap {
     request: { groupId: string }
     response: { quotes: WatchQuote[]; meta: ProviderMeta }
   }
+  'watch.valuations': {
+    request: { groupId: string }
+    response: { valuations: WatchValuation[]; meta: ProviderMeta | null }
+  }
   'watch.group.create': { request: { name: string }; response: WatchGroup }
   'watch.group.rename': { request: { id: string; name: string }; response: WatchGroup[] }
   'watch.group.remove': { request: { id: string }; response: WatchGroup[] }
@@ -401,6 +413,7 @@ export interface HanaiEndpointMap {
   'judgement.create': { request: CreateJudgementInput; response: Judgement }
   'judgement.get': { request: { id: string }; response: JudgementDetail }
   'judgement.revise': { request: { id: string; instruction: string }; response: Judgement }
+  'judgement.remove': { request: { id: string }; response: Judgement[] }
   'model.default.get': {
     request: Record<string, never>
     response: DefaultModelSelection

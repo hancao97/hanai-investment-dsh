@@ -14,6 +14,7 @@ import type {
   StockDetail,
   WatchGroup,
   WatchQuote,
+  WatchValuation,
 } from '../../contracts/src/index.ts'
 import { HanaiWorkbench } from '../src/app.tsx'
 import type { HanaiClient } from '../src/api.ts'
@@ -52,6 +53,14 @@ const stale: ProviderMeta = {
   providerId: 'eastmoney-cache',
   sourceName: '东方财富（最近成功快照）',
   cacheState: 'stale',
+}
+
+const valuationFresh: ProviderMeta = {
+  providerId: 'gurufocus-cn-prototype',
+  sourceName: '价值大师网（个人研究接口，未获再分发授权）',
+  sourceTimestamp: '2026-08-15',
+  fetchedAt: '2026-08-15T10:02:00+08:00',
+  cacheState: 'cached',
 }
 
 const masters: MasterPersona[] = [
@@ -181,6 +190,13 @@ const secondWatchQuote: WatchQuote = {
   addedAt: secondGroup.items[0]?.addedAt ?? '2026-08-02T00:00:00Z',
 }
 
+const watchValuation: WatchValuation = {
+  secId: watchQuote.secId,
+  fairValue: 1800,
+  valuationRank: 4,
+  meta: valuationFresh,
+}
+
 const stockDetail: StockDetail = {
   security: { secId: '1.600519', code: '600519', name: '贵州茅台', exchange: 'SH', pinyinFull: 'guizhoumaotai', pinyinInitial: 'gzmt' },
   quote: watchQuote,
@@ -240,10 +256,10 @@ describe('HanaiWorkbench old-client parity', () => {
     expect(document.title).toBe('自选与发现 — Hanai Worth · 值见')
   })
 
-  it('shows only a real sidebar health timestamp and omits unavailable status placeholders', async () => {
-    renderAt('/dashboard')
+  it('keeps the sidebar footer empty regardless of provider health timestamps', async () => {
+    const { container } = renderAt('/dashboard')
     await screen.findByRole('heading', { name: '今日市场' })
-    expect(screen.getByText('行情源')).not.toBeNull()
+    expect(within(container.querySelector('aside')!).queryByText('行情源')).toBeNull()
     expect(screen.queryByText(/DSH 状态/)).toBeNull()
     cleanup()
 
@@ -440,9 +456,12 @@ describe('HanaiWorkbench old-client parity', () => {
     await screen.findByRole('heading', { name: '自选与发现' })
     const table = screen.getByRole('table')
     expect(within(table).getAllByRole('columnheader').map(cell => cell.textContent?.trim())).toEqual([
-      '名称', '最新价', '涨跌幅', '成交额', '换手率', '总市值', 'PE(动)', 'PB', '加入日期 ↓', '加入以来', '',
+      '名称', '最新价', '涨跌幅', '成交额', '换手率', '总市值', 'PE(动)', 'PB', '合理估值', '距现价', '加入日期 ↓', '加入以来', '',
     ])
     expect(within(table).getByLabelText('查看 贵州茅台 600519').tabIndex).toBe(0)
+    expect(within(table).getByText('1,800.00')).not.toBeNull()
+    expect(within(table).getByText('+20.00%')).not.toBeNull()
+    expect(within(table).getByText('+300.00 元')).not.toBeNull()
 
     const changeHead = within(table).getByRole('button', { name: '涨跌幅' })
     fireEvent.click(changeHead)
@@ -456,6 +475,79 @@ describe('HanaiWorkbench old-client parity', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '管理分组' }))
     expect(await screen.findByRole('dialog', { name: '管理自选分组' })).not.toBeNull()
+  })
+
+  it('shows a table-shaped quote skeleton, then fills valuation cells from one group request', async () => {
+    const quotes = deferred<{ quotes: WatchQuote[]; meta: ProviderMeta }>()
+    const valuations = deferred<{ valuations: WatchValuation[]; meta: ProviderMeta | null }>()
+    const client = makeClient({
+      'watch.quotes': () => quotes.promise,
+      'watch.valuations': () => valuations.promise,
+    })
+    renderAt('/watch', client)
+    await screen.findByRole('heading', { name: '自选与发现' })
+    expect(screen.getByRole('status', { name: '正在加载自选行情' })).not.toBeNull()
+
+    await act(async () => {
+      quotes.resolve({ quotes: [watchQuote], meta: fresh })
+      await quotes.promise
+    })
+    const table = await screen.findByRole('table')
+    expect(screen.queryByRole('status', { name: '正在加载自选行情' })).toBeNull()
+    expect(within(table).queryByText('1,800.00')).toBeNull()
+
+    await act(async () => {
+      valuations.resolve({ valuations: [watchValuation], meta: valuationFresh })
+      await valuations.promise
+    })
+    expect(await within(table).findByText('1,800.00')).not.toBeNull()
+  })
+
+  it('refreshes quotes and daily valuations together from one explicit action', async () => {
+    let quoteCalls = 0
+    let valuationCalls = 0
+    const client = makeClient({
+      'watch.quotes': () => {
+        quoteCalls += 1
+        return { quotes: [watchQuote], meta: fresh }
+      },
+      'watch.valuations': () => {
+        valuationCalls += 1
+        return { valuations: [watchValuation], meta: valuationFresh }
+      },
+    })
+    renderAt('/watch', client)
+    await screen.findByLabelText('查看 贵州茅台 600519')
+    await screen.findByText('1,800.00')
+    expect([quoteCalls, valuationCalls]).toEqual([1, 1])
+
+    fireEvent.click(screen.getByRole('button', { name: '刷新当前自选分组' }))
+    await waitFor(() => expect([quoteCalls, valuationCalls]).toEqual([2, 2]))
+  })
+
+  it('deletes a settled judgement only after explicit confirmation and protects active runs', async () => {
+    const removeRequests: unknown[] = []
+    const client = makeClient({
+      'judgement.remove': request => {
+        removeRequests.push(request)
+        return [generatingJudgement]
+      },
+    })
+    renderAt('/judgements', client)
+    await screen.findByRole('heading', { name: '大师研判' })
+
+    const activeDelete = screen.getByRole('button', { name: /删除进行中研判/ })
+    expect((activeDelete as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: /删除已完成研判/ }))
+
+    const dialog = await screen.findByRole('dialog', { name: '删除研判报告' })
+    expect(within(dialog).getByText(/全部报告版本和本地工作文件/)).not.toBeNull()
+    fireEvent.click(within(dialog).getByRole('button', { name: '确认删除' }))
+
+    await waitFor(() => expect(removeRequests).toEqual([{ id: readyJudgement.id }]))
+    expect(screen.queryByRole('dialog', { name: '删除研判报告' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /删除已完成研判/ })).toBeNull()
+    expect(screen.getByText('研判报告已删除')).not.toBeNull()
   })
 
   it('cancels a previous watch-group batch and ignores its late rows', async () => {
@@ -780,6 +872,10 @@ function makeClient(overrides: Record<string, CallOverride> = {}): HanaiClient {
       case 'dashboard.get': return dashboard
       case 'sector.stocks': return { stocks: [watchQuote], meta: fresh }
       case 'watch.quotes': return { quotes: [watchQuote, watchQuoteMissing], meta: stale }
+      case 'watch.valuations': return {
+        valuations: [watchValuation, { secId: watchQuoteMissing.secId, fairValue: null, valuationRank: null, meta: null }],
+        meta: valuationFresh,
+      }
       case 'watch.list': return [group]
       case 'security.search': return [{ ...stockDetail.security, price: 1500, changePct: .67 }]
       case 'security.detail': return stockDetail
@@ -791,6 +887,7 @@ function makeClient(overrides: Record<string, CallOverride> = {}): HanaiClient {
       }
       case 'security.valuation': return { valuation: stockDetail.valuation, meta: fresh }
       case 'judgement.list': return bootstrap.judgements
+      case 'judgement.remove': return bootstrap.judgements.filter(item => item.id !== (request as { id: string }).id)
       case 'judgement.get': return detailFor((request as { id: string }).id)
       case 'theme.set': return request
       case 'cache.clear': return { scope: (request as { scope: 'market' | 'valuation' }).scope, removedFiles: 0, freedBytes: 0 }

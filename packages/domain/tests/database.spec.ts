@@ -95,6 +95,10 @@ describe('HanaiDatabase', () => {
       size_bytes: 1, sealed_at: sealedAt, model_provider: null, model: null,
     })).toThrow()
     expect(db.listReportRows('missing')).toHaveLength(0)
+    db.removeJudgement('judgement-1')
+    expect(db.getJudgement('judgement-1')).toBeNull()
+    expect(db.listReportRows('judgement-1')).toEqual([])
+    expect(() => db.removeJudgement('judgement-1')).toThrow('不存在')
     db.close()
   })
 

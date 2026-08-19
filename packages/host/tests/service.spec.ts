@@ -119,6 +119,34 @@ async function eventually(assertion: () => void): Promise<void> {
 }
 
 describe('HanaiService report lifecycle', () => {
+  it('deletes only a settled judgement, archives its session, and removes local report files', async () => {
+    const { database, paths, service, sessions } = fixture()
+    const created = await service.call('judgement.create', {
+      secId: '1.600519', masterId: 'munger-perspective',
+    }, new AbortController().signal)
+    const judgementDirectory = join(paths.judgementsDir, created.id)
+    expect(existsSync(judgementDirectory)).toBe(true)
+
+    await expect(service.call(
+      'judgement.remove',
+      { id: created.id },
+      new AbortController().signal,
+    )).rejects.toThrow('仍在进行中')
+    expect(database.getJudgement(created.id)).not.toBeNull()
+    expect(sessions.archived).toEqual([])
+
+    database.updateJudgement(created.id, { reportStatus: 'failed', turnStatus: 'failed' })
+    await expect(service.call(
+      'judgement.remove',
+      { id: created.id },
+      new AbortController().signal,
+    )).resolves.toEqual([])
+    expect(sessions.archived).toEqual([created.dshSessionId])
+    expect(database.getJudgement(created.id)).toBeNull()
+    expect(existsSync(judgementDirectory)).toBe(false)
+    database.close()
+  })
+
   it('creates one persistent DSH session, seals report v1, and keeps ordinary chat out of report versions', async () => {
     const { database, reports, service, sessions } = fixture()
     const created = await service.call('judgement.create', {
@@ -392,6 +420,46 @@ describe('HanaiService report lifecycle', () => {
 })
 
 describe('HanaiService parity endpoints and diagnostics', () => {
+  it('loads daily watch valuations as one resilient group batch', async () => {
+    const { database, market, service } = fixture()
+    const group = database.listWatchGroups()[0]!
+    database.addWatchItem(group.id, '1.600519', 100)
+    database.addWatchItem(group.id, '0.000001', 10)
+    const valuationMeta: ProviderMeta = {
+      providerId: 'gurufocus-cn-prototype',
+      sourceName: '价值大师网',
+      sourceTimestamp: '2026-08-15',
+      fetchedAt: '2026-08-15T01:03:00.000Z',
+      cacheState: 'cached',
+    }
+    vi.spyOn(market, 'getValuation').mockImplementation(async (secId) => {
+      if (secId === '0.000001') throw new Error('single valuation unavailable')
+      return {
+        valuation: {
+          stockId: 'SHSE:600519', ivDcf: null, medps: 123.45, gfScore: null, valuationRank: 4,
+          dimensions: { financialStrength: null, profitability: null, growth: null, gfValue: null, momentum: null },
+          series: { price: [], medps: [] },
+          meta: valuationMeta,
+        },
+        meta: valuationMeta,
+      }
+    })
+
+    await expect(service.call(
+      'watch.valuations',
+      { groupId: group.id },
+      new AbortController().signal,
+    )).resolves.toEqual({
+      valuations: [
+        { secId: '0.000001', fairValue: null, valuationRank: null, meta: null },
+        { secId: '1.600519', fairValue: 123.45, valuationRank: 4, meta: valuationMeta },
+      ],
+      meta: valuationMeta,
+    })
+    expect(database.getSetting('valuation.latestSuccess')).toBe('2026-08-15T01:03:00.000Z')
+    database.close()
+  })
+
   it('reads and writes the DSH-owned default model without a Hanai settings copy', async () => {
     const { database, defaultModel, service } = fixture()
 

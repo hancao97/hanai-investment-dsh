@@ -30,6 +30,7 @@ import type {
   StockTrendData,
   StockValuationData,
   WatchQuote,
+  WatchValuation,
 } from '../../contracts/src/index.ts'
 import { getMasterPersona, listMasters } from '../../masters/src/index.ts'
 import { HanaiDatabase } from '../../domain/src/database.ts'
@@ -245,6 +246,9 @@ export class HanaiService {
       }
       case 'watch.list': return this.database.listWatchGroups()
       case 'watch.quotes': return this.watchQuotes((request as HanaiRequest<'watch.quotes'>).groupId)
+      case 'watch.valuations': return this.watchValuations(
+        (request as HanaiRequest<'watch.valuations'>).groupId,
+      )
       case 'watch.group.create': return this.database.createWatchGroup(
         (request as HanaiRequest<'watch.group.create'>).name,
       )
@@ -272,6 +276,9 @@ export class HanaiService {
       case 'judgement.create': return this.createJudgement(request as HanaiRequest<'judgement.create'>, signal)
       case 'judgement.get': return this.getJudgementDetail((request as HanaiRequest<'judgement.get'>).id)
       case 'judgement.revise': return this.reviseJudgement(request as HanaiRequest<'judgement.revise'>)
+      case 'judgement.remove': return this.removeJudgement(
+        (request as HanaiRequest<'judgement.remove'>).id,
+      )
       case 'model.default.get': return this.currentDefaultModel()
       case 'model.default.set': return this.saveDefaultModel(
         request as HanaiRequest<'model.default.set'>,
@@ -452,6 +459,32 @@ export class HanaiService {
     return { quotes: watchQuotes, meta }
   }
 
+  private async watchValuations(groupId: string): Promise<HanaiResponse<'watch.valuations'>> {
+    const group = this.database.listWatchGroups().find(candidate => candidate.id === groupId)
+    if (group === undefined) throw new Error('分组不存在')
+
+    const valuations = await mapWithConcurrency(group.items, 4, async (item): Promise<WatchValuation> => {
+      try {
+        const result = await this.market.getValuation(
+          item.secId,
+          this.database.getSecurity(item.secId),
+        )
+        return {
+          secId: item.secId,
+          fairValue: result.valuation?.medps ?? null,
+          valuationRank: result.valuation?.valuationRank ?? null,
+          meta: result.meta,
+        }
+      } catch {
+        // One unavailable valuation must not delay or fail the remaining watch list.
+        return { secId: item.secId, fairValue: null, valuationRank: null, meta: null }
+      }
+    })
+    const metas = valuations.flatMap(item => item.meta === null ? [] : [item.meta])
+    this.recordProviderSuccess(VALUATION_SUCCESS_SETTING, metas)
+    return { valuations, meta: newestProviderMeta(metas) }
+  }
+
   private async addWatchItem(input: HanaiRequest<'watch.item.add'>): Promise<ReturnType<HanaiDatabase['listWatchGroups']>> {
     let basePrice: number | null = null
     try {
@@ -523,6 +556,23 @@ export class HanaiService {
       this.failReportAttempt(judgement, 'judgement-start-failed', messageOf(failure))
       throw failure
     }
+  }
+
+  private async removeJudgement(id: string): Promise<HanaiResponse<'judgement.remove'>> {
+    const judgement = this.database.getJudgement(id)
+    if (judgement === null) throw new Error('研判不存在')
+    if (isReportInFlight(judgement) || this.reportJobs.has(id)) {
+      throw new Error('研判仍在进行中，完成或失败后才能删除')
+    }
+    if (judgement.dshSessionId !== null) {
+      if (await this.sessions.isRunning(judgement.dshSessionId)) {
+        throw new Error('大师会话仍在运行，暂时不能删除')
+      }
+      await this.sessions.archive(judgement.dshSessionId)
+    }
+    this.database.removeJudgement(id)
+    this.reports.removeJudgement(id)
+    return this.database.listJudgements()
   }
 
   private getJudgementDetail(id: string): JudgementDetail {
@@ -670,6 +720,38 @@ function messageOf(error: unknown): string {
 
 function assertNever(value: never): never {
   throw new Error(`未知 Hanai endpoint：${String(value)}`)
+}
+
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  project: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) return []
+  const results = new Array<R>(items.length)
+  let nextIndex = 0
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex
+      nextIndex += 1
+      results[index] = await project(items[index]!, index)
+    }
+  })
+  await Promise.all(workers)
+  return results
+}
+
+function newestProviderMeta(values: readonly ProviderMeta[]): ProviderMeta | null {
+  let newest: ProviderMeta | null = null
+  let newestTime = -Infinity
+  for (const value of values) {
+    const time = Date.parse(value.fetchedAt)
+    if (newest === null || (Number.isFinite(time) && time > newestTime)) {
+      newest = value
+      newestTime = Number.isFinite(time) ? time : newestTime
+    }
+  }
+  return newest
 }
 
 function unavailableMarketMeta(): ProviderMeta {

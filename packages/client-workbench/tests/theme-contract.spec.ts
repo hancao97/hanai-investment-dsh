@@ -57,6 +57,19 @@ describe('workbench theme contract', () => {
     expect(chatCss).toContain('--chat-surface: var(--hanai-panel-solid, #0e1d30);')
   })
 
+  it('defines coherent control surfaces for buttons, inputs, focus, and selection states', () => {
+    for (const token of [
+      '--control-bg', '--control-bg-hover', '--control-border', '--control-border-hover',
+      '--control-focus', '--control-shadow', '--input-bg', '--placeholder',
+    ]) {
+      expect(shellCss).toContain(`${token}:`)
+    }
+    expect(shellCss).toMatch(/\.buttonPrimary\s*\{[^}]*background: var\(--primary\)/s)
+    expect(shellCss).toMatch(/\.buttonSelected\s*\{[^}]*background: var\(--gold-soft\)/s)
+    expect(shellCss).toMatch(/\.inlineStockSearch > input,[\s\S]*background: var\(--input-bg\)/)
+    expect(shellCss).toContain('box-shadow: var(--control-focus);')
+  })
+
   it('keeps report links, tables, and code blocks on semantic theme tokens', () => {
     expect(researchCss).toMatch(/\.markdownSurface\s*\{[^}]*color: var\(--hanai-text\)/s)
     expect(researchCss).toMatch(/\.markdownSurface\s*\{[^}]*--dsw-alias-label-primary: var\(--hanai-text\)/s)

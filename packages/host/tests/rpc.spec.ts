@@ -16,6 +16,8 @@ describe('Hanai RPC request validation', () => {
       secId: '1.600519', period: 'monthly',
     })).toEqual({ secId: '1.600519', period: 'monthly' })
     expect(parseHanaiRequest('security.valuation', { secId: '1.600519' })).toEqual({ secId: '1.600519' })
+    expect(parseHanaiRequest('watch.valuations', { groupId: 'default' })).toEqual({ groupId: 'default' })
+    expect(parseHanaiRequest('judgement.remove', { id: 'judgement-1' })).toEqual({ id: 'judgement-1' })
     expect(parseHanaiRequest('cache.clear', { scope: 'valuation' })).toEqual({ scope: 'valuation' })
     expect(parseHanaiRequest('storage.openDataRoot', {})).toEqual({})
 
@@ -27,6 +29,8 @@ describe('Hanai RPC request validation', () => {
     expect(() => parseHanaiRequest('security.trend', {
       secId: '1.600519', refreshAll: true,
     })).toThrow()
+    expect(() => parseHanaiRequest('watch.valuations', { groupId: '../default' })).toThrow()
+    expect(() => parseHanaiRequest('judgement.remove', { id: '../judgement-1' })).toThrow()
   })
 
   it('validates the DSH default-model bridge strictly and normalizes text', () => {

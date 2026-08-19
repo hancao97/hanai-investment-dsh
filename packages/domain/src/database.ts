@@ -474,6 +474,11 @@ export class HanaiDatabase {
     return rows.map(judgementFromRow)
   }
 
+  removeJudgement(id: string): void {
+    const result = this.sqlite.prepare('DELETE FROM judgements WHERE id = ?').run(id)
+    if (result.changes === 0) throw new Error('研判不存在')
+  }
+
   updateJudgement(id: string, update: JudgementUpdate): Judgement {
     const fields: string[] = []
     const values: SQLInputValue[] = []

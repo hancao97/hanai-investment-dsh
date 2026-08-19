@@ -20,6 +20,7 @@ const schemas = {
   'security.valuation': z.object({ secId }).strict(),
   'watch.list': empty,
   'watch.quotes': z.object({ groupId: identifier }).strict(),
+  'watch.valuations': z.object({ groupId: identifier }).strict(),
   'watch.group.create': z.object({ name: groupName }).strict(),
   'watch.group.rename': z.object({ id: identifier, name: groupName }).strict(),
   'watch.group.remove': z.object({ id: identifier }).strict(),
@@ -39,6 +40,7 @@ const schemas = {
   }).strict(),
   'judgement.get': z.object({ id: identifier }).strict(),
   'judgement.revise': z.object({ id: identifier, instruction: z.string().trim().min(1).max(4000) }).strict(),
+  'judgement.remove': z.object({ id: identifier }).strict(),
   'model.default.get': empty,
   'model.default.set': z.object({
     provider: z.string().trim().min(1).max(100),

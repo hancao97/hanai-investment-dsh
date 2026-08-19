@@ -21,6 +21,7 @@ import type {
   ThemeId,
   WatchGroup,
   WatchQuote,
+  WatchValuation,
 } from '../../contracts/src/index.ts'
 import { ChatPanel } from '../../client-chat/src/index.tsx'
 import { HanaiClient, type DefaultModelView } from './api.ts'
@@ -143,8 +144,6 @@ export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
   const openStock = (stock: Pick<SecurityMaster, 'secId'>) => navigate(`/stock/${encodeURIComponent(stock.secId)}`)
   const openJudgement = (id: string) => navigate(`/judgements/${encodeURIComponent(id)}`)
   const activePage = route.page === 'judgement-detail' ? 'judgements' : route.page === 'stock' ? null : route.page
-  const latestMarketSuccess = bootstrap.diagnostics.latestMarketSuccess
-  const showMarketHealth = isUsableTimestamp(latestMarketSuccess)
 
   return (
     <div className={styles['app']} data-theme={bootstrap.theme} data-hanai-root>
@@ -166,11 +165,6 @@ export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
             </button>
           ))}
         </nav>
-        {showMarketHealth && (
-          <div className={styles['sidebarFoot']}>
-            <HealthRow label="行情源" timestamp={latestMarketSuccess} />
-          </div>
-        )}
       </aside>
 
       <div className={styles['body']}>
@@ -397,8 +391,8 @@ function DashboardPage({ client, theme, onStock, notify }: { client: HanaiClient
         <PanelHead
           title={drill === null ? '板块热力' : `板块热力 · ${drill.name}`}
           extra={drill === null ? <div className={styles['buttonGroup']}>
-            <button className={sectorType === 'industry' ? styles['buttonPrimary'] : styles['button']} disabled={sectorLoading} onClick={() => selectSectorType('industry')}>行业</button>
-            <button className={sectorType === 'concept' ? styles['buttonPrimary'] : styles['button']} disabled={sectorLoading} onClick={() => selectSectorType('concept')}>概念</button>
+            <button className={sectorType === 'industry' ? styles['buttonSelected'] : styles['button']} disabled={sectorLoading} onClick={() => selectSectorType('industry')}>行业</button>
+            <button className={sectorType === 'concept' ? styles['buttonSelected'] : styles['button']} disabled={sectorLoading} onClick={() => selectSectorType('concept')}>概念</button>
           </div> : <button className={styles['button']} onClick={closeDrill}>← 返回板块</button>}
         />
         {drill === null ? <div className={styles['treemapBody']}>
@@ -414,7 +408,7 @@ function DashboardPage({ client, theme, onStock, notify }: { client: HanaiClient
 
       <article className={`${styles['card']} ${styles['rankCard']}`}>
         <PanelHead title="榜单" extra={<div className={styles['buttonGroup']}>
-          {([['gainers', '涨幅榜'], ['losers', '跌幅榜'], ['amount', '成交额'], ['turnover', '换手率']] as const).map(([id, label]) => <button key={id} className={rank === id ? styles['buttonPrimary'] : styles['button']} onClick={() => setRank(id)}>{label}</button>)}
+          {([['gainers', '涨幅榜'], ['losers', '跌幅榜'], ['amount', '成交额'], ['turnover', '换手率']] as const).map(([id, label]) => <button key={id} className={rank === id ? styles['buttonSelected'] : styles['button']} onClick={() => setRank(id)}>{label}</button>)}
         </div>} />
         <div className={styles['rankBody']}>
           <table className={styles['dataTable']}>
@@ -446,7 +440,14 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
   const [quotes, setQuotes] = useState<WatchQuote[]>([])
   const [loadedGroupId, setLoadedGroupId] = useState<string | null>(null)
   const [quoteMeta, setQuoteMeta] = useState<ProviderMeta | null>(null)
+  const [quoteLoading, setQuoteLoading] = useState(true)
   const [refreshFailed, setRefreshFailed] = useState(false)
+  const [valuations, setValuations] = useState<WatchValuation[]>([])
+  const [loadedValuationGroupId, setLoadedValuationGroupId] = useState<string | null>(null)
+  const [valuationMeta, setValuationMeta] = useState<ProviderMeta | null>(null)
+  const [valuationLoading, setValuationLoading] = useState(true)
+  const [valuationFailed, setValuationFailed] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [sort, setSort] = useState<{ key: WatchSortKey; desc: boolean }>({ key: 'addedAt', desc: true })
   const [managerOpen, setManagerOpen] = useState(false)
   const [addQuery, setAddQuery] = useState('')
@@ -457,9 +458,16 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
   const quoteGeneration = useRef(0)
   const quoteController = useRef<AbortController | null>(null)
   const quoteRequestGroupId = useRef<string | null>(null)
+  const valuationGeneration = useRef(0)
+  const valuationController = useRef<AbortController | null>(null)
+  const valuationRequestGroupId = useRef<string | null>(null)
 
-  const load = useCallback(async (requestedGroupId: string) => {
-    if (quoteRequestGroupId.current === requestedGroupId
+  const loadQuotes = useCallback(async (
+    requestedGroupId: string,
+    mode: 'initial' | 'poll' | 'refresh' = 'poll',
+    force = false,
+  ) => {
+    if (!force && quoteRequestGroupId.current === requestedGroupId
       && quoteController.current !== null
       && !quoteController.current.signal.aborted) return
     const generation = ++quoteGeneration.current
@@ -467,10 +475,12 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
     const controller = new AbortController()
     quoteController.current = controller
     quoteRequestGroupId.current = requestedGroupId
+    if (mode === 'initial') setQuoteLoading(true)
     if (requestedGroupId === '') {
       setQuotes([])
       setLoadedGroupId(null)
       setQuoteMeta(null)
+      setQuoteLoading(false)
       setRefreshFailed(false)
       quoteController.current = null
       quoteRequestGroupId.current = null
@@ -490,11 +500,65 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
         || generation !== quoteGeneration.current
         || requestedGroupId !== activeGroupId.current) return
       setRefreshFailed(true)
-      notify(messageOf(error), 'error')
+      if (mode !== 'poll') notify(messageOf(error), 'error')
     } finally {
+      if (generation === quoteGeneration.current && requestedGroupId === activeGroupId.current) {
+        setQuoteLoading(false)
+      }
       if (quoteController.current === controller) {
         quoteController.current = null
         quoteRequestGroupId.current = null
+      }
+    }
+  }, [client, notify])
+
+  const loadValuations = useCallback(async (
+    requestedGroupId: string,
+    mode: 'initial' | 'refresh' = 'initial',
+    force = false,
+  ) => {
+    if (!force && valuationRequestGroupId.current === requestedGroupId
+      && valuationController.current !== null
+      && !valuationController.current.signal.aborted) return
+    const generation = ++valuationGeneration.current
+    valuationController.current?.abort()
+    const controller = new AbortController()
+    valuationController.current = controller
+    valuationRequestGroupId.current = requestedGroupId
+    setValuationLoading(true)
+    if (requestedGroupId === '') {
+      setValuations([])
+      setLoadedValuationGroupId(null)
+      setValuationMeta(null)
+      setValuationLoading(false)
+      setValuationFailed(false)
+      valuationController.current = null
+      valuationRequestGroupId.current = null
+      return
+    }
+    try {
+      const result = await client.call('watch.valuations', { groupId: requestedGroupId }, controller.signal)
+      if (controller.signal.aborted
+        || generation !== valuationGeneration.current
+        || requestedGroupId !== activeGroupId.current) return
+      setValuations(result.valuations)
+      setLoadedValuationGroupId(requestedGroupId)
+      setValuationMeta(result.meta)
+      setValuationFailed(false)
+    } catch (error) {
+      if (controller.signal.aborted
+        || generation !== valuationGeneration.current
+        || requestedGroupId !== activeGroupId.current) return
+      setLoadedValuationGroupId(requestedGroupId)
+      setValuationFailed(true)
+      if (mode === 'refresh') notify(`合理估值加载失败：${messageOf(error)}`, 'error')
+    } finally {
+      if (generation === valuationGeneration.current && requestedGroupId === activeGroupId.current) {
+        setValuationLoading(false)
+      }
+      if (valuationController.current === controller) {
+        valuationController.current = null
+        valuationRequestGroupId.current = null
       }
     }
   }, [client, notify])
@@ -514,16 +578,30 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
     setQuotes([])
     setLoadedGroupId(null)
     setQuoteMeta(null)
+    setQuoteLoading(true)
     setRefreshFailed(false)
+    valuationGeneration.current += 1
+    valuationController.current?.abort()
+    valuationController.current = null
+    valuationRequestGroupId.current = null
+    setValuations([])
+    setLoadedValuationGroupId(null)
+    setValuationMeta(null)
+    setValuationLoading(true)
+    setValuationFailed(false)
+    setRefreshing(false)
     setMoveTarget(null)
-    void load(groupId)
-    const timer = window.setInterval(() => void load(groupId), 15_000)
+    void loadQuotes(groupId, 'initial')
+    void loadValuations(groupId)
+    const timer = window.setInterval(() => void loadQuotes(groupId), 15_000)
     return () => {
       window.clearInterval(timer)
       quoteGeneration.current += 1
       quoteController.current?.abort()
+      valuationGeneration.current += 1
+      valuationController.current?.abort()
     }
-  }, [groupId, load])
+  }, [groupId, loadQuotes, loadValuations])
   useEffect(() => {
     if (addQuery.trim() === '') { setAddResults([]); return }
     const controller = new AbortController()
@@ -537,6 +615,8 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
 
   const displayedGroupId = loadedGroupId === groupId ? loadedGroupId : null
   const visibleQuotes = displayedGroupId === null ? [] : quotes
+  const visibleValuations = loadedValuationGroupId === groupId ? valuations : []
+  const valuationMap = useMemo(() => new Map(visibleValuations.map(item => [item.secId, item])), [visibleValuations])
   const sorted = useMemo(() => [...visibleQuotes].sort((left, right) => compareNullable(left[sort.key], right[sort.key], sort.desc)), [sort, visibleQuotes])
   const toggleSort = (key: WatchSortKey) => setSort(current => {
     if (current.key !== key) return { key, desc: true }
@@ -548,10 +628,19 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
     activeGroupId.current = nextGroupId
     quoteGeneration.current += 1
     quoteController.current?.abort()
+    valuationGeneration.current += 1
+    valuationController.current?.abort()
     setQuotes([])
     setLoadedGroupId(null)
     setQuoteMeta(null)
+    setQuoteLoading(true)
     setRefreshFailed(false)
+    setValuations([])
+    setLoadedValuationGroupId(null)
+    setValuationMeta(null)
+    setValuationLoading(true)
+    setValuationFailed(false)
+    setRefreshing(false)
     setMoveTarget(null)
     setGroupId(nextGroupId)
   }
@@ -562,14 +651,36 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
       ? current
       : next.find(group => group.isDefault)?.id ?? next[0]?.id ?? ''
     if (nextGroupId !== current) selectGroup(nextGroupId)
-    else void load(nextGroupId)
+    else {
+      void loadQuotes(nextGroupId, 'refresh', true)
+      void loadValuations(nextGroupId, 'refresh', true)
+    }
   }
 
+  const refreshCurrentGroup = async () => {
+    const requestedGroupId = activeGroupId.current
+    if (requestedGroupId === '' || refreshing) return
+    setRefreshing(true)
+    await Promise.all([
+      loadQuotes(requestedGroupId, 'refresh', true),
+      loadValuations(requestedGroupId, 'refresh', true),
+    ])
+    if (activeGroupId.current === requestedGroupId) setRefreshing(false)
+  }
+
+  const initialLoading = quoteLoading && displayedGroupId === null
+  const initialLoadFailed = refreshFailed && displayedGroupId === null && !quoteLoading
+  const skeletonRows = Math.min(6, Math.max(3, groups.find(group => group.id === groupId)?.secIds.length ?? 0))
+
   return <Page>
-    <PageHeader title="自选与发现" meta={<><DataStateBadge meta={quoteMeta} refreshFailed={refreshFailed} /><span>仅刷新当前分组 · 更新于 {shortTime(quoteMeta?.fetchedAt ?? null)}</span></>} />
+    <PageHeader
+      title="自选与发现"
+      meta={<>{initialLoading ? <span className={`${styles['dataState']} ${styles['dataState_loading']}`}>加载中</span> : <DataStateBadge meta={quoteMeta} refreshFailed={refreshFailed} />}<span>当前分组 · 行情更新于 {shortTime(quoteMeta?.fetchedAt ?? null)} · 估值按日缓存</span></>}
+      action={<button className={styles['button']} disabled={refreshing || groupId === ''} onClick={() => void refreshCurrentGroup()} aria-label="刷新当前自选分组"><span className={`${styles['refreshIcon']} ${refreshing ? styles['refreshIconSpinning'] : ''}`} aria-hidden="true">↻</span>{refreshing ? '刷新中…' : '刷新'}</button>}
+    />
     <div className={styles['watchToolbar']}>
       <div className={styles['groupTabs']}>
-        {groups.map(group => <button key={group.id} className={group.id === groupId ? styles['buttonPrimary'] : styles['button']} onClick={() => selectGroup(group.id)}>{group.name}{group.isDefault && <small>默认</small>}<span>{group.secIds.length}</span></button>)}
+        {groups.map(group => <button key={group.id} className={group.id === groupId ? styles['buttonSelected'] : styles['button']} onClick={() => selectGroup(group.id)}>{group.name}{group.isDefault && <small>默认</small>}<span>{group.secIds.length}</span></button>)}
         <button className={`${styles['button']} ${styles['buttonGhost']}`} onClick={() => setManagerOpen(true)}>管理分组</button>
       </div>
       <div className={styles['inlineStockSearch']}>
@@ -579,7 +690,7 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
     </div>
 
     <article className={styles['card']}>
-      {sorted.length === 0 ? <Empty title="当前分组暂无自选股" detail="使用上方搜索框或 ⌘K 全局搜索添加。" /> : <div className={styles['tableWrap']}><table className={styles['dataTable']}>
+      {initialLoading ? <WatchTableSkeleton rows={skeletonRows} /> : initialLoadFailed ? <Empty title="自选行情暂不可用" detail="已有自选仍保存在本地，请检查网络后重试。" action={<button className={styles['button']} onClick={() => void refreshCurrentGroup()}>重新加载</button>} /> : sorted.length === 0 ? <Empty title="当前分组暂无自选股" detail="使用上方搜索框或 ⌘K 全局搜索添加。" /> : <div className={styles['tableWrap']}><table className={`${styles['dataTable']} ${styles['watchTable']}`}>
         <thead><tr>
           <th>名称</th><th>最新价</th>
           <SortableHead label="涨跌幅" column="changePct" sort={sort} onSort={toggleSort} />
@@ -588,6 +699,8 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
           <SortableHead label="总市值" column="marketCap" sort={sort} onSort={toggleSort} />
           <SortableHead label="PE(动)" column="pe" sort={sort} onSort={toggleSort} />
           <th>PB</th>
+          <th>合理估值</th>
+          <th>距现价</th>
           <SortableHead label="加入日期" column="addedAt" sort={sort} onSort={toggleSort} />
           <th>加入以来</th><th />
         </tr></thead>
@@ -597,17 +710,48 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
           <td className={styles[classForChange(quote.changePct)]}>{percent(quote.changePct)}</td>
           <td>{money(quote.amount)}</td><td>{ratio(quote.turnoverRate)}</td><td>{money(quote.marketCap)}</td>
           <td>{quote.pe !== null && quote.pe > 0 ? number(quote.pe, 1) : '—'}</td><td>{quote.pb !== null && quote.pb > 0 ? number(quote.pb) : '—'}</td>
+          <WatchValuationCells quote={quote} valuation={valuationMap.get(quote.secId)} loading={valuationLoading && !valuationMap.has(quote.secId)} />
           <td title={dateTime(quote.addedAt)}>{dateOnly(quote.addedAt)}</td><td className={styles[classForChange(quote.sinceAddedPct)]}>{percent(quote.sinceAddedPct)}</td>
           <td><div className={styles['rowActions']}>{groups.length > 1 && displayedGroupId !== null && <button className={`${styles['button']} ${styles['buttonGhost']}`} onClick={event => { event.stopPropagation(); setMoveTarget({ quote, sourceGroupId: displayedGroupId }) }}>移动</button>}{displayedGroupId !== null && <button className={`${styles['button']} ${styles['buttonGhost']}`} onClick={event => { event.stopPropagation(); void client.call('watch.item.remove', { groupId: displayedGroupId, secId: quote.secId }).then(next => { changed(next); notify('已移出自选') }).catch(error => notify(messageOf(error), 'error')) }}>移除</button>}</div></td>
         </tr>)}</tbody>
       </table></div>}
-      <div className={styles['tableFoot']}><DataSourceText meta={quoteMeta} /></div>
+      <div className={styles['tableFoot']}>
+        <span><b>行情</b><DataSourceText meta={quoteMeta} /></span>
+        <span><b>合理估值</b>{valuationMeta !== null ? <DataSourceText meta={valuationMeta} /> : <small className={styles['dataSource']}>{valuationLoading ? '价值大师网 · 整组加载中…' : valuationFailed ? '价值大师网 · 本次加载失败' : '价值大师网 · 暂无可用数据'}</small>}</span>
+      </div>
     </article>
 
     <WatchGroupManager client={client} open={managerOpen} groups={groups} onClose={() => setManagerOpen(false)} onChanged={changed} notify={notify} />
     {addTarget !== null && <WatchGroupDialog client={client} open groups={groups} stock={addTarget} mode="add" onClose={() => setAddTarget(null)} onGroups={(next) => { changed(next); setAddQuery(''); setAddResults([]) }} notify={notify} />}
     {moveTarget !== null && <WatchGroupDialog client={client} open groups={groups} stock={toSearchResult(moveTarget.quote)} mode="move" sourceGroupId={moveTarget.sourceGroupId} onClose={() => setMoveTarget(null)} onGroups={changed} notify={notify} />}
   </Page>
+}
+
+function WatchValuationCells({ quote, valuation, loading }: { quote: WatchQuote; valuation: WatchValuation | undefined; loading: boolean }) {
+  if (loading) return <><td><i className={styles['cellSkeleton']} /></td><td><i className={styles['cellSkeleton']} /></td></>
+  const fairValue = valuation?.fairValue ?? null
+  const valueGap = fairValue !== null && quote.price !== null ? fairValue - quote.price : null
+  const valueGapPct = valueGap !== null && quote.price !== null && quote.price > 0
+    ? valueGap / quote.price * 100
+    : null
+  const valueClass = valueGap === null || valueGap === 0
+    ? styles['flat']
+    : valueGap > 0 ? styles['valuePositive'] : styles['valueNegative']
+  return <>
+    <td className={styles['valuationCell']} title={valuation?.meta?.sourceName ?? '价值大师网'}>
+      {fairValue === null ? '—' : <><b>{number(fairValue)}</b><small>{valuationRank(valuation?.valuationRank ?? null)}</small></>}
+    </td>
+    <td className={`${styles['valuationCell']} ${valueClass}`}>
+      {valueGap === null ? '—' : <><b>{percent(valueGapPct)}</b><small>{signedPriceGap(valueGap)}</small></>}
+    </td>
+  </>
+}
+
+function WatchTableSkeleton({ rows }: { rows: number }) {
+  return <div className={styles['watchSkeleton']} role="status" aria-label="正在加载自选行情">
+    <div className={styles['watchSkeletonHead']}>{Array.from({ length: 13 }, (_, index) => <i key={index} />)}</div>
+    {Array.from({ length: rows }, (_, row) => <div className={styles['watchSkeletonRow']} key={row}>{Array.from({ length: 13 }, (__, column) => <i key={column} />)}</div>)}
+  </div>
 }
 
 function SortableHead({ label, column, sort, onSort }: { label: string; column: WatchSortKey; sort: { key: WatchSortKey; desc: boolean }; onSort: (key: WatchSortKey) => void }) {
@@ -876,7 +1020,7 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
     <div className={styles['stockDetailGrid']}>
       <div className={styles['stockMainColumn']}>
         <article className={styles['card']}>
-          <PanelHead title="价格走势" hint={`${chart === 'trend' ? '分时均价' : '东方财富 · 前复权'} · ${chartMeta?.sourceName ?? '来源未知'}`} extra={<div className={styles['buttonGroup']}>{([['trend', '分时'], ['daily', '日K'], ['weekly', '周K'], ['monthly', '月K']] as const).map(([id, label]) => <button key={id} className={chart === id ? styles['buttonPrimary'] : styles['button']} onClick={() => setChart(id)}>{label}</button>)}</div>} />
+          <PanelHead title="价格走势" hint={`${chart === 'trend' ? '分时均价' : '东方财富 · 前复权'} · ${chartMeta?.sourceName ?? '来源未知'}`} extra={<div className={styles['buttonGroup']}>{([['trend', '分时'], ['daily', '日K'], ['weekly', '周K'], ['monthly', '月K']] as const).map(([id, label]) => <button key={id} className={chart === id ? styles['buttonSelected'] : styles['button']} onClick={() => setChart(id)}>{label}</button>)}</div>} />
           <div className={styles['priceChart']}>{chartOption === null ? <Empty compact title="图表数据加载中" detail="当前周期暂无可用数据。" /> : <EChart option={chartOption} ariaLabel={chart === 'trend' ? '分时价格图' : `${chart === 'daily' ? '日' : chart === 'weekly' ? '周' : '月'}K线图`} />}</div>
         </article>
 
@@ -932,6 +1076,8 @@ function JudgementsPage({ client, masters, judgements, launchRequest, onLaunchHa
   const [launcherOpen, setLauncherOpen] = useState(false)
   const [prefill, setPrefill] = useState<SearchResult | null>(null)
   const [prefillMasterId, setPrefillMasterId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Judgement | null>(null)
+  const [deleting, setDeleting] = useState(false)
   useEffect(() => setRuns(judgements), [judgements])
   useEffect(() => {
     if (launchRequest === null) return
@@ -956,17 +1102,39 @@ function JudgementsPage({ client, masters, judgements, launchRequest, onLaunchHa
     const stock = stockFilter.trim().toLowerCase()
     return (stock === '' || `${run.stockName} ${run.code}`.toLowerCase().includes(stock)) && (masterFilter === '' || run.masterId === masterFilter)
   })
+  const remove = async () => {
+    if (deleteTarget === null || deleting) return
+    setDeleting(true)
+    try {
+      const next = await client.call('judgement.remove', { id: deleteTarget.id })
+      setRuns(next)
+      onJudgements(next)
+      setDeleteTarget(null)
+      notify('研判报告已删除')
+    } catch (error) {
+      notify(messageOf(error), 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }
   return <Page>
     <PageHeader title="大师研判" description="由一位专家独立检索并核验公开资料，形成完整投资研判报告" action={<button className={styles['buttonPrimary']} onClick={() => { setPrefill(null); setPrefillMasterId(null); setLauncherOpen(true) }}>＋ 新建研判</button>} />
     <div className={`${styles['card']} ${styles['judgementToolbar']}`}><input value={stockFilter} onChange={event => setStockFilter(event.target.value)} placeholder="筛选股票名或代码" /><select value={masterFilter} onChange={event => setMasterFilter(event.target.value)}><option value="">全部分析人</option>{masters.map(master => <option key={master.id} value={master.id}>{master.name}</option>)}</select><span>{filtered.length} 份研判归档</span></div>
-    {filtered.length > 0 ? <div className={styles['judgementGrid']}>{filtered.map(run => <button key={run.id} className={`${styles['card']} ${styles['judgementCard']}`} onClick={() => onOpen(run.id)}>
-      <div className={styles['judgementTop']}><strong>{run.stockName}</strong><span>{run.code}</span><Status status={run.reportStatus} /></div>
-      <div className={styles['judgementAnalyst']}><span>{masters.find(master => master.id === run.masterId)?.shortName ?? run.masterName.slice(0, 1)}</span><span><small>分析人</small><b>{run.masterName}</b></span></div>
-      <div className={styles['judgementMeta']}><span><small>分析日期</small>{dateTime(run.createdAt)}</span><span><small>模型</small>{run.model ?? '默认模型'}</span></div>
-      {run.errorMessage !== null && <div className={styles['judgementError']}>{run.errorMessage}</div>}
-      <div className={styles['openLabel']}>{run.reportStatus === 'ready' ? '查看报告' : '查看执行过程'} →</div>
-    </button>)}</div> : <Empty title={runs.length > 0 ? '没有符合筛选条件的报告' : '还没有大师研判'} detail={runs.length > 0 ? '调整股票或分析人筛选条件。' : '选择一只股票和一位专家，创建第一份研判。'} action={runs.length === 0 ? <button className={styles['buttonPrimary']} onClick={() => setLauncherOpen(true)}>创建第一份研判</button> : undefined} />}
+    {filtered.length > 0 ? <div className={styles['judgementGrid']}>{filtered.map(run => <article key={run.id} className={`${styles['card']} ${styles['judgementCard']}`}>
+      <button className={styles['judgementCardOpen']} onClick={() => onOpen(run.id)} aria-label={`打开 ${run.stockName} ${run.masterName} 的研判`}>
+        <div className={styles['judgementTop']}><strong>{run.stockName}</strong><span>{run.code}</span><Status status={run.reportStatus} /></div>
+        <div className={styles['judgementAnalyst']}><span>{masters.find(master => master.id === run.masterId)?.shortName ?? run.masterName.slice(0, 1)}</span><span><small>分析人</small><b>{run.masterName}</b></span></div>
+        <div className={styles['judgementMeta']}><span><small>分析日期</small>{dateTime(run.createdAt)}</span><span><small>模型</small>{run.model ?? '默认模型'}</span></div>
+        {run.errorMessage !== null && <div className={styles['judgementError']}>{run.errorMessage}</div>}
+        <div className={styles['openLabel']}>{run.reportStatus === 'ready' ? '查看报告' : '查看执行过程'} →</div>
+      </button>
+      <button className={styles['judgementDelete']} disabled={isReportInFlight(run.reportStatus)} title={isReportInFlight(run.reportStatus) ? '进行中的研判暂不能删除' : '删除该研判报告'} aria-label={`删除${run.reportStatus === 'ready' ? '已完成' : run.reportStatus === 'failed' ? '未完成' : '进行中'}研判：${run.stockName} · ${run.masterName}`} onClick={() => setDeleteTarget(run)}>删除</button>
+    </article>)}</div> : <Empty title={runs.length > 0 ? '没有符合筛选条件的报告' : '还没有大师研判'} detail={runs.length > 0 ? '调整股票或分析人筛选条件。' : '选择一只股票和一位专家，创建第一份研判。'} action={runs.length === 0 ? <button className={styles['buttonPrimary']} onClick={() => setLauncherOpen(true)}>创建第一份研判</button> : undefined} />}
     {launcherOpen && <JudgementLauncher client={client} masters={masters} prefill={prefill} initialMasterId={prefillMasterId} onClose={() => setLauncherOpen(false)} onCreated={async judgement => { setLauncherOpen(false); await load(); notify('大师已接收研判任务'); onOpen(judgement.id) }} notify={notify} />}
+    {deleteTarget !== null && <Modal title="删除研判报告" subtitle="此操作不可撤销" onClose={() => { if (!deleting) setDeleteTarget(null) }}>
+      <section className={styles['deleteConfirm']}><span aria-hidden="true">!</span><div><b>确认删除 {deleteTarget.stockName} 的这份研判？</b><p>将永久删除该研判的全部报告版本和本地工作文件，并归档与 {deleteTarget.masterName} 的对应会话。</p><dl><div><dt>股票</dt><dd>{deleteTarget.stockName} {deleteTarget.code}</dd></div><div><dt>分析人</dt><dd>{deleteTarget.masterName}</dd></div><div><dt>创建时间</dt><dd>{dateTime(deleteTarget.createdAt)}</dd></div></dl></div></section>
+      <footer className={styles['modalFoot']}><span>删除后无法从 Hanai Worth 恢复</span><div className={styles['confirmActions']}><button className={styles['button']} disabled={deleting} onClick={() => setDeleteTarget(null)}>取消</button><button className={styles['buttonDanger']} disabled={deleting} onClick={() => void remove()}>{deleting ? '正在删除…' : '确认删除'}</button></div></footer>
+    </Modal>}
   </Page>
 }
 
@@ -1285,10 +1453,6 @@ function ExitFullscreenIcon() {
   return <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" /></svg>
 }
 
-function HealthRow({ label, timestamp }: { label: string; timestamp: string }) {
-  return <div className={styles['statusRow']} title={dateTime(timestamp)}><span className={`${styles['statusDot']} ${styles['statusOk']}`} /><span>{label}</span><time>{shortTime(timestamp)}</time></div>
-}
-
 function DataStateBadge({ meta, marketStatus, refreshFailed = false, liveCapable = true }: { meta: ProviderMeta | null | undefined; marketStatus?: DashboardData['overview']['marketStatus']; refreshFailed?: boolean; liveCapable?: boolean }) {
   const state = describeDataStatus(meta, { ...(marketStatus === undefined ? {} : { marketStatus }), ...(refreshFailed ? { refreshFailed: true } : {}), ...(!liveCapable ? { liveCapable: false } : {}) })
   return <span className={`${styles['dataState']} ${styles[`dataState_${state.kind}`]}`} data-data-status={state.kind} title={state.detail}>{state.label}</span>
@@ -1481,10 +1645,6 @@ function shortTime(value: string | null): string {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
-function isUsableTimestamp(value: string | null): value is string {
-  return value !== null && value.trim() !== '' && !Number.isNaN(new Date(value).getTime())
-}
-
 function formatBytes(value: number): string {
   if (!Number.isFinite(value) || value <= 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB'] as const
@@ -1496,6 +1656,10 @@ function formatBytes(value: number): string {
 function valuationRank(rank: number | null): string {
   if (rank === null) return '—'
   return ({ 0: '数据不足', 1: '数据陈旧', 2: '价值陷阱嫌疑', 3: '严重低估', 4: '低估', 5: '合理范围', 6: '高估', 7: '严重高估' } as Record<number, string>)[rank] ?? `等级 ${rank}`
+}
+
+function signedPriceGap(value: number): string {
+  return `${value >= 0 ? '+' : ''}${number(value)} 元`
 }
 
 function isReportInFlight(status: Judgement['reportStatus']): boolean {
