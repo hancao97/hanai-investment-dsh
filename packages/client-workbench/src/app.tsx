@@ -34,6 +34,7 @@ import {
   getChartPalette,
   treemapLegendStops,
   treemapTargetFromEvent,
+  type KlineViewWindow,
 } from './chart-options.ts'
 import { EChart } from './echarts.tsx'
 import { MarkdownView } from './markdown.tsx'
@@ -837,6 +838,10 @@ type StockChart = 'trend' | 'daily' | 'weekly' | 'monthly'
 
 function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, onCreateJudgement, notify }: { client: HanaiClient; secId: string; theme: ThemeId; groups: WatchGroup[]; onGroups: (groups: WatchGroup[]) => void; onCreateJudgement: (stock: SearchResult) => void; notify: Notify }) {
   const [detailState, setDetailState] = useState<{ secId: string; detail: StockDetail } | null>(null)
+  const [valuationLoading, setValuationLoading] = useState(true)
+  const [dailyHistoryLoading, setDailyHistoryLoading] = useState(false)
+  const [dailyHasMore, setDailyHasMore] = useState(true)
+  const [dailyViewWindow, setDailyViewWindow] = useState<KlineViewWindow | null>(null)
   const [chart, setChart] = useState<StockChart>('daily')
   const [groups, setGroups] = useState(bootstrapGroups)
   const [watchDialogOpen, setWatchDialogOpen] = useState(false)
@@ -844,6 +849,8 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
   const routeController = useRef<AbortController | null>(null)
   const activeSecId = useRef(secId)
   const loadedSurfaces = useRef<Set<StockChart>>(new Set())
+  const dailyHistoryLoadingRef = useRef(false)
+  const dailyHasMoreRef = useRef(true)
   const detail = detailState?.secId === secId ? detailState.detail : null
 
   useEffect(() => setGroups(bootstrapGroups), [bootstrapGroups])
@@ -854,9 +861,15 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
     const controller = new AbortController()
     routeController.current = controller
     loadedSurfaces.current = new Set()
+    dailyHistoryLoadingRef.current = false
+    dailyHasMoreRef.current = true
     setChart('daily')
     setWatchDialogOpen(false)
     setDetailState({ secId, detail: emptyStockDetail() })
+    setValuationLoading(true)
+    setDailyHistoryLoading(false)
+    setDailyHasMore(true)
+    setDailyViewWindow(null)
 
     const active = () => !controller.signal.aborted
       && generation === requestGeneration.current
@@ -897,6 +910,8 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
       .then(result => {
         if (!active()) return
         loadedSurfaces.current.add('daily')
+        dailyHasMoreRef.current = result.hasMore
+        setDailyHasMore(result.hasMore)
         update(current => ({
           ...current,
           daily: result.bars,
@@ -911,6 +926,9 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
         sources: { ...current.sources, valuation: result.meta },
       })))
       .catch(error => failed('估值', error))
+      .finally(() => {
+        if (active()) setValuationLoading(false)
+      })
     void client.call('watch.list', {}, controller.signal)
       .then(nextGroups => {
         if (!active()) return
@@ -924,6 +942,42 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
       controller.abort()
     }
   }, [client, notify, onGroups, secId])
+
+  const loadEarlierDaily = useCallback(async (before: string, viewWindow: KlineViewWindow) => {
+    const controller = routeController.current
+    if (controller === null || controller.signal.aborted || activeSecId.current !== secId || dailyHistoryLoadingRef.current || !dailyHasMoreRef.current) return
+    dailyHistoryLoadingRef.current = true
+    setDailyHistoryLoading(true)
+    try {
+      const result = await client.call('security.kline', { secId, period: 'daily', before }, controller.signal)
+      if (controller.signal.aborted || activeSecId.current !== secId) return
+      const earlier = result.bars.filter(bar => bar.date < before)
+      const hasMore = earlier.length > 0 && result.hasMore
+      dailyHasMoreRef.current = hasMore
+      setDailyHasMore(hasMore)
+      if (earlier.length === 0) return
+      setDailyViewWindow(viewWindow)
+      setDetailState(current => current?.secId !== secId ? current : { secId, detail: {
+        ...current.detail,
+        daily: mergeKlineBars(earlier, current.detail.daily),
+        sources: { ...current.detail.sources, daily: result.meta ?? current.detail.sources.daily },
+      } })
+    } catch (error) {
+      if (!controller.signal.aborted && activeSecId.current === secId) notify(`更早日 K 加载失败：${messageOf(error)}`, 'error')
+    } finally {
+      dailyHistoryLoadingRef.current = false
+      if (!controller.signal.aborted && activeSecId.current === secId) setDailyHistoryLoading(false)
+    }
+  }, [client, notify, secId])
+
+  const handleKlineDataZoom = useCallback((event: unknown) => {
+    if (chart !== 'daily' || detail === null || detail.daily.length === 0) return
+    const zoom = klineZoomWindow(detail.daily, event)
+    if (zoom?.atStart !== true) return
+    const oldest = detail.daily[0]
+    if (oldest !== undefined) void loadEarlierDaily(oldest.date, zoom.window)
+  }, [chart, detail, loadEarlierDaily])
+
   const detailReady = detail !== null
   useEffect(() => {
     if (!detailReady) return
@@ -988,6 +1042,15 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
     return () => { active = false; controller.abort(); window.clearInterval(timer) }
   }, [chart, client, detailReady, notify, secId])
 
+  const palette = getChartPalette(theme)
+  const chartOption = useMemo(() => {
+    if (detail === null) return null
+    if (chart === 'trend') {
+      return buildTrendOption(detail.trend, detail.trendPrevClose ?? detail.quote?.prevClose ?? detail.metrics?.prevClose ?? null, palette)
+    }
+    return buildKlineOption(detail[chart], palette, chart === 'daily' ? dailyViewWindow : null)
+  }, [chart, dailyViewWindow, detail?.daily, detail?.metrics?.prevClose, detail?.monthly, detail?.quote?.prevClose, detail?.trend, detail?.trendPrevClose, detail?.weekly, palette])
+
   if (detail === null) return <Page><PageSkeleton cards={5} /></Page>
 
   const quote = detail.quote
@@ -997,12 +1060,9 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
   const code = security?.code ?? quote?.code ?? metrics?.code ?? secId.slice(2)
   const stock: SearchResult = { secId, code, name, exchange: security?.exchange ?? exchangeFor(secId, code), pinyinFull: security?.pinyinFull ?? '', pinyinInitial: security?.pinyinInitial ?? '', price: quote?.price ?? metrics?.price ?? null, changePct: quote?.changePct ?? metrics?.changePct ?? null }
   const watched = groups.some(group => group.secIds.includes(secId))
-  const palette = getChartPalette(theme)
-  const chartOption = chart === 'trend'
-    ? buildTrendOption(detail.trend, detail.trendPrevClose ?? quote?.prevClose ?? metrics?.prevClose ?? null, palette)
-    : buildKlineOption(detail[chart], palette)
   const chartMeta = detail.sources[chart]
   const valuation = detail.valuation
+  const valuationOption = valuation === null ? null : buildValuationOption(valuation, palette)
   const deviation = valuation?.medps !== null && valuation?.medps !== undefined && valuation.medps > 0 && stock.price !== null
     ? (stock.price - valuation.medps) / valuation.medps * 100
     : null
@@ -1020,8 +1080,8 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
     <div className={styles['stockDetailGrid']}>
       <div className={styles['stockMainColumn']}>
         <article className={styles['card']}>
-          <PanelHead title="价格走势" hint={`${chart === 'trend' ? '分时均价' : '东方财富 · 前复权'} · ${chartMeta?.sourceName ?? '来源未知'}`} extra={<div className={styles['buttonGroup']}>{([['trend', '分时'], ['daily', '日K'], ['weekly', '周K'], ['monthly', '月K']] as const).map(([id, label]) => <button key={id} className={chart === id ? styles['buttonSelected'] : styles['button']} onClick={() => setChart(id)}>{label}</button>)}</div>} />
-          <div className={styles['priceChart']}>{chartOption === null ? <Empty compact title="图表数据加载中" detail="当前周期暂无可用数据。" /> : <EChart option={chartOption} ariaLabel={chart === 'trend' ? '分时价格图' : `${chart === 'daily' ? '日' : chart === 'weekly' ? '周' : '月'}K线图`} />}</div>
+          <PanelHead title="价格走势" hint={`${chart === 'trend' ? '分时均价' : '东方财富 · 前复权'} · ${chartMeta?.sourceName ?? '来源未知'}${chart === 'daily' ? ` · ${dailyHasMore ? '左拖加载更早数据' : '已加载完整历史'}` : chart === 'weekly' || chart === 'monthly' ? ' · 完整历史' : ''}`} extra={<div className={styles['buttonGroup']}>{([['trend', '分时'], ['daily', '日K'], ['weekly', '周K'], ['monthly', '月K']] as const).map(([id, label]) => <button key={id} className={chart === id ? styles['buttonSelected'] : styles['button']} onClick={() => setChart(id)}>{label}</button>)}</div>} />
+          <div className={styles['priceChart']}>{chartOption === null ? <Empty compact title="图表数据加载中" detail="当前周期暂无可用数据。" /> : <EChart option={chartOption} ariaLabel={chart === 'trend' ? '分时价格图' : `${chart === 'daily' ? '日' : chart === 'weekly' ? '周' : '月'}K线图`} onDataZoom={handleKlineDataZoom} />}{dailyHistoryLoading && <span className={styles['historyLoading']} role="status" aria-label="正在加载更早行情"><i />正在加载更早行情…</span>}</div>
         </article>
 
         <article className={styles['card']}><PanelHead title="实时行情快照" /><div className={styles['stockMetricGrid']}>
@@ -1047,8 +1107,8 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
 
       <div className={styles['stockSideColumn']}>
         <article className={styles['card']}>
-          <PanelHead title="价值判断" extra={valuation !== null && <span className={styles['tag']}>{valuationRank(valuation.valuationRank)}</span>} />
-          {valuation === null ? <Empty compact title="估值数据暂不可用" detail="估值为日级数据，不影响行情与研判功能。" /> : <>
+          <PanelHead title="价值判断" extra={!valuationLoading && valuation !== null && <span className={styles['tag']}>{valuationRank(valuation.valuationRank)}</span>} />
+          {valuationLoading ? <ValuationLoading variant="summary" /> : valuation === null ? <Empty compact title="估值数据暂不可用" detail="估值为日级数据，不影响行情与研判功能。" /> : <>
             <div className={styles['valuationSummary']}>
               <Metric label="大师价值" value={number(valuation.medps)} />
               <Metric label="现价偏离" value={percent(deviation)} {...(deviation === null ? {} : { tone: deviation > 0 ? 'up' as const : 'down' as const })} />
@@ -1060,7 +1120,7 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
         </article>
         <article className={styles['card']}>
           <PanelHead title="价值曲线" />
-          <div className={styles['valuationChart']}>{valuation === null || buildValuationOption(valuation, palette) === null ? <Empty compact title="暂无估值曲线" detail="供应商尚未返回价格与价值序列。" /> : <EChart option={buildValuationOption(valuation, palette)} ariaLabel="价格与大师价值曲线" />}</div>
+          <div className={styles['valuationChart']}>{valuationLoading ? <ValuationLoading variant="chart" /> : valuationOption === null ? <Empty compact title="暂无估值曲线" detail="供应商尚未返回价格与价值序列。" /> : <EChart option={valuationOption} ariaLabel="价格与大师价值曲线" />}</div>
           <p className={styles['chartNote']}>金线为大师价值线，蓝线为股价；红带为高估区（+10% / +30%），绿带为低估区（−10% / −30%）。价值线末端为供应商预测，非历史真实点。</p>
         </article>
       </div>
@@ -1468,6 +1528,20 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: '
   return <div className={styles['metric']}><span>{label}</span><b className={tone === undefined ? undefined : styles[tone]}>{value}</b></div>
 }
 
+function ValuationLoading({ variant }: { variant: 'summary' | 'chart' }) {
+  const label = variant === 'summary' ? '正在加载估值数据' : '正在加载估值曲线'
+  return <div className={`${styles['valuationLoading']} ${styles[`valuationLoading_${variant}`]}`} role="status" aria-label={label}>
+    {variant === 'summary' && <div className={styles['valuationLoadingMetrics']} aria-hidden="true">
+      {Array.from({ length: 3 }, (_, index) => <span key={index}><i /><b /></span>)}
+    </div>}
+    <div className={styles['valuationLoadingBody']}>
+      <span className={styles['valuationSpinner']} aria-hidden="true" />
+      <b>{label}</b>
+      <small>正在连接估值数据源…</small>
+    </div>
+  </div>
+}
+
 function KeyValue({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return <div className={styles['keyValue']}><span>{label}</span><b className={mono ? styles['mono'] : undefined}>{value}</b></div>
 }
@@ -1518,6 +1592,52 @@ function PageSkeleton({ cards }: { cards: number }) {
 
 function Modal({ title, subtitle, onClose, children, wide = false }: { title: string; subtitle?: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   return <div className={styles['modalBackdrop']} role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}><section className={`${styles['modal']} ${wide ? styles['modalWide'] : ''}`} role="dialog" aria-modal="true" aria-label={title}><header><div><h2>{title}</h2>{subtitle !== undefined && <p>{subtitle}</p>}</div><button onClick={onClose} aria-label="关闭">×</button></header>{children}</section></div>
+}
+
+function mergeKlineBars(earlier: StockDetail['daily'], current: StockDetail['daily']): StockDetail['daily'] {
+  const byDate = new Map<string, StockDetail['daily'][number]>()
+  for (const bar of [...earlier, ...current]) byDate.set(bar.date, bar)
+  return [...byDate.values()].sort((left, right) => left.date.localeCompare(right.date))
+}
+
+function klineZoomWindow(bars: StockDetail['daily'], event: unknown): { window: KlineViewWindow; atStart: boolean } | null {
+  const root = recordValue(event)
+  if (root === null) return null
+  const batch = Array.isArray(root.batch) ? root.batch.map(recordValue).find(item => item !== null) : null
+  const payload = batch ?? root
+  const startPercent = finiteValue(payload.start)
+  const endPercent = finiteValue(payload.end)
+  const startIndex = zoomIndex(payload.startValue, startPercent, bars)
+  const endIndex = zoomIndex(payload.endValue, endPercent, bars)
+  if (startIndex === null || endIndex === null) return null
+  const first = bars[Math.min(startIndex, endIndex)]
+  const last = bars[Math.max(startIndex, endIndex)]
+  if (first === undefined || last === undefined) return null
+  return {
+    window: { startDate: first.date, endDate: last.date },
+    atStart: startIndex <= 1 || (startPercent !== null && startPercent <= 1),
+  }
+}
+
+function zoomIndex(value: unknown, percent: number | null, bars: StockDetail['daily']): number | null {
+  if (typeof value === 'string') {
+    const index = bars.findIndex(bar => bar.date === value)
+    if (index >= 0) return index
+  }
+  const numeric = finiteValue(value)
+  const candidate = numeric ?? (percent === null ? null : percent / 100 * Math.max(0, bars.length - 1))
+  if (candidate === null) return null
+  return Math.max(0, Math.min(bars.length - 1, Math.round(candidate)))
+}
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function finiteValue(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 function emptyStockDetail(): StockDetail {

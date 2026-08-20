@@ -6,6 +6,7 @@ const empty = z.object({}).strict()
 const identifier = z.string().regex(/^[A-Za-z0-9_-]{1,100}$/)
 const secId = z.string().regex(/^[01]\.\d{6}$/)
 const groupName = z.string().trim().min(1).max(20)
+const tradingDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
 const schemas = {
   'bootstrap': empty,
@@ -16,7 +17,7 @@ const schemas = {
   'security.detail': z.object({ secId }).strict(),
   'security.quote': z.object({ secId }).strict(),
   'security.trend': z.object({ secId }).strict(),
-  'security.kline': z.object({ secId, period: z.enum(['daily', 'weekly', 'monthly']) }).strict(),
+  'security.kline': z.object({ secId, period: z.enum(['daily', 'weekly', 'monthly']), before: tradingDate.optional() }).strict(),
   'security.valuation': z.object({ secId }).strict(),
   'watch.list': empty,
   'watch.quotes': z.object({ groupId: identifier }).strict(),

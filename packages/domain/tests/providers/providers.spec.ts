@@ -122,6 +122,47 @@ describe('EastmoneyProvider', () => {
     expect(result.bars[0]?.volume).toBe(1000)
   })
 
+  it('uses forward-adjusted paging for daily bars and full history for weekly bars', async () => {
+    const clock = new FakeClock(NOW)
+    const urls: string[] = []
+    const http = new HandlerHttpClient(url => {
+      if (url.includes('/api/qt/stock/kline/get')) {
+        urls.push(url)
+        return jsonResponse(fixtures.eastmoney.kline)
+      }
+      return jsonResponse({}, 404)
+    })
+    const provider = new EastmoneyProvider(http, { clock, minIntervalMs: 0 })
+
+    const daily = await provider.getKline('1.600436', '101', '2018-06-08')
+    const weekly = await provider.getKline('1.600436', '102')
+    const dailyQuery = new URL(urls[0] ?? 'https://invalid.test').searchParams
+    const weeklyQuery = new URL(urls[1] ?? 'https://invalid.test').searchParams
+
+    expect(dailyQuery.get('fqt')).toBe('1')
+    expect(dailyQuery.get('beg')).toBe('20150607')
+    expect(dailyQuery.get('end')).toBe('20180607')
+    expect(daily.hasMore).toBe(true)
+    expect(weeklyQuery.get('fqt')).toBe('1')
+    expect(weeklyQuery.get('beg')).toBe('19900101')
+    expect(weeklyQuery.get('end')).toBe('20500101')
+    expect(weekly.hasMore).toBe(false)
+  })
+
+  it('marks an empty successful daily history page as exhausted', async () => {
+    const clock = new FakeClock(NOW)
+    const http = new HandlerHttpClient(url => url.includes('/api/qt/stock/kline/get')
+      ? jsonResponse({ data: { klines: [] } })
+      : jsonResponse({}, 404))
+    const provider = new EastmoneyProvider(http, { clock, minIntervalMs: 0 })
+
+    const result = await provider.getKline('1.600436', '101', '1994-01-01')
+
+    expect(result.bars).toEqual([])
+    expect(result.hasMore).toBe(false)
+    expect(http.requests).toHaveLength(1)
+  })
+
   it('serializes requests through the injected clock and opens then closes its circuit breaker', async () => {
     const clock = new FakeClock(NOW)
     let online = true
@@ -185,6 +226,53 @@ describe('TencentProvider', () => {
       { time: '09:30', price: 1470, avgPrice: 1470, volume: 100 },
       { time: '09:31', price: 1472, avgPrice: 1471, volume: 60 },
     ])
+  })
+
+  it('keeps qfq and sends an exclusive end date when paging older daily bars', async () => {
+    const clock = new FakeClock(NOW)
+    let requestedUrl = ''
+    const http = new HandlerHttpClient(url => {
+      requestedUrl = url
+      return jsonResponse(fixtures.tencent.kline)
+    })
+    const provider = new TencentProvider(http, clock)
+
+    const result = await provider.getKline('1.600519', '101', '2018-06-08')
+
+    expect(new URL(requestedUrl).searchParams.get('param')).toBe('sh600519,day,,2018-06-07,800,qfq')
+    expect(result?.hasMore).toBe(true)
+  })
+
+  it('walks Tencent weekly pages back to the listing period and de-duplicates them', async () => {
+    const clock = new FakeClock(NOW)
+    const http = new HandlerHttpClient(url => {
+      const param = new URL(url).searchParams.get('param') ?? ''
+      const end = param.split(',')[3] ?? ''
+      const rows = end === ''
+        ? [
+            ['2014-02-28', '100', '101', '102', '99', '1000'],
+            ['2026-08-20', '130', '131', '132', '129', '2000'],
+          ]
+        : end === '2014-02-27'
+          ? [
+              ['2003-06-20', '10', '11', '12', '9', '3000'],
+              ['2014-02-21', '98', '100', '101', '97', '1500'],
+            ]
+          : []
+      return jsonResponse({ code: 0, data: { sh600436: { qfqweek: rows } } })
+    })
+    const provider = new TencentProvider(http, clock)
+
+    const result = await provider.getFullKline('1.600436', '102')
+
+    expect(result?.bars.map(bar => bar.date)).toEqual([
+      '2003-06-20',
+      '2014-02-21',
+      '2014-02-28',
+      '2026-08-20',
+    ])
+    expect(result?.hasMore).toBe(false)
+    expect(http.requests).toHaveLength(3)
   })
 })
 
@@ -357,6 +445,7 @@ describe('MarketDataService', () => {
         ? [{ date: '2026-08-15', open: 1460, close: 1470, high: 1480, low: 1450, volume: 1000, amount: null }]
         : [],
       meta: null,
+      hasMore: period === 'daily',
     }))
     vi.spyOn(service, 'getValuation').mockResolvedValue({ valuation: null, meta: null })
 

@@ -317,6 +317,8 @@ export interface StockKLineData {
   period: KLinePeriod
   bars: KLineBar[]
   meta: ProviderMeta | null
+  /** Whether an earlier page may exist. Only daily K-line is incrementally paged. */
+  hasMore: boolean
 }
 
 export interface StockValuationData {
@@ -392,7 +394,7 @@ export interface HanaiEndpointMap {
   'security.detail': { request: { secId: string }; response: StockDetail }
   'security.quote': { request: { secId: string }; response: StockQuoteMetricsData }
   'security.trend': { request: { secId: string }; response: StockTrendData }
-  'security.kline': { request: { secId: string; period: KLinePeriod }; response: StockKLineData }
+  'security.kline': { request: { secId: string; period: KLinePeriod; before?: string }; response: StockKLineData }
   'security.valuation': { request: { secId: string }; response: StockValuationData }
   'watch.list': { request: Record<string, never>; response: WatchGroup[] }
   'watch.quotes': {

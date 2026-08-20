@@ -450,9 +450,26 @@
 .stockDetailGrid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr); align-items: start; gap: 12px; }
 .stockMainColumn,
 .stockSideColumn { display: grid; min-width: 0; gap: 12px; }
-.priceChart { height: 380px; padding: 8px; }
+.priceChart { height: 380px; padding: 8px; position: relative; }
+.historyLoading { position: absolute; top: 12px; left: 14px; z-index: 3; display: inline-flex; min-height: 24px; align-items: center; gap: 7px; padding: 0 9px; border: 1px solid var(--control-border); border-radius: 999px; color: var(--muted); font-size: 9px; background: var(--panel); box-shadow: var(--control-shadow); pointer-events: none; }
+.historyLoading i { width: 10px; height: 10px; border: 1.5px solid var(--control-border); border-top-color: var(--gold); border-radius: 50%; animation: spin 800ms linear infinite; }
 .radarChart { height: 210px; padding: 6px 10px; }
 .valuationChart { height: 260px; padding: 8px; }
+.valuationLoading { overflow: hidden; color: var(--muted); }
+.valuationLoading_summary { min-height: 278px; }
+.valuationLoading_chart { height: 100%; border-radius: 7px; }
+.valuationLoadingMetrics { display: grid; height: 62px; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--border); }
+.valuationLoadingMetrics > span { display: flex; min-width: 0; justify-content: center; flex-direction: column; gap: 9px; padding: 11px 13px; border-right: 1px solid var(--border); }
+.valuationLoadingMetrics > span:last-child { border-right: 0; }
+.valuationLoadingMetrics i,
+.valuationLoadingMetrics b { display: block; height: 7px; border-radius: 999px; background: linear-gradient(90deg, var(--hover), var(--control-border), var(--hover)); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+.valuationLoadingMetrics i { width: 48%; opacity: .72; }
+.valuationLoadingMetrics b { width: 72%; height: 11px; }
+.valuationLoadingBody { position: relative; display: flex; height: 100%; min-height: 210px; align-items: center; justify-content: center; flex-direction: column; isolation: isolate; background: repeating-linear-gradient(to bottom, transparent 0, transparent 41px, var(--border) 42px); }
+.valuationLoadingBody::after { position: absolute; z-index: -1; inset: 0; content: ''; background: linear-gradient(105deg, transparent 32%, var(--hover) 48%, transparent 64%); background-size: 220% 100%; opacity: .65; animation: shimmer 1.6s infinite; }
+.valuationLoadingBody > b { margin-top: 10px; color: var(--text); font-size: 11px; font-weight: 600; }
+.valuationLoadingBody > small { margin-top: 5px; color: var(--faint); font-size: 9px; }
+.valuationSpinner { width: 22px; height: 22px; border: 2px solid var(--control-border); border-top-color: var(--gold); border-radius: 50%; animation: spin 850ms linear infinite; }
 .stockMetricGrid { display: grid; grid-template-columns: repeat(5, minmax(96px, 1fr)); }
 .metric { min-width: 0; padding: 11px 13px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .metric span { display: block; color: var(--faint); font-size: 9px; }

@@ -16,6 +16,8 @@ import { TencentProvider } from './tencent.ts'
 const HEADERS = { Referer: 'https://quote.eastmoney.com/' }
 const STOCK_FIELDS = 'f2,f3,f4,f5,f6,f8,f9,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23'
 const A_SHARE_FILTER = 'm:0+t:6+f:!2,m:0+t:80+f:!2,m:1+t:2+f:!2,m:1+t:23+f:!2,m:0+t:81+s:2048+f:!2'
+const FULL_KLINE_BEGIN = '19900101'
+const OPEN_KLINE_END = '20500101'
 
 const CORE_INDICES: ReadonlyArray<{ secId: string; name: string }> = [
   { secId: '1.000001', name: '上证指数' },
@@ -94,6 +96,28 @@ function finiteNumberString(value: unknown): number | null {
   if (typeof value !== 'string' || value.trim() === '') return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
+}
+
+function compactDate(date: Date): string {
+  return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, '0')}${String(date.getUTCDate()).padStart(2, '0')}`
+}
+
+function klineRange(
+  now: number,
+  klt: '101' | '102' | '103',
+  before?: string,
+): { begin: string; end: string } {
+  if (before !== undefined) {
+    const end = new Date(`${before}T00:00:00Z`)
+    end.setUTCDate(end.getUTCDate() - 1)
+    const begin = new Date(end)
+    begin.setUTCFullYear(begin.getUTCFullYear() - (klt === '101' ? 3 : klt === '102' ? 8 : 20))
+    return { begin: compactDate(begin), end: compactDate(end) }
+  }
+  if (klt !== '101') return { begin: FULL_KLINE_BEGIN, end: OPEN_KLINE_END }
+  const begin = new Date(now + 8 * 60 * 60 * 1000)
+  begin.setUTCFullYear(begin.getUTCFullYear() - 3)
+  return { begin: compactDate(begin), end: OPEN_KLINE_END }
 }
 
 function objectRows(value: unknown): Array<Record<string, unknown>> {
@@ -653,19 +677,17 @@ export class EastmoneyProvider {
   async getKline(
     secId: string,
     klt: '101' | '102' | '103' = '101',
-  ): Promise<{ bars: KLineBar[]; meta: ProviderMeta }> {
-    const years = klt === '101' ? 3 : klt === '102' ? 8 : 20
-    const begin = new Date(this.clock.now() + 8 * 60 * 60 * 1000)
-    begin.setUTCFullYear(begin.getUTCFullYear() - years)
-    const beginText = `${begin.getUTCFullYear()}${String(begin.getUTCMonth() + 1).padStart(2, '0')}${String(begin.getUTCDate()).padStart(2, '0')}`
+    before?: string,
+  ): Promise<{ bars: KLineBar[]; meta: ProviderMeta; hasMore: boolean }> {
+    const range = klineRange(this.clock.now(), klt, before)
     const response = await this.get<KlineResponse>(
       'api/qt/stock/kline/get',
       {
         secid: secId,
         klt,
         fqt: '1',
-        beg: beginText,
-        end: '20500101',
+        beg: range.begin,
+        end: range.end,
         fields1: 'f1,f2,f3,f4,f5,f6',
         fields2: 'f51,f52,f53,f54,f55,f56,f57',
       },
@@ -684,10 +706,19 @@ export class EastmoneyProvider {
       return [{ date, open, close, high, low, volume, amount: finiteNumberString(rawAmount) }]
     })
     if (bars.length > 0 && response !== null) {
-      return { bars, meta: this.meta(response.source, bars.at(-1)?.date ?? null) }
+      return {
+        bars,
+        meta: this.meta(response.source, bars.at(-1)?.date ?? null),
+        hasMore: klt === '101',
+      }
     }
-    const fallback = await this.tencent.getKline(secId, klt)
-    return fallback ?? { bars: [], meta: this.meta('unavailable') }
+    if (before !== undefined && Array.isArray(response?.value.klines)) {
+      return { bars: [], meta: this.meta(response.source), hasMore: false }
+    }
+    const fallback = before === undefined && klt !== '101'
+      ? await this.tencent.getFullKline(secId, klt)
+      : await this.tencent.getKline(secId, klt, before)
+    return fallback ?? { bars: [], meta: this.meta('unavailable'), hasMore: klt === '101' }
   }
 
   async getTrend(secId: string): Promise<{ points: TrendPoint[]; prevClose: number | null; meta: ProviderMeta }> {

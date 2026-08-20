@@ -20,11 +20,12 @@ import { HanaiWorkbench } from '../src/app.tsx'
 import type { HanaiClient } from '../src/api.ts'
 
 vi.mock('../src/echarts.tsx', () => ({
-  EChart: ({ ariaLabel, onChartClick }: { ariaLabel?: string; onChartClick?: (params: unknown) => void }) => (
+  EChart: ({ ariaLabel, onChartClick, onDataZoom }: { ariaLabel?: string; onChartClick?: (params: unknown) => void; onDataZoom?: (params: unknown) => void }) => (
     <div
       role="img"
       aria-label={ariaLabel ?? 'ECharts 图表'}
       onClick={() => onChartClick?.({ data: { sectorCode: 'BK0475', name: '电子' } })}
+      onDoubleClick={() => onDataZoom?.({ start: 0, end: 100, startValue: 0, endValue: 1 })}
     />
   ),
 }))
@@ -617,6 +618,7 @@ describe('HanaiWorkbench old-client parity', () => {
 
     expect(window.location.hash).toBe('#/stock/1.600519')
     expect(screen.getByRole('button', { name: '日K' })).not.toBeNull()
+    expect(screen.queryByRole('button', { name: /^(3年|5年|10年|全部)$/ })).toBeNull()
     expect(screen.getByRole('img', { name: '日K线图' })).not.toBeNull()
     expect(screen.getByRole('heading', { name: '价值判断' })).not.toBeNull()
     expect(screen.getByText('大师价值')).not.toBeNull()
@@ -631,8 +633,9 @@ describe('HanaiWorkbench old-client parity', () => {
       metrics: StockDetail['metrics']
       sources: Pick<StockDetail['sources'], 'quote' | 'metrics'>
     }>()
-    const daily = deferred<{ period: 'daily'; bars: StockDetail['daily']; meta: ProviderMeta | null }>()
-    const weekly = deferred<{ period: 'weekly'; bars: StockDetail['weekly']; meta: ProviderMeta | null }>()
+    const daily = deferred<{ period: 'daily'; bars: StockDetail['daily']; meta: ProviderMeta | null; hasMore: boolean }>()
+    const olderDaily = deferred<{ period: 'daily'; bars: StockDetail['daily']; meta: ProviderMeta | null; hasMore: boolean }>()
+    const weekly = deferred<{ period: 'weekly'; bars: StockDetail['weekly']; meta: ProviderMeta | null; hasMore: boolean }>()
     const valuation = deferred<never>()
     const surfaceCalls: Array<{ endpoint: string; request: unknown }> = []
     const client = makeClient({
@@ -642,7 +645,8 @@ describe('HanaiWorkbench old-client parity', () => {
       },
       'security.kline': request => {
         surfaceCalls.push({ endpoint: 'security.kline', request })
-        const period = (request as { period: string }).period
+        const { period, before } = request as { period: string; before?: string }
+        if (period === 'daily' && before !== undefined) return olderDaily.promise
         if (period === 'daily') return daily.promise
         if (period === 'weekly') return weekly.promise
         throw new Error(`unexpected period: ${period}`)
@@ -662,12 +666,33 @@ describe('HanaiWorkbench old-client parity', () => {
     expect(surfaceCalls.some(call => call.endpoint === 'security.kline' && (call.request as { period: string }).period === 'monthly')).toBe(false)
     expect(client.call).not.toHaveBeenCalledWith('security.detail', expect.anything())
     expect(client.call).not.toHaveBeenCalledWith('security.detail', expect.anything(), expect.anything())
+    expect(screen.getByRole('status', { name: '正在加载估值数据' })).not.toBeNull()
+    expect(screen.getByRole('status', { name: '正在加载估值曲线' })).not.toBeNull()
+    expect(screen.queryByText('估值数据暂不可用')).toBeNull()
+    expect(screen.queryByText('暂无估值曲线')).toBeNull()
 
     await act(async () => {
-      daily.resolve({ period: 'daily', bars: stockDetail.daily, meta: fresh })
+      daily.resolve({ period: 'daily', bars: stockDetail.daily, meta: fresh, hasMore: true })
       await daily.promise
     })
-    expect(await screen.findByRole('img', { name: '日K线图' })).not.toBeNull()
+    const dailyChart = await screen.findByRole('img', { name: '日K线图' })
+    fireEvent.doubleClick(dailyChart)
+    await waitFor(() => expect(surfaceCalls).toContainEqual({
+      endpoint: 'security.kline',
+      request: { secId: '1.600519', period: 'daily', before: '2026-08-14' },
+    }))
+    expect(screen.getByRole('status', { name: '正在加载更早行情' })).not.toBeNull()
+    await act(async () => {
+      olderDaily.resolve({
+        period: 'daily',
+        bars: [{ date: '2023-08-15', open: 1400, close: 1410, high: 1420, low: 1390, volume: 1800, amount: 1_800_000 }],
+        meta: fresh,
+        hasMore: false,
+      })
+      await olderDaily.promise
+    })
+    expect(screen.queryByRole('status', { name: '正在加载更早行情' })).toBeNull()
+    expect(screen.getByText(/已加载完整历史/)).not.toBeNull()
 
     await act(async () => {
       valuation.reject(new Error('valuation offline'))
@@ -675,12 +700,15 @@ describe('HanaiWorkbench old-client parity', () => {
     })
     expect(screen.getByRole('img', { name: '日K线图' })).not.toBeNull()
     expect(screen.getByText('估值数据暂不可用')).not.toBeNull()
+    expect(screen.getByText('暂无估值曲线')).not.toBeNull()
+    expect(screen.queryByRole('status', { name: '正在加载估值数据' })).toBeNull()
+    expect(screen.queryByRole('status', { name: '正在加载估值曲线' })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: '周K' }))
     await waitFor(() => expect(surfaceCalls.some(call => call.endpoint === 'security.kline' && (call.request as { period: string }).period === 'weekly')).toBe(true))
     expect(surfaceCalls.some(call => call.endpoint === 'security.kline' && (call.request as { period: string }).period === 'monthly')).toBe(false)
     await act(async () => {
-      weekly.resolve({ period: 'weekly', bars: stockDetail.daily, meta: fresh })
+      weekly.resolve({ period: 'weekly', bars: stockDetail.daily, meta: fresh, hasMore: false })
       await weekly.promise
     })
     expect(await screen.findByRole('img', { name: '周K线图' })).not.toBeNull()
@@ -883,7 +911,7 @@ function makeClient(overrides: Record<string, CallOverride> = {}): HanaiClient {
       case 'security.trend': return { trend: stockDetail.trend, trendPrevClose: stockDetail.trendPrevClose, meta: fresh }
       case 'security.kline': {
         const period = (request as { period: 'daily' | 'weekly' | 'monthly' }).period
-        return { period, bars: stockDetail[period], meta: stockDetail.sources[period] }
+        return { period, bars: stockDetail[period], meta: stockDetail.sources[period], hasMore: period === 'daily' }
       }
       case 'security.valuation': return { valuation: stockDetail.valuation, meta: fresh }
       case 'judgement.list': return bootstrap.judgements

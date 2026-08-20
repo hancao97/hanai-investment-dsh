@@ -170,13 +170,14 @@ export class MarketDataService {
     }
   }
 
-  async getKline(secId: string, period: KLinePeriod): Promise<StockKLineData> {
+  async getKline(secId: string, period: KLinePeriod, before?: string): Promise<StockKLineData> {
     const klt = period === 'daily' ? '101' : period === 'weekly' ? '102' : '103'
-    const result = await optional(this.eastmoney.getKline(secId, klt))
+    const result = await optional(this.eastmoney.getKline(secId, klt, before))
     return {
       period,
       bars: result?.bars ?? [],
       meta: result?.meta ?? null,
+      hasMore: period === 'daily' && (result?.hasMore ?? true),
     }
   }
 

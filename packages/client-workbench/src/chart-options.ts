@@ -338,12 +338,21 @@ export function buildTrendOption(
   }
 }
 
+export interface KlineViewWindow {
+  startDate: string
+  endDate: string
+}
+
 export function buildKlineOption(
   bars: KLineBar[],
   palette: ChartPalette = DARK_CHART_PALETTE,
+  viewWindow?: KlineViewWindow | null,
 ): EChartsCoreOption | null {
   if (bars.length === 0) return null
   const axis = axisStyle(palette)
+  const zoomWindow = viewWindow === null || viewWindow === undefined
+    ? { start: 55, end: 100 }
+    : { startValue: viewWindow.startDate, endValue: viewWindow.endDate }
   return {
     tooltip: {
       trigger: 'axis',
@@ -382,10 +391,11 @@ export function buildKlineOption(
       { gridIndex: 1, axisLabel: { show: false }, splitLine: { show: false } },
     ],
     dataZoom: [
-      { type: 'inside', xAxisIndex: [0, 1], start: 55, end: 100 },
+      { type: 'inside', xAxisIndex: [0, 1], ...zoomWindow },
       {
         type: 'slider',
         xAxisIndex: [0, 1],
+        ...zoomWindow,
         top: '95%',
         height: 14,
         borderColor: 'transparent',

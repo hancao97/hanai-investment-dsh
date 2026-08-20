@@ -185,7 +185,7 @@ describe('legacy-compatible chart options', () => {
     expect((series[0]?.data as number[][])[0]).toEqual([10, 11, 9, 12])
     expect(option.dataZoom).toMatchObject([
       { type: 'inside', xAxisIndex: [0, 1], start: 55, end: 100 },
-      { type: 'slider', xAxisIndex: [0, 1], top: '95%', height: 14 },
+      { type: 'slider', xAxisIndex: [0, 1], start: 55, end: 100, top: '95%', height: 14 },
     ])
     expect((series[1]?.data as Array<{ itemStyle: { color: string } }>)[0]?.itemStyle.color).toBe(DARK_CHART_PALETTE.upBar)
     expect((series[1]?.data as Array<{ itemStyle: { color: string } }>)[1]?.itemStyle.color).toBe(DARK_CHART_PALETTE.downBar)
@@ -195,6 +195,15 @@ describe('legacy-compatible chart options', () => {
     expect(tooltip).toContain('涨跌幅')
     expect(tooltip).toContain('-9.09%')
     expect(tooltip).not.toContain('成交额')
+
+    const preserved = inspect(buildKlineOption(bars, DARK_CHART_PALETTE, {
+      startDate: bars[25]?.date ?? '',
+      endDate: bars[70]?.date ?? '',
+    }))
+    expect(preserved.dataZoom).toMatchObject([
+      { startValue: bars[25]?.date, endValue: bars[70]?.date },
+      { startValue: bars[25]?.date, endValue: bars[70]?.date },
+    ])
   })
 
   it('keeps valuation price and fair-value series on a true time axis and derives all four bands from fair value', () => {

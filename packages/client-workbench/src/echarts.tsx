@@ -44,6 +44,7 @@ export interface EChartProps {
   style?: CSSProperties
   ariaLabel?: string
   onChartClick?: (params: unknown) => void
+  onDataZoom?: (params: unknown) => void
 }
 
 /** A lifecycle-safe, tree-shaken ECharts canvas for the workbench. */
@@ -53,12 +54,15 @@ export function EChart({
   style,
   ariaLabel = '数据图表',
   onChartClick,
+  onDataZoom,
 }: EChartProps) {
   const elementRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<ECharts | null>(null)
   const clickHandlerRef = useRef(onChartClick)
+  const dataZoomHandlerRef = useRef(onDataZoom)
   const optionRef = useRef(option)
   clickHandlerRef.current = onChartClick
+  dataZoomHandlerRef.current = onDataZoom
   optionRef.current = option
 
   useEffect(() => {
@@ -75,6 +79,7 @@ export function EChart({
       if (currentOption) chart.setOption(currentOption, { notMerge: true })
       else chart.clear()
       const handleChartClick = (params: unknown) => clickHandlerRef.current?.(params)
+      const handleDataZoom = (params: unknown) => dataZoomHandlerRef.current?.(params)
       const handleContainerClick = (event: MouseEvent) => {
         const target = event.target instanceof Element
           ? event.target.closest<HTMLElement>('[data-sector-code]')
@@ -90,6 +95,11 @@ export function EChart({
         })
       }
       chart.on('click', handleChartClick)
+      const chartEvents = chart as unknown as {
+        on: (event: string, handler: (params: unknown) => void) => void
+        off: (event: string, handler: (params: unknown) => void) => void
+      }
+      chartEvents.on('datazoom', handleDataZoom)
       element.addEventListener('click', handleContainerClick)
       const resizeObserver = typeof ResizeObserver === 'undefined'
         ? null
@@ -99,6 +109,7 @@ export function EChart({
         resizeObserver?.disconnect()
         element.removeEventListener('click', handleContainerClick)
         chart.off('click', handleChartClick)
+        chartEvents.off('datazoom', handleDataZoom)
         chart.dispose()
         if (chartRef.current === chart) chartRef.current = null
       }

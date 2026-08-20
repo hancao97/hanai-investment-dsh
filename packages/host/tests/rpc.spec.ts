@@ -15,6 +15,9 @@ describe('Hanai RPC request validation', () => {
     expect(parseHanaiRequest('security.kline', {
       secId: '1.600519', period: 'monthly',
     })).toEqual({ secId: '1.600519', period: 'monthly' })
+    expect(parseHanaiRequest('security.kline', {
+      secId: '1.600519', period: 'daily', before: '2018-06-08',
+    })).toEqual({ secId: '1.600519', period: 'daily', before: '2018-06-08' })
     expect(parseHanaiRequest('security.valuation', { secId: '1.600519' })).toEqual({ secId: '1.600519' })
     expect(parseHanaiRequest('watch.valuations', { groupId: 'default' })).toEqual({ groupId: 'default' })
     expect(parseHanaiRequest('judgement.remove', { id: 'judgement-1' })).toEqual({ id: 'judgement-1' })
@@ -23,6 +26,9 @@ describe('Hanai RPC request validation', () => {
 
     expect(() => parseHanaiRequest('security.kline', {
       secId: '1.600519', period: '15m',
+    })).toThrow()
+    expect(() => parseHanaiRequest('security.kline', {
+      secId: '1.600519', period: 'daily', before: '20180608',
     })).toThrow()
     expect(() => parseHanaiRequest('cache.clear', { scope: 'all' })).toThrow()
     expect(() => parseHanaiRequest('storage.openDataRoot', { path: '/tmp' })).toThrow()

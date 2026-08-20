@@ -90,7 +90,7 @@ function fixture(minChars = 100) {
       sources: { quote: null, metrics: null },
     }),
     getTrend: async () => ({ trend: [], trendPrevClose: null, meta: null }),
-    getKline: async (_secId, period) => ({ period, bars: [], meta: null }),
+    getKline: async (_secId, period) => ({ period, bars: [], meta: null, hasMore: period === 'daily' }),
     getValuation: async () => ({ valuation: null, meta: null }),
     getQuotes: async () => ({ quotes: [], meta }),
     clearMarketCache: () => 0,
@@ -560,10 +560,10 @@ describe('HanaiService parity endpoints and diagnostics', () => {
 
     await service.call(
       'security.kline',
-      { secId: '1.600519', period: 'weekly' },
+      { secId: '1.600519', period: 'daily', before: '2018-06-08' },
       new AbortController().signal,
     )
-    expect(kline).toHaveBeenCalledWith('1.600519', 'weekly')
+    expect(kline).toHaveBeenCalledWith('1.600519', 'daily', '2018-06-08')
     expect(aggregate).not.toHaveBeenCalled()
     database.close()
   })

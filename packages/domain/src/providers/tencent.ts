@@ -9,6 +9,12 @@ function finiteNumber(value: unknown): number | null {
   return Number.isFinite(number) ? number : null
 }
 
+function previousDate(before: string): string {
+  const date = new Date(`${before}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() - 1)
+  return date.toISOString().slice(0, 10)
+}
+
 export function tencentSymbol(secId: string): string {
   const [market, code = ''] = secId.split('.')
   if (market === '1') return `sh${code}`
@@ -52,11 +58,13 @@ export class TencentProvider {
   async getKline(
     secId: string,
     klt: '101' | '102' | '103',
-  ): Promise<{ bars: KLineBar[]; meta: ProviderMeta } | null> {
+    before?: string,
+  ): Promise<{ bars: KLineBar[]; meta: ProviderMeta; hasMore: boolean } | null> {
     const symbol = tencentSymbol(secId)
     const period = klt === '101' ? 'day' : klt === '102' ? 'week' : 'month'
-    const count = klt === '101' ? 800 : klt === '102' ? 420 : 240
-    const url = `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${symbol},${period},,,${count},qfq`
+    const count = klt === '101' ? 800 : klt === '102' ? 2_000 : 800
+    const end = before === undefined ? '' : previousDate(before)
+    const url = `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${symbol},${period},,${end},${count},qfq`
     const response = await fetchJson<TencentKlineResponse>(this.http, url, {
       timeoutMs: this.timeoutMs,
       headers: HEADERS,
@@ -91,7 +99,38 @@ export class TencentProvider {
       })
     }
     const latest = bars.at(-1)
-    return latest === undefined ? null : { bars, meta: this.meta(latest.date) }
+    if (latest === undefined) return before === undefined ? null : { bars: [], meta: this.meta(), hasMore: false }
+    return { bars, meta: this.meta(latest.date), hasMore: klt === '101' }
+  }
+
+  /** Tencent caps one response at roughly 640 rows even when a larger count is requested. */
+  async getFullKline(
+    secId: string,
+    klt: '102' | '103',
+  ): Promise<{ bars: KLineBar[]; meta: ProviderMeta; hasMore: false } | null> {
+    const byDate = new Map<string, KLineBar>()
+    let before: string | undefined
+    let latestMeta: ProviderMeta | null = null
+    for (let page = 0; page < 12; page += 1) {
+      const result = await this.getKline(secId, klt, before)
+      if (result === null) break
+      latestMeta ??= result.meta
+      const cursor = before
+      const older = cursor === undefined
+        ? result.bars
+        : result.bars.filter(bar => bar.date < cursor)
+      if (older.length === 0) break
+      for (const bar of older) byDate.set(bar.date, bar)
+      const nextBefore = older[0]?.date
+      if (nextBefore === undefined || nextBefore === before) break
+      before = nextBefore
+    }
+    if (byDate.size === 0 || latestMeta === null) return null
+    return {
+      bars: [...byDate.values()].sort((left, right) => left.date.localeCompare(right.date)),
+      meta: latestMeta,
+      hasMore: false,
+    }
   }
 
   async getTrend(

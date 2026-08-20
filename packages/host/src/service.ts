@@ -46,7 +46,7 @@ export interface MarketFacade {
   getStockDetail(secId: string, security?: ReturnType<HanaiDatabase['getSecurity']>): Promise<StockDetail>
   getStockQuoteMetrics(secId: string): Promise<StockQuoteMetricsData>
   getTrend(secId: string): Promise<StockTrendData>
-  getKline(secId: string, period: KLinePeriod): Promise<StockKLineData>
+  getKline(secId: string, period: KLinePeriod, before?: string): Promise<StockKLineData>
   getValuation(
     secId: string,
     security?: ReturnType<HanaiDatabase['getSecurity']>,
@@ -234,7 +234,7 @@ export class HanaiService {
       }
       case 'security.kline': {
         const input = request as HanaiRequest<'security.kline'>
-        const result = await this.market.getKline(input.secId, input.period)
+        const result = await this.market.getKline(input.secId, input.period, input.before)
         this.recordProviderSuccess(MARKET_SUCCESS_SETTING, [result.bars.length === 0 ? null : result.meta])
         return result
       }
