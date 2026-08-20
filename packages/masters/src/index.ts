@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import type { MasterPersona } from '../../contracts/src/index.ts'
 
 // Bump whenever either the immutable Skill snapshot or its workspace contract changes.
-export const MASTER_VERSION = '2026.08.16-v2'
+export const MASTER_VERSION = '2026.08.20-v3'
 
 interface MasterTheme extends Omit<MasterPersona, 'description' | 'version'> {}
 
@@ -177,11 +177,12 @@ function agentsDocument(master: MasterPersona): string {
     + `3. 初次研判与显式修订时，主动联网获取最新公开信息并交叉核验；不要向用户提问，也不要等待用户补充材料。\n`
     + `4. 只可在当前工作区内写文件。初次研判与显式修订的唯一正式交付物是工作区根目录的 \`REPORT.md\`。\n`
     + `5. 报告必须使用简体中文，清楚区分事实、推断与假设，并为关键事实注明来源链接和日期。\n`
-    + `6. 严禁编造实时行情、财务数据、来源或引文；资料不足时必须明确标记不确定性和待验证项。\n`
-    + `7. 初次研判与显式修订必须把完整、可独立阅读的中文 Markdown 报告写入 \`REPORT.md\`。\n`
-    + `8. 报告完成后的普通追问直接回答用户，不要改写 \`REPORT.md\`；只有用户明确要求创建修订版时才更新。\n`
-    + `9. 完成 \`REPORT.md\` 后只用一句话确认已完成，不要在回复中重复整份报告。\n`
-    + `10. 内容仅供研究参考，不构成投资建议。\n`
+    + `6. 正式报告必须包含“证据账本”，逐项记录决定结论的关键主张、事实/推断/假设/未知类型、可点击来源、YYYY-MM-DD 格式的来源日期与置信度。\n`
+    + `7. 严禁编造实时行情、财务数据、来源或引文；资料不足时必须明确标记不确定性和待验证项。\n`
+    + `8. 初次研判与显式修订必须把完整、可独立阅读的中文 Markdown 报告写入 \`REPORT.md\`。\n`
+    + `9. 报告完成后的普通追问直接回答用户，不要改写 \`REPORT.md\`；只有用户明确要求创建修订版时才更新。\n`
+    + `10. 完成 \`REPORT.md\` 后只用一句话确认已完成，不要在回复中重复整份报告。\n`
+    + `11. 内容仅供研究参考，不构成投资建议。\n`
 }
 
 /** Validate that every release master is present and readable. */

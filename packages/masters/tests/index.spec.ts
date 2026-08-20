@@ -71,7 +71,7 @@ describe('legacy master Skill migration', () => {
       'munger-perspective',
       'warren-buffett-perspective',
     ])
-    expect(new Set(masters.map(master => master.version))).toEqual(new Set(['2026.08.16-v2']))
+    expect(new Set(masters.map(master => master.version))).toEqual(new Set(['2026.08.20-v3']))
     expect(masters.map(({ color, roleTag, tags }) => ({ color, roleTag, tags }))).toEqual([
       { color: '#d4a017', roleTag: '价值投资', tags: ['本分', '消费者导向', '长期价值'] },
       { color: '#c4573d', roleTag: '游资大佬', tags: ['题材周期', '情绪', '弱转强'] },
@@ -122,6 +122,7 @@ describe('legacy master Skill migration', () => {
     expect(instructions).toContain('只可在当前工作区内写文件')
     expect(instructions).toContain('报告必须使用简体中文')
     expect(instructions).toContain('来源链接和日期')
+    expect(instructions).toContain('YYYY-MM-DD')
     expect(instructions).toContain('严禁编造实时行情、财务数据、来源或引文')
     expect(instructions).toContain('明确标记不确定性和待验证项')
     expect(instructions).toContain('普通追问直接回答用户，不要改写 `REPORT.md`')

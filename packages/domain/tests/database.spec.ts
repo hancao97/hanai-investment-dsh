@@ -102,6 +102,89 @@ describe('HanaiDatabase', () => {
     db.close()
   })
 
+  it('persists, completes, reopens, and preserves local research follow-ups', () => {
+    const { db } = database()
+    db.createJudgement({
+      id: 'judgement-followup', secId: '1.600519', code: '600519', stockName: '贵州茅台',
+      masterId: 'munger-perspective', masterName: '查理·芒格', masterVersion: 'v1',
+    })
+    db.updateJudgement('judgement-followup', { reportStatus: 'ready', latestReportVersion: 1 })
+    const created = db.createResearchFollowUp({
+      secId: '1.600519', judgementId: 'judgement-followup', reportVersion: 1,
+      title: '  核验下一季经营现金流  ', dueDate: '2026-09-30',
+    })
+    expect(created).toMatchObject({
+      title: '核验下一季经营现金流', dueDate: '2026-09-30', status: 'open', completedAt: null,
+    })
+    expect(db.listAllResearchFollowUps('open')).toEqual([created])
+    const completed = db.updateResearchFollowUp(created.id, { completed: true })
+    expect(completed.status).toBe('done')
+    expect(completed.completedAt).not.toBeNull()
+    expect(db.listAllResearchFollowUps('open')).toEqual([])
+    expect(db.listAllResearchFollowUps('done')).toEqual([completed])
+    expect(db.updateResearchFollowUp(created.id, { completed: false })).toMatchObject({
+      status: 'open', completedAt: null,
+    })
+    expect(() => db.createResearchFollowUp({
+      secId: '1.600519', title: '日期错误', dueDate: '2026-02-30',
+    })).toThrow('到期日无效')
+
+    db.removeJudgement('judgement-followup')
+    expect(db.getResearchFollowUp(created.id)).toMatchObject({
+      judgementId: null, reportVersion: null, title: '核验下一季经营现金流',
+    })
+    expect(db.listAllResearchFollowUps()).toHaveLength(1)
+    db.removeResearchFollowUp(created.id)
+    expect(db.listResearchFollowUps('1.600519')).toEqual([])
+    db.close()
+  })
+
+  it('stores falsifiable research predictions and scores resolved confidence without rewriting history', () => {
+    const { db } = database()
+    db.createJudgement({
+      id: 'judgement-prediction', secId: '1.600519', code: '600519', stockName: '贵州茅台',
+      masterId: 'munger-perspective', masterName: '查理·芒格', masterVersion: 'v1',
+    })
+    db.updateJudgement('judgement-prediction', { reportStatus: 'ready', latestReportVersion: 1 })
+    const created = db.createResearchPrediction({
+      secId: '1.600519', judgementId: 'judgement-prediction', reportVersion: 1,
+      statement: ' 下一季度经营现金流同比改善 ',
+      resolutionCriteria: ' 以公司下一季法定财报披露值为准 ',
+      probabilityPct: 70,
+      dueDate: '2026-10-31',
+    })
+    expect(created).toMatchObject({
+      statement: '下一季度经营现金流同比改善',
+      resolutionCriteria: '以公司下一季法定财报披露值为准',
+      probabilityPct: 70,
+      outcome: 'pending',
+      brierScore: null,
+      resolvedAt: null,
+    })
+    expect(db.listResearchPredictions('1.600519')).toEqual([created])
+    expect(db.listAllResearchPredictions('pending')).toEqual([created])
+    expect(db.listResearchPredictionsForSecurities(['1.600519', '1.600519', '0.000001'])).toEqual([created])
+
+    const resolved = db.resolveResearchPrediction(created.id, 'occurred')
+    expect(resolved).toMatchObject({ outcome: 'occurred', brierScore: 0.09 })
+    expect(resolved.resolvedAt).not.toBeNull()
+    expect(db.listAllResearchPredictions('pending')).toEqual([])
+    expect(db.listResearchPredictionsForSecurities(['1.600519'])).toEqual([])
+    expect(db.listAllResearchPredictions('resolved')).toEqual([resolved])
+    expect(db.resolveResearchPrediction(created.id, 'occurred')).toEqual(resolved)
+    expect(() => db.resolveResearchPrediction(created.id, 'not-occurred')).toThrow('不能覆盖历史结果')
+    expect(() => db.createResearchPrediction({
+      secId: '1.600519', statement: '概率错误', resolutionCriteria: '财报', probabilityPct: 100,
+      dueDate: '2026-10-31',
+    })).toThrow('1 到 99')
+
+    db.removeJudgement('judgement-prediction')
+    expect(db.getResearchPrediction(created.id)).toMatchObject({
+      judgementId: null, reportVersion: null, outcome: 'occurred', brierScore: 0.09,
+    })
+    db.close()
+  })
+
   it('never replaces securities with a partial snapshot', () => {
     const { db } = database()
     expect(() => db.replaceSecuritySnapshot([])).toThrow('不完整')

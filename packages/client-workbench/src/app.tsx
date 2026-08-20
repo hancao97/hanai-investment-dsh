@@ -14,6 +14,16 @@ import type {
   JudgementDetail,
   MasterPersona,
   ProviderMeta,
+  ReportAudit,
+  ReportAuditCheck,
+  ReportEvidenceItem,
+  ReportVersion,
+  ResearchComparison,
+  ResearchFollowUp,
+  ResearchInboxItem,
+  ResearchPrediction,
+  ResearchPredictionInboxItem,
+  ResearchQualityItem,
   SearchResult,
   SecurityMaster,
   StockDetail,
@@ -21,6 +31,7 @@ import type {
   ThemeId,
   WatchGroup,
   WatchQuote,
+  WatchResearchCoverage,
   WatchValuation,
 } from '../../contracts/src/index.ts'
 import { ChatPanel } from '../../client-chat/src/index.tsx'
@@ -190,7 +201,18 @@ export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
 
         <main className={styles['content']}>
           {route.page === 'dashboard' && <DashboardPage client={client} theme={bootstrap.theme} onStock={openStock} notify={notify} />}
-          {route.page === 'watch' && <WatchPage client={client} groups={bootstrap.groups} onGroups={setGroups} onStock={openStock} notify={notify} />}
+          {route.page === 'watch' && <WatchPage
+            client={client}
+            groups={bootstrap.groups}
+            onGroups={setGroups}
+            onStock={openStock}
+            onJudgement={openJudgement}
+            onCreateJudgement={(stock, masterId) => {
+              setLaunchRequest({ key: Date.now(), stock, masterId })
+              navigate('/judgements')
+            }}
+            notify={notify}
+          />}
           {route.page === 'stock' && (
             <StockPage
               client={client}
@@ -214,6 +236,7 @@ export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
               onLaunchHandled={clearLaunchRequest}
               onJudgements={setJudgements}
               onOpen={openJudgement}
+              onStock={openStock}
               notify={notify}
             />
           )}
@@ -434,8 +457,17 @@ function SectorDrill({ drill, onStock }: { drill: { name: string; stocks: StockQ
 }
 
 type WatchSortKey = 'addedAt' | 'changePct' | 'amount' | 'marketCap' | 'pe'
+type WatchCoverageFilter = 'all' | 'current' | 'active' | 'stale' | 'missing' | 'followups' | 'predictions'
 
-function WatchPage({ client, groups, onGroups, onStock, notify }: { client: HanaiClient; groups: WatchGroup[]; onGroups: (groups: WatchGroup[]) => void; onStock: (stock: SearchResult) => void; notify: Notify }) {
+function WatchPage({ client, groups, onGroups, onStock, onJudgement, onCreateJudgement, notify }: {
+  client: HanaiClient
+  groups: WatchGroup[]
+  onGroups: (groups: WatchGroup[]) => void
+  onStock: (stock: SearchResult) => void
+  onJudgement: (id: string) => void
+  onCreateJudgement: (stock: SearchResult, masterId: string | null) => void
+  notify: Notify
+}) {
   const [groupId, setGroupId] = useState(() => groups.find(group => group.isDefault)?.id ?? groups[0]?.id ?? '')
   const [quotes, setQuotes] = useState<WatchQuote[]>([])
   const [loadedGroupId, setLoadedGroupId] = useState<string | null>(null)
@@ -447,8 +479,14 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
   const [valuationMeta, setValuationMeta] = useState<ProviderMeta | null>(null)
   const [valuationLoading, setValuationLoading] = useState(true)
   const [valuationFailed, setValuationFailed] = useState(false)
+  const [researchCoverage, setResearchCoverage] = useState<WatchResearchCoverage[]>([])
+  const [loadedCoverageGroupId, setLoadedCoverageGroupId] = useState<string | null>(null)
+  const [coverageLoading, setCoverageLoading] = useState(true)
+  const [coverageFailed, setCoverageFailed] = useState(false)
+  const [staleAfterDays, setStaleAfterDays] = useState(90)
   const [refreshing, setRefreshing] = useState(false)
   const [sort, setSort] = useState<{ key: WatchSortKey; desc: boolean }>({ key: 'addedAt', desc: true })
+  const [coverageFilter, setCoverageFilter] = useState<WatchCoverageFilter>('all')
   const [managerOpen, setManagerOpen] = useState(false)
   const [addQuery, setAddQuery] = useState('')
   const [addResults, setAddResults] = useState<SearchResult[]>([])
@@ -461,6 +499,9 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
   const valuationGeneration = useRef(0)
   const valuationController = useRef<AbortController | null>(null)
   const valuationRequestGroupId = useRef<string | null>(null)
+  const coverageGeneration = useRef(0)
+  const coverageController = useRef<AbortController | null>(null)
+  const coverageRequestGroupId = useRef<string | null>(null)
 
   const loadQuotes = useCallback(async (
     requestedGroupId: string,
@@ -563,6 +604,56 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
     }
   }, [client, notify])
 
+  const loadResearchCoverage = useCallback(async (
+    requestedGroupId: string,
+    mode: 'initial' | 'refresh' = 'initial',
+    force = false,
+  ) => {
+    if (!force && coverageRequestGroupId.current === requestedGroupId
+      && coverageController.current !== null
+      && !coverageController.current.signal.aborted) return
+    const generation = ++coverageGeneration.current
+    coverageController.current?.abort()
+    const controller = new AbortController()
+    coverageController.current = controller
+    coverageRequestGroupId.current = requestedGroupId
+    setCoverageLoading(true)
+    if (requestedGroupId === '') {
+      setResearchCoverage([])
+      setLoadedCoverageGroupId(null)
+      setCoverageLoading(false)
+      setCoverageFailed(false)
+      coverageController.current = null
+      coverageRequestGroupId.current = null
+      return
+    }
+    try {
+      const result = await client.call('watch.researchCoverage', { groupId: requestedGroupId }, controller.signal)
+      if (controller.signal.aborted
+        || generation !== coverageGeneration.current
+        || requestedGroupId !== activeGroupId.current) return
+      setResearchCoverage(result.items)
+      setLoadedCoverageGroupId(requestedGroupId)
+      setStaleAfterDays(result.staleAfterDays)
+      setCoverageFailed(false)
+    } catch (error) {
+      if (controller.signal.aborted
+        || generation !== coverageGeneration.current
+        || requestedGroupId !== activeGroupId.current) return
+      setLoadedCoverageGroupId(requestedGroupId)
+      setCoverageFailed(true)
+      if (mode === 'refresh') notify(`研究覆盖加载失败：${messageOf(error)}`, 'error')
+    } finally {
+      if (generation === coverageGeneration.current && requestedGroupId === activeGroupId.current) {
+        setCoverageLoading(false)
+      }
+      if (coverageController.current === controller) {
+        coverageController.current = null
+        coverageRequestGroupId.current = null
+      }
+    }
+  }, [client, notify])
+
   useEffect(() => {
     if (groups.some(group => group.id === groupId)) return
     const fallback = groups.find(group => group.isDefault)?.id ?? groups[0]?.id ?? ''
@@ -589,10 +680,20 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
     setValuationMeta(null)
     setValuationLoading(true)
     setValuationFailed(false)
+    coverageGeneration.current += 1
+    coverageController.current?.abort()
+    coverageController.current = null
+    coverageRequestGroupId.current = null
+    setResearchCoverage([])
+    setLoadedCoverageGroupId(null)
+    setCoverageLoading(true)
+    setCoverageFailed(false)
     setRefreshing(false)
+    setCoverageFilter('all')
     setMoveTarget(null)
     void loadQuotes(groupId, 'initial')
     void loadValuations(groupId)
+    void loadResearchCoverage(groupId)
     const timer = window.setInterval(() => void loadQuotes(groupId), 15_000)
     return () => {
       window.clearInterval(timer)
@@ -600,8 +701,10 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
       quoteController.current?.abort()
       valuationGeneration.current += 1
       valuationController.current?.abort()
+      coverageGeneration.current += 1
+      coverageController.current?.abort()
     }
-  }, [groupId, loadQuotes, loadValuations])
+  }, [groupId, loadQuotes, loadResearchCoverage, loadValuations])
   useEffect(() => {
     if (addQuery.trim() === '') { setAddResults([]); return }
     const controller = new AbortController()
@@ -616,8 +719,13 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
   const displayedGroupId = loadedGroupId === groupId ? loadedGroupId : null
   const visibleQuotes = displayedGroupId === null ? [] : quotes
   const visibleValuations = loadedValuationGroupId === groupId ? valuations : []
+  const visibleCoverage = loadedCoverageGroupId === groupId ? researchCoverage : []
   const valuationMap = useMemo(() => new Map(visibleValuations.map(item => [item.secId, item])), [visibleValuations])
-  const sorted = useMemo(() => [...visibleQuotes].sort((left, right) => compareNullable(left[sort.key], right[sort.key], sort.desc)), [sort, visibleQuotes])
+  const coverageMap = useMemo(() => new Map(visibleCoverage.map(item => [item.secId, item])), [visibleCoverage])
+  const coverageSummary = useMemo(() => summarizeResearchCoverage(visibleCoverage), [visibleCoverage])
+  const sorted = useMemo(() => visibleQuotes
+    .filter(quote => matchesResearchCoverageFilter(coverageMap.get(quote.secId), coverageFilter))
+    .sort((left, right) => compareNullable(left[sort.key], right[sort.key], sort.desc)), [coverageFilter, coverageMap, sort, visibleQuotes])
   const toggleSort = (key: WatchSortKey) => setSort(current => {
     if (current.key !== key) return { key, desc: true }
     if (current.desc) return { key, desc: false }
@@ -630,6 +738,8 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
     quoteController.current?.abort()
     valuationGeneration.current += 1
     valuationController.current?.abort()
+    coverageGeneration.current += 1
+    coverageController.current?.abort()
     setQuotes([])
     setLoadedGroupId(null)
     setQuoteMeta(null)
@@ -640,7 +750,12 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
     setValuationMeta(null)
     setValuationLoading(true)
     setValuationFailed(false)
+    setResearchCoverage([])
+    setLoadedCoverageGroupId(null)
+    setCoverageLoading(true)
+    setCoverageFailed(false)
     setRefreshing(false)
+    setCoverageFilter('all')
     setMoveTarget(null)
     setGroupId(nextGroupId)
   }
@@ -654,6 +769,7 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
     else {
       void loadQuotes(nextGroupId, 'refresh', true)
       void loadValuations(nextGroupId, 'refresh', true)
+      void loadResearchCoverage(nextGroupId, 'refresh', true)
     }
   }
 
@@ -664,6 +780,7 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
     await Promise.all([
       loadQuotes(requestedGroupId, 'refresh', true),
       loadValuations(requestedGroupId, 'refresh', true),
+      loadResearchCoverage(requestedGroupId, 'refresh', true),
     ])
     if (activeGroupId.current === requestedGroupId) setRefreshing(false)
   }
@@ -689,10 +806,19 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
       </div>
     </div>
 
+    <ResearchCoverageStrip
+      summary={coverageSummary}
+      loading={coverageLoading && loadedCoverageGroupId !== groupId}
+      failed={coverageFailed}
+      staleAfterDays={staleAfterDays}
+      filter={coverageFilter}
+      onFilter={setCoverageFilter}
+    />
+
     <article className={styles['card']}>
-      {initialLoading ? <WatchTableSkeleton rows={skeletonRows} /> : initialLoadFailed ? <Empty title="自选行情暂不可用" detail="已有自选仍保存在本地，请检查网络后重试。" action={<button className={styles['button']} onClick={() => void refreshCurrentGroup()}>重新加载</button>} /> : sorted.length === 0 ? <Empty title="当前分组暂无自选股" detail="使用上方搜索框或 ⌘K 全局搜索添加。" /> : <div className={styles['tableWrap']}><table className={`${styles['dataTable']} ${styles['watchTable']}`}>
+      {initialLoading ? <WatchTableSkeleton rows={skeletonRows} /> : initialLoadFailed ? <Empty title="自选行情暂不可用" detail="已有自选仍保存在本地，请检查网络后重试。" action={<button className={styles['button']} onClick={() => void refreshCurrentGroup()}>重新加载</button>} /> : sorted.length === 0 ? <Empty title={visibleQuotes.length === 0 ? '当前分组暂无自选股' : '当前筛选暂无自选股'} detail={visibleQuotes.length === 0 ? '使用上方搜索框或 ⌘K 全局搜索添加。' : '换一个研究状态，或查看全部自选。'} {...(visibleQuotes.length === 0 ? {} : { action: <button className={styles['button']} onClick={() => setCoverageFilter('all')}>查看全部</button> })} /> : <div className={styles['tableWrap']}><table className={`${styles['dataTable']} ${styles['watchTable']}`}>
         <thead><tr>
-          <th>名称</th><th>最新价</th>
+          <th>名称</th><th>研究覆盖</th><th>最新价</th>
           <SortableHead label="涨跌幅" column="changePct" sort={sort} onSort={toggleSort} />
           <SortableHead label="成交额" column="amount" sort={sort} onSort={toggleSort} />
           <th>换手率</th>
@@ -706,6 +832,13 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
         </tr></thead>
         <tbody>{sorted.map(quote => <tr key={quote.secId} tabIndex={0} aria-label={`查看 ${quote.name} ${quote.code}`} onClick={() => onStock(toSearchResult(quote))} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onStock(toSearchResult(quote)) } }}>
           <td><b>{quote.name}</b><small>{quote.code}</small></td>
+          <WatchResearchCoverageCell
+            quote={quote}
+            coverage={coverageMap.get(quote.secId)}
+            loading={coverageLoading && !coverageMap.has(quote.secId)}
+            onJudgement={onJudgement}
+            onCreateJudgement={onCreateJudgement}
+          />
           <td className={styles[classForChange(quote.changePct)]}>{number(quote.price)}</td>
           <td className={styles[classForChange(quote.changePct)]}>{percent(quote.changePct)}</td>
           <td>{money(quote.amount)}</td><td>{ratio(quote.turnoverRate)}</td><td>{money(quote.marketCap)}</td>
@@ -718,6 +851,7 @@ function WatchPage({ client, groups, onGroups, onStock, notify }: { client: Hana
       <div className={styles['tableFoot']}>
         <span><b>行情</b><DataSourceText meta={quoteMeta} /></span>
         <span><b>合理估值</b>{valuationMeta !== null ? <DataSourceText meta={valuationMeta} /> : <small className={styles['dataSource']}>{valuationLoading ? '价值大师网 · 整组加载中…' : valuationFailed ? '价值大师网 · 本次加载失败' : '价值大师网 · 暂无可用数据'}</small>}</span>
+        <span><b>研究覆盖</b><small className={styles['dataSource']}>{coverageLoading ? '正在核对本地研判…' : coverageFailed ? '本次加载失败' : `本地报告 · 超过 ${staleAfterDays} 天提示复核`}</small></span>
       </div>
     </article>
 
@@ -747,10 +881,102 @@ function WatchValuationCells({ quote, valuation, loading }: { quote: WatchQuote;
   </>
 }
 
+function ResearchCoverageStrip({ summary, loading, failed, staleAfterDays, filter, onFilter }: {
+  summary: ReturnType<typeof summarizeResearchCoverage>
+  loading: boolean
+  failed: boolean
+  staleAfterDays: number
+  filter: WatchCoverageFilter
+  onFilter: (filter: WatchCoverageFilter) => void
+}) {
+  const unavailable = loading || failed
+  return <section className={`${styles['card']} ${styles['coverageStrip']}`} aria-label="自选研究覆盖概览">
+    <button aria-pressed={filter === 'all'} onClick={() => onFilter('all')}><span>研究覆盖</span><b>{loading ? '核对中…' : failed ? '暂不可用' : `${summary.covered}/${summary.total}`}</b><small>查看全部自选</small></button>
+    <button aria-pressed={filter === 'current'} disabled={unavailable} onClick={() => onFilter('current')}><span className={styles['coverageDotCurrent']} /> <b>{summary.current}</b><small>当前有效</small></button>
+    <button aria-pressed={filter === 'active'} disabled={unavailable} onClick={() => onFilter('active')}><span className={styles['coverageDotActive']} /> <b>{summary.active}</b><small>研判进行中</small></button>
+    <button aria-pressed={filter === 'stale'} disabled={unavailable} onClick={() => onFilter('stale')}><span className={styles['coverageDotStale']} /> <b>{summary.stale}</b><small>超过 {staleAfterDays} 天</small></button>
+    <button aria-pressed={filter === 'missing'} disabled={unavailable} onClick={() => onFilter('missing')}><span className={styles['coverageDotMissing']} /> <b>{summary.missing}</b><small>待研判或失败</small></button>
+    <p>
+      {summary.openFollowUps > 0 && <>持续跟踪 <b>{summary.openFollowUps}</b> 项{summary.overdueFollowUps > 0 && <>，其中 <em>{summary.overdueFollowUps} 项已逾期</em></>}。<button aria-pressed={filter === 'followups'} onClick={() => onFilter(filter === 'followups' ? 'all' : 'followups')}>{filter === 'followups' ? '查看全部' : '查看涉及公司'}</button></>}
+      {summary.openFollowUps > 0 && summary.pendingPredictions > 0 && <span aria-hidden="true"> · </span>}
+      {summary.pendingPredictions > 0 && <>待判定命题 <b>{summary.pendingPredictions}</b> 项{summary.duePredictions > 0 && <>，其中 <em>{summary.duePredictions} 项已到期</em></>}。<button aria-pressed={filter === 'predictions'} onClick={() => onFilter(filter === 'predictions' ? 'all' : 'predictions')}>{filter === 'predictions' ? '查看全部' : '查看命题公司'}</button></>}
+      {summary.openFollowUps === 0 && summary.pendingPredictions === 0 && <>用“研究覆盖”识别需要补做或复核的公司；行情刷新不会改变本地研究状态。</>}
+    </p>
+  </section>
+}
+
+function WatchResearchCoverageCell({ quote, coverage, loading, onJudgement, onCreateJudgement }: {
+  quote: WatchQuote
+  coverage: WatchResearchCoverage | undefined
+  loading: boolean
+  onJudgement: (id: string) => void
+  onCreateJudgement: (stock: SearchResult, masterId: string | null) => void
+}) {
+  if (loading) return <td><i className={styles['cellSkeleton']} /></td>
+  const value = coverage ?? {
+    secId: quote.secId,
+    state: 'uncovered' as const,
+    judgementId: null,
+    masterId: null,
+    masterName: null,
+    latestReportAt: null,
+    latestReportVersion: null,
+    ageDays: null,
+    reportVersionCount: 0,
+    openFollowUpCount: 0,
+    overdueFollowUpCount: 0,
+    nextFollowUpDueDate: null,
+    pendingPredictionCount: 0,
+    duePredictionCount: 0,
+    nextPredictionDueDate: null,
+  }
+  const label = {
+    active: '研判中',
+    current: '已覆盖',
+    stale: '待复核',
+    failed: '上次失败',
+    uncovered: '待研判',
+  }[value.state]
+  const detail = value.state === 'active'
+    ? value.masterName ?? '正在形成报告'
+    : value.latestReportAt !== null
+      ? `${value.ageDays ?? 0} 天前 · v${value.latestReportVersion ?? 1}`
+      : value.masterName ?? '暂无正式报告'
+  const followUpDetail = value.openFollowUpCount === 0
+    ? ''
+    : value.overdueFollowUpCount > 0
+      ? ` · ${value.overdueFollowUpCount} 项逾期`
+      : ` · ${value.openFollowUpCount} 项待验`
+  const predictionDetail = value.pendingPredictionCount === 0
+    ? ''
+    : value.duePredictionCount > 0
+      ? ` · ${value.duePredictionCount} 项命题到期`
+      : ` · ${value.pendingPredictionCount} 项命题`
+  const canOpen = value.judgementId !== null
+  const shouldCreate = value.state === 'stale' || value.state === 'failed' || value.state === 'uncovered'
+  return <td className={styles['coverageCell']}>
+    <button
+      className={`${styles['coverageStatus']} ${styles[`coverageStatus_${value.state}`]}`}
+      disabled={!canOpen}
+      onClick={(event) => {
+        event.stopPropagation()
+        if (value.judgementId !== null) onJudgement(value.judgementId)
+      }}
+      title={canOpen ? '查看最近研判' : '尚无研判可查看'}
+    >
+      <b>{label}</b><small>{detail}{followUpDetail}{predictionDetail}</small>
+    </button>
+    {shouldCreate && <button className={styles['coverageAction']} onClick={(event) => {
+      event.stopPropagation()
+      onCreateJudgement(toSearchResult(quote), value.masterId)
+    }}>{value.state === 'uncovered' ? '开始' : '更新'}</button>}
+  </td>
+}
+
 function WatchTableSkeleton({ rows }: { rows: number }) {
   return <div className={styles['watchSkeleton']} role="status" aria-label="正在加载自选行情">
-    <div className={styles['watchSkeletonHead']}>{Array.from({ length: 13 }, (_, index) => <i key={index} />)}</div>
-    {Array.from({ length: rows }, (_, row) => <div className={styles['watchSkeletonRow']} key={row}>{Array.from({ length: 13 }, (__, column) => <i key={column} />)}</div>)}
+    <div className={styles['watchSkeletonHead']}>{Array.from({ length: 14 }, (_, index) => <i key={index} />)}</div>
+    {Array.from({ length: rows }, (_, row) => <div className={styles['watchSkeletonRow']} key={row}>{Array.from({ length: 14 }, (__, column) => <i key={column} />)}</div>)}
   </div>
 }
 
@@ -840,6 +1066,11 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
   const [chart, setChart] = useState<StockChart>('daily')
   const [groups, setGroups] = useState(bootstrapGroups)
   const [watchDialogOpen, setWatchDialogOpen] = useState(false)
+  const [followUps, setFollowUps] = useState<ResearchFollowUp[]>([])
+  const [followUpsLoading, setFollowUpsLoading] = useState(true)
+  const [followUpsOpen, setFollowUpsOpen] = useState(true)
+  const [predictions, setPredictions] = useState<ResearchPrediction[]>([])
+  const [predictionsLoading, setPredictionsLoading] = useState(true)
   const requestGeneration = useRef(0)
   const routeController = useRef<AbortController | null>(null)
   const activeSecId = useRef(secId)
@@ -856,6 +1087,11 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
     loadedSurfaces.current = new Set()
     setChart('daily')
     setWatchDialogOpen(false)
+    setFollowUps([])
+    setFollowUpsLoading(true)
+    setFollowUpsOpen(true)
+    setPredictions([])
+    setPredictionsLoading(true)
     setDetailState({ secId, detail: emptyStockDetail() })
 
     const active = () => !controller.signal.aborted
@@ -918,6 +1154,20 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
         onGroups(nextGroups)
       })
       .catch(error => failed('自选状态', error))
+    void client.call('research.followup.list', { secId }, controller.signal)
+      .then(items => {
+        if (!active()) return
+        setFollowUps(items)
+      })
+      .catch(error => failed('持续跟踪', error))
+      .finally(() => { if (active()) setFollowUpsLoading(false) })
+    void client.call('research.prediction.list', { secId }, controller.signal)
+      .then(items => {
+        if (!active()) return
+        setPredictions(items)
+      })
+      .catch(error => failed('研究命题', error))
+      .finally(() => { if (active()) setPredictionsLoading(false) })
 
     return () => {
       requestGeneration.current += 1
@@ -1058,6 +1308,25 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
             <div className={styles['metaLine']}><DataStateBadge meta={valuation.meta} liveCapable={false} /><DataSourceText meta={valuation.meta} /></div>
           </>}
         </article>
+        <ResearchFollowUpPanel
+          client={client}
+          secId={secId}
+          items={followUps}
+          loading={followUpsLoading}
+          open={followUpsOpen}
+          onToggle={() => setFollowUpsOpen(current => !current)}
+          onItems={setFollowUps}
+          notify={notify}
+          standalone
+        />
+        <ResearchPredictionPanel
+          client={client}
+          secId={secId}
+          items={predictions}
+          loading={predictionsLoading}
+          onItems={setPredictions}
+          notify={notify}
+        />
         <article className={styles['card']}>
           <PanelHead title="价值曲线" />
           <div className={styles['valuationChart']}>{valuation === null || buildValuationOption(valuation, palette) === null ? <Empty compact title="暂无估值曲线" detail="供应商尚未返回价格与价值序列。" /> : <EChart option={buildValuationOption(valuation, palette)} ariaLabel="价格与大师价值曲线" />}</div>
@@ -1069,15 +1338,27 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
   </Page>
 }
 
-function JudgementsPage({ client, masters, judgements, launchRequest, onLaunchHandled, onJudgements, onOpen, notify }: { client: HanaiClient; masters: MasterPersona[]; judgements: Judgement[]; launchRequest: JudgementLaunchRequest | null; onLaunchHandled: () => void; onJudgements: (judgements: Judgement[]) => void; onOpen: (id: string) => void; notify: Notify }) {
+function JudgementsPage({ client, masters, judgements, launchRequest, onLaunchHandled, onJudgements, onOpen, onStock, notify }: { client: HanaiClient; masters: MasterPersona[]; judgements: Judgement[]; launchRequest: JudgementLaunchRequest | null; onLaunchHandled: () => void; onJudgements: (judgements: Judgement[]) => void; onOpen: (id: string) => void; onStock: (stock: Pick<SecurityMaster, 'secId'>) => void; notify: Notify }) {
   const [runs, setRuns] = useState(judgements)
   const [stockFilter, setStockFilter] = useState('')
   const [masterFilter, setMasterFilter] = useState('')
+  const [qualityFilter, setQualityFilter] = useState<'all' | 'attention' | 'strong'>('all')
   const [launcherOpen, setLauncherOpen] = useState(false)
   const [prefill, setPrefill] = useState<SearchResult | null>(null)
   const [prefillMasterId, setPrefillMasterId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Judgement | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [inboxItems, setInboxItems] = useState<ResearchInboxItem[]>([])
+  const [inboxLoading, setInboxLoading] = useState(true)
+  const [inboxFailed, setInboxFailed] = useState(false)
+  const [inboxOpen, setInboxOpen] = useState(false)
+  const [predictionInboxItems, setPredictionInboxItems] = useState<ResearchPredictionInboxItem[]>([])
+  const [predictionInboxLoading, setPredictionInboxLoading] = useState(true)
+  const [predictionInboxFailed, setPredictionInboxFailed] = useState(false)
+  const [predictionInboxOpen, setPredictionInboxOpen] = useState(false)
+  const [qualityItems, setQualityItems] = useState<ResearchQualityItem[]>([])
+  const [qualityLoading, setQualityLoading] = useState(true)
+  const [comparisonOpen, setComparisonOpen] = useState(false)
   useEffect(() => setRuns(judgements), [judgements])
   useEffect(() => {
     if (launchRequest === null) return
@@ -1093,15 +1374,88 @@ function JudgementsPage({ client, masters, judgements, launchRequest, onLaunchHa
       onJudgements(next)
     } catch (error) { notify(messageOf(error), 'error') }
   }, [client, notify, onJudgements])
+  const loadInbox = useCallback(async () => {
+    setInboxLoading(true)
+    setInboxFailed(false)
+    try {
+      const result = await client.call('research.inbox', { status: 'all' })
+      setInboxItems(result.items)
+      const today = localDateKey(new Date())
+      if (result.items.some(item => item.status === 'open' && item.dueDate !== null && item.dueDate < today)) {
+        setInboxOpen(true)
+      }
+    } catch (error) {
+      setInboxFailed(true)
+      notify(messageOf(error), 'error')
+    } finally {
+      setInboxLoading(false)
+    }
+  }, [client, notify])
+  useEffect(() => { void loadInbox() }, [loadInbox])
+  const loadPredictionInbox = useCallback(async () => {
+    setPredictionInboxLoading(true)
+    setPredictionInboxFailed(false)
+    try {
+      const result = await client.call('research.prediction.inbox', { status: 'all' })
+      setPredictionInboxItems(result.items)
+      const today = localDateKey(new Date())
+      if (result.items.some(item => item.outcome === 'pending' && item.dueDate <= today)) {
+        setPredictionInboxOpen(true)
+      }
+    } catch (error) {
+      setPredictionInboxFailed(true)
+      notify(messageOf(error), 'error')
+    } finally {
+      setPredictionInboxLoading(false)
+    }
+  }, [client, notify])
+  useEffect(() => { void loadPredictionInbox() }, [loadPredictionInbox])
+  const loadQuality = useCallback(async () => {
+    setQualityLoading(true)
+    try {
+      const result = await client.call('research.quality', {})
+      setQualityItems(result.items)
+    } catch (error) {
+      notify(messageOf(error), 'error')
+    } finally {
+      setQualityLoading(false)
+    }
+  }, [client, notify])
+  const qualityKey = runs.map(run => `${run.id}:${run.latestReportVersion ?? 0}`).join('|')
+  useEffect(() => { void loadQuality() }, [loadQuality, qualityKey])
   useEffect(() => {
     if (!runs.some(run => isReportInFlight(run.reportStatus))) return
     const timer = window.setInterval(() => void load(), 4000)
     return () => window.clearInterval(timer)
   }, [load, runs])
+  const qualityByJudgement = new Map(qualityItems.map(item => [item.judgementId, item]))
   const filtered = runs.filter(run => {
     const stock = stockFilter.trim().toLowerCase()
-    return (stock === '' || `${run.stockName} ${run.code}`.toLowerCase().includes(stock)) && (masterFilter === '' || run.masterId === masterFilter)
+    const quality = qualityByJudgement.get(run.id)
+    const matchesQuality = qualityFilter === 'all'
+      || (qualityFilter === 'strong' && quality?.rating === 'strong' && quality.incompleteChecks.length === 0)
+      || (qualityFilter === 'attention' && quality !== undefined
+        && (quality.rating !== 'strong' || quality.incompleteChecks.length > 0))
+    return (stock === '' || `${run.stockName} ${run.code}`.toLowerCase().includes(stock))
+      && (masterFilter === '' || run.masterId === masterFilter)
+      && matchesQuality
   })
+  const attentionCount = qualityItems.filter(item => item.rating !== 'strong' || item.incompleteChecks.length > 0).length
+  const comparisonGroups = useMemo(() => {
+    const bySecurity = new Map<string, Judgement[]>()
+    for (const run of runs) {
+      if (run.latestReportVersion === null) continue
+      const entries = bySecurity.get(run.secId) ?? []
+      entries.push(run)
+      bySecurity.set(run.secId, entries)
+    }
+    return [...bySecurity.entries()].flatMap(([secId, entries]) => entries.length < 2 ? [] : [{
+      secId,
+      code: entries[0]?.code ?? secId.replace(/^[01]\./, ''),
+      stockName: entries[0]?.stockName ?? secId,
+      count: entries.length,
+    }])
+  }, [runs])
   const remove = async () => {
     if (deleteTarget === null || deleting) return
     setDeleting(true)
@@ -1109,6 +1463,8 @@ function JudgementsPage({ client, masters, judgements, launchRequest, onLaunchHa
       const next = await client.call('judgement.remove', { id: deleteTarget.id })
       setRuns(next)
       onJudgements(next)
+      await loadInbox()
+      await loadPredictionInbox()
       setDeleteTarget(null)
       notify('研判报告已删除')
     } catch (error) {
@@ -1118,24 +1474,327 @@ function JudgementsPage({ client, masters, judgements, launchRequest, onLaunchHa
     }
   }
   return <Page>
-    <PageHeader title="大师研判" description="由一位专家独立检索并核验公开资料，形成完整投资研判报告" action={<button className={styles['buttonPrimary']} onClick={() => { setPrefill(null); setPrefillMasterId(null); setLauncherOpen(true) }}>＋ 新建研判</button>} />
-    <div className={`${styles['card']} ${styles['judgementToolbar']}`}><input value={stockFilter} onChange={event => setStockFilter(event.target.value)} placeholder="筛选股票名或代码" /><select value={masterFilter} onChange={event => setMasterFilter(event.target.value)}><option value="">全部分析人</option>{masters.map(master => <option key={master.id} value={master.id}>{master.name}</option>)}</select><span>{filtered.length} 份研判归档</span></div>
+    <PageHeader title="大师研判" description="由一位专家独立检索并核验公开资料，形成完整投资研判报告" action={<>{comparisonGroups.length > 0 && <button className={styles['button']} onClick={() => setComparisonOpen(true)}>⇄ 同股异见{comparisonGroups.length > 1 ? `（${comparisonGroups.length}）` : ''}</button>}<button className={styles['buttonPrimary']} onClick={() => { setPrefill(null); setPrefillMasterId(null); setLauncherOpen(true) }}>＋ 新建研判</button></>} />
+    <ResearchInboxPanel
+      client={client}
+      items={inboxItems}
+      loading={inboxLoading}
+      failed={inboxFailed}
+      open={inboxOpen}
+      onOpenChange={setInboxOpen}
+      onItems={setInboxItems}
+      onRefresh={loadInbox}
+      onStock={onStock}
+      onReport={onOpen}
+      notify={notify}
+    />
+    <ResearchPredictionInboxPanel
+      client={client}
+      items={predictionInboxItems}
+      loading={predictionInboxLoading}
+      failed={predictionInboxFailed}
+      open={predictionInboxOpen}
+      onOpenChange={setPredictionInboxOpen}
+      onItems={setPredictionInboxItems}
+      onRefresh={loadPredictionInbox}
+      onStock={onStock}
+      notify={notify}
+    />
+    <div className={`${styles['card']} ${styles['judgementToolbar']}`}><input value={stockFilter} onChange={event => setStockFilter(event.target.value)} placeholder="筛选股票名或代码" /><select value={masterFilter} onChange={event => setMasterFilter(event.target.value)}><option value="">全部分析人</option>{masters.map(master => <option key={master.id} value={master.id}>{master.name}</option>)}</select><select aria-label="筛选报告质量" value={qualityFilter} onChange={event => setQualityFilter(event.target.value as typeof qualityFilter)}><option value="all">全部质量</option><option value="attention">需要复核{attentionCount > 0 ? `（${attentionCount}）` : ''}</option><option value="strong">结构完整</option></select><span>{filtered.length} 份研判归档{qualityLoading ? ' · 质检中' : ''}</span></div>
     {filtered.length > 0 ? <div className={styles['judgementGrid']}>{filtered.map(run => <article key={run.id} className={`${styles['card']} ${styles['judgementCard']}`}>
       <button className={styles['judgementCardOpen']} onClick={() => onOpen(run.id)} aria-label={`打开 ${run.stockName} ${run.masterName} 的研判`}>
         <div className={styles['judgementTop']}><strong>{run.stockName}</strong><span>{run.code}</span><Status status={run.reportStatus} /></div>
         <div className={styles['judgementAnalyst']}><span>{masters.find(master => master.id === run.masterId)?.shortName ?? run.masterName.slice(0, 1)}</span><span><small>分析人</small><b>{run.masterName}</b></span></div>
         <div className={styles['judgementMeta']}><span><small>分析日期</small>{dateTime(run.createdAt)}</span><span><small>模型</small>{run.model ?? '默认模型'}</span></div>
+        {run.reportStatus === 'ready' && <ReportQualityBadge item={qualityByJudgement.get(run.id) ?? null} loading={qualityLoading} />}
         {run.errorMessage !== null && <div className={styles['judgementError']}>{run.errorMessage}</div>}
         <div className={styles['openLabel']}>{run.reportStatus === 'ready' ? '查看报告' : '查看执行过程'} →</div>
       </button>
       <button className={styles['judgementDelete']} disabled={isReportInFlight(run.reportStatus)} title={isReportInFlight(run.reportStatus) ? '进行中的研判暂不能删除' : '删除该研判报告'} aria-label={`删除${run.reportStatus === 'ready' ? '已完成' : run.reportStatus === 'failed' ? '未完成' : '进行中'}研判：${run.stockName} · ${run.masterName}`} onClick={() => setDeleteTarget(run)}>删除</button>
     </article>)}</div> : <Empty title={runs.length > 0 ? '没有符合筛选条件的报告' : '还没有大师研判'} detail={runs.length > 0 ? '调整股票或分析人筛选条件。' : '选择一只股票和一位专家，创建第一份研判。'} action={runs.length === 0 ? <button className={styles['buttonPrimary']} onClick={() => setLauncherOpen(true)}>创建第一份研判</button> : undefined} />}
     {launcherOpen && <JudgementLauncher client={client} masters={masters} prefill={prefill} initialMasterId={prefillMasterId} onClose={() => setLauncherOpen(false)} onCreated={async judgement => { setLauncherOpen(false); await load(); notify('大师已接收研判任务'); onOpen(judgement.id) }} notify={notify} />}
+    {comparisonOpen && <ResearchComparisonModal client={client} groups={comparisonGroups} onClose={() => setComparisonOpen(false)} onOpenReport={(id) => { setComparisonOpen(false); onOpen(id) }} notify={notify} />}
     {deleteTarget !== null && <Modal title="删除研判报告" subtitle="此操作不可撤销" onClose={() => { if (!deleting) setDeleteTarget(null) }}>
       <section className={styles['deleteConfirm']}><span aria-hidden="true">!</span><div><b>确认删除 {deleteTarget.stockName} 的这份研判？</b><p>将永久删除该研判的全部报告版本和本地工作文件，并归档与 {deleteTarget.masterName} 的对应会话。</p><dl><div><dt>股票</dt><dd>{deleteTarget.stockName} {deleteTarget.code}</dd></div><div><dt>分析人</dt><dd>{deleteTarget.masterName}</dd></div><div><dt>创建时间</dt><dd>{dateTime(deleteTarget.createdAt)}</dd></div></dl></div></section>
       <footer className={styles['modalFoot']}><span>删除后无法从 Hanai Worth 恢复</span><div className={styles['confirmActions']}><button className={styles['button']} disabled={deleting} onClick={() => setDeleteTarget(null)}>取消</button><button className={styles['buttonDanger']} disabled={deleting} onClick={() => void remove()}>{deleting ? '正在删除…' : '确认删除'}</button></div></footer>
     </Modal>}
   </Page>
+}
+
+function ResearchComparisonModal({ client, groups, onClose, onOpenReport, notify }: {
+  client: HanaiClient
+  groups: Array<{ secId: string; code: string; stockName: string; count: number }>
+  onClose: () => void
+  onOpenReport: (id: string) => void
+  notify: Notify
+}) {
+  const [secId, setSecId] = useState(groups[0]?.secId ?? '')
+  const [comparison, setComparison] = useState<ResearchComparison | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    if (secId === '') return
+    const controller = new AbortController()
+    setLoading(true)
+    setFailed(false)
+    void client.call('research.compare', { secId }, controller.signal)
+      .then(setComparison)
+      .catch(error => {
+        if (controller.signal.aborted) return
+        setFailed(true)
+        notify(messageOf(error), 'error')
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [client, notify, secId])
+  const auditable = comparison?.reports.filter(report => report.audit !== null) ?? []
+  const commonDomains = auditable.length < 2 ? [] : [...new Set(auditable[0]?.audit?.sources.map(source => source.domain) ?? [])]
+    .filter(domain => auditable.every(report => report.audit?.sources.some(source => source.domain === domain)))
+  return <Modal title="同股异见" subtitle="并排核对不同大师使用了什么证据、遗漏了什么；不把风格差异包装成虚假共识" onClose={onClose} extraWide>
+    <section className={styles['comparisonBody']}>
+      {groups.length > 1 && <div className={styles['comparisonTabs']}>{groups.map(group => <button key={group.secId} aria-pressed={group.secId === secId} onClick={() => setSecId(group.secId)}>{group.stockName}<small>{group.code} · {group.count} 份</small></button>)}</div>}
+      {loading ? <div className={styles['comparisonLoading']}>正在读取最新报告与证据账本…</div> : failed || comparison === null ? <div className={styles['comparisonLoading']}>对比暂时不可用，请稍后重试。</div> : <>
+        <header className={styles['comparisonHeader']}><div><b>{comparison.stockName}</b><span>{comparison.code} · {comparison.reports.length} 份独立研判</span></div><div><span>共同来源域名</span>{commonDomains.length === 0 ? <small>暂未识别到共同来源</small> : <p>{commonDomains.map(domain => <em key={domain}>{domain}</em>)}</p>}</div></header>
+        {comparison.reports.length < 2 ? <div className={styles['comparisonLoading']}>当前不足两份可对比报告。</div> : <div className={styles['comparisonGrid']}>{comparison.reports.map(report => {
+          const audit = report.audit
+          const kinds = audit === null ? null : {
+            fact: audit.evidence.filter(item => item.kind === 'fact').length,
+            inference: audit.evidence.filter(item => item.kind === 'inference').length,
+            assumption: audit.evidence.filter(item => item.kind === 'assumption').length,
+            unknown: audit.evidence.filter(item => item.kind === 'unknown').length,
+          }
+          const incomplete = audit?.checks.filter(check => check.state !== 'met') ?? []
+          return <article key={report.judgementId} className={styles['comparisonCard']}>
+            <header><div><b>{report.masterName}</b><small>报告 v{report.reportVersion} · {report.sealedAt === null ? '时间未知' : dateTime(report.sealedAt)}</small></div>{audit === null ? <span data-rating="unavailable">不可检查</span> : <span data-rating={audit.rating}>{audit.score}<small>/100</small></span>}</header>
+            {audit === null ? <div className={styles['comparisonUnavailable']}>{report.error ?? '报告内容不可读取'}</div> : <>
+              <dl className={styles['comparisonMetrics']}><div><dt>来源</dt><dd>{audit.sources.length}</dd></div><div><dt>证据主张</dt><dd>{audit.evidence.length}</dd></div><div><dt>待补项</dt><dd>{incomplete.length}</dd></div></dl>
+              <div className={styles['comparisonBoundaries']}><span>证据边界</span><p><em data-kind="fact">事实 {kinds?.fact ?? 0}</em><em data-kind="inference">推断 {kinds?.inference ?? 0}</em><em data-kind="assumption">假设 {kinds?.assumption ?? 0}</em><em data-kind="unknown">待核验 {kinds?.unknown ?? 0}</em></p></div>
+              <div className={styles['comparisonSection']}><span>仍需复核</span>{incomplete.length === 0 ? <small>7 项结构检查均覆盖</small> : <p>{incomplete.map(check => <em key={check.id} data-state={check.state}>{check.label}</em>)}</p>}</div>
+              <div className={styles['comparisonSection']}><span>来源覆盖</span>{audit.sources.length === 0 ? <small>未识别到公开链接</small> : <p>{[...new Set(audit.sources.map(source => source.domain))].slice(0, 6).map(domain => <em key={domain}>{domain}</em>)}</p>}</div>
+              <div className={styles['comparisonClaims']}><span>关键主张</span>{audit.evidence.length === 0 ? <small>该版本尚无可解析的结构化证据账本</small> : <ul>{audit.evidence.slice(0, 3).map((item, index) => <li key={`${item.claim}:${index}`}><i data-kind={item.kind} />{item.claim}</li>)}</ul>}</div>
+            </>}
+            <button className={styles['button']} onClick={() => onOpenReport(report.judgementId)}>查看这份报告</button>
+          </article>
+        })}</div>}
+      </>}
+    </section>
+  </Modal>
+}
+
+function ReportQualityBadge({ item, loading }: { item: ResearchQualityItem | null; loading: boolean }) {
+  if (item === null) return <div className={styles['judgementQuality']} data-rating="unavailable">{loading ? '正在检查报告结构…' : '尚无质量检查结果'}</div>
+  if (item.rating === 'unavailable') return <div className={styles['judgementQuality']} data-rating="unavailable" title={item.error ?? undefined}>报告暂不可检查</div>
+  const incomplete = item.incompleteChecks.length
+  const detail = incomplete === 0
+    ? `${item.sourceCount} 个来源 · ${item.evidenceCount} 条证据主张`
+    : `待补 ${incomplete} 项：${item.incompleteChecks.map(check => check.label).join('、')}`
+  return <div className={styles['judgementQuality']} data-rating={item.rating} title={detail}><b>结构 {item.score}</b><span>{detail}</span></div>
+}
+
+function ResearchInboxPanel({ client, items, loading, failed, open, onOpenChange, onItems, onRefresh, onStock, onReport, notify }: {
+  client: HanaiClient
+  items: ResearchInboxItem[]
+  loading: boolean
+  failed: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onItems: (items: ResearchInboxItem[]) => void
+  onRefresh: () => Promise<void>
+  onStock: (stock: Pick<SecurityMaster, 'secId'>) => void
+  onReport: (id: string) => void
+  notify: Notify
+}) {
+  const [showDone, setShowDone] = useState(false)
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const today = localDateKey(new Date())
+  const openItems = items.filter(item => item.status === 'open')
+  const overdue = openItems.filter(item => item.dueDate !== null && item.dueDate < today).length
+  const dueToday = openItems.filter(item => item.dueDate === today).length
+  const visible = showDone ? items : openItems
+  const nextDue = openItems.find(item => item.dueDate !== null)?.dueDate ?? null
+  const summary = loading
+    ? '正在汇总跨报告任务…'
+    : failed
+      ? '待办暂时无法读取'
+      : openItems.length === 0
+        ? '暂无未完成任务'
+        : `${openItems.length} 项未完成${overdue > 0 ? ` · ${overdue} 项逾期` : dueToday > 0 ? ` · ${dueToday} 项今日到期` : nextDue === null ? '' : ` · 最近 ${nextDue}`}`
+  const toggle = async (item: ResearchInboxItem) => {
+    if (updatingId !== null) return
+    setUpdatingId(item.id)
+    try {
+      const updated = await client.call('research.followup.update', {
+        id: item.id,
+        completed: item.status === 'open',
+      })
+      onItems(sortResearchFollowUps(items.map(current => current.id === updated.id
+        ? { ...current, ...updated }
+        : current)))
+      notify(updated.status === 'done' ? '跟踪事项已完成' : '跟踪事项已重新打开')
+    } catch (error) {
+      notify(messageOf(error), 'error')
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+  const saveEdit = async (item: ResearchInboxItem, title: string, dueDate: string) => {
+    if (updatingId !== null) return
+    setUpdatingId(item.id)
+    try {
+      const updated = await client.call('research.followup.update', {
+        id: item.id,
+        title,
+        dueDate: dueDate === '' ? null : dueDate,
+      })
+      onItems(sortResearchFollowUps(items.map(current => current.id === updated.id
+        ? { ...current, ...updated }
+        : current)))
+      setEditingId(null)
+      notify('研究待办已更新')
+    } catch (error) {
+      notify(messageOf(error), 'error')
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+  return <section className={`${styles['card']} ${styles['researchInbox']}`} data-open={open}>
+    <div className={styles['researchInboxHead']}>
+      <button aria-expanded={open} onClick={() => onOpenChange(!open)}>
+        <span aria-hidden="true">✓</span>
+        <span><b>研究待办</b><small>{summary}</small></span>
+        <span aria-hidden="true">{open ? '收起' : '展开'}⌄</span>
+      </button>
+      <button className={styles['button']} disabled={loading} onClick={() => void onRefresh()}>{loading ? '刷新中…' : '↻ 刷新'}</button>
+    </div>
+    {open && <div className={styles['researchInboxBody']}>
+      <div className={styles['researchInboxToolbar']}>
+        <p>把各份报告的“待持续验证”集中在这里；即使来源报告删除，任务仍会保留。</p>
+        <div><button aria-pressed={!showDone} onClick={() => setShowDone(false)}>未完成 {openItems.length}</button><button aria-pressed={showDone} onClick={() => setShowDone(true)}>全部 {items.length}</button></div>
+      </div>
+      {visible.length === 0
+        ? <div className={styles['researchInboxEmpty']}>{failed ? '读取失败，请刷新重试。' : showDone ? '还没有研究待办。可从报告或个股页添加。' : '当前没有未完成任务。'}</div>
+        : <ul className={styles['researchInboxList']}>{visible.map(item => {
+          const overdueItem = item.status === 'open' && item.dueDate !== null && item.dueDate < today
+          const dueLabel = item.dueDate === null ? '未设期限' : item.dueDate === today ? '今日到期' : overdueItem ? `逾期 · ${item.dueDate}` : `截止 ${item.dueDate}`
+          const editing = editingId === item.id
+          return <li key={item.id} data-completed={item.status === 'done'} data-overdue={overdueItem} data-editing={editing}>
+            <button className={styles['followUpCheck']} aria-pressed={item.status === 'done'} disabled={updatingId !== null} aria-label={item.status === 'open' ? `标记完成：${item.title}` : `重新打开：${item.title}`} onClick={() => void toggle(item)}>{item.status === 'done' ? '✓' : ''}</button>
+            <button className={styles['researchInboxStock']} aria-label={`打开股票：${item.stockName} ${item.code}`} onClick={() => onStock(item)}><b>{item.stockName}</b><small>{item.code}</small></button>
+            {editing
+              ? <FollowUpInlineEditor item={item} saving={updatingId === item.id} onSave={(title, dueDate) => void saveEdit(item, title, dueDate)} onCancel={() => setEditingId(null)} />
+              : <><span className={styles['researchInboxTask']}><b>{item.title}</b><small data-overdue={overdueItem}>{dueLabel}</small></span>
+                <span className={styles['researchInboxSource']}><span>{item.reportAvailable && item.judgementId !== null
+                  ? <button aria-label={`打开来源报告：${item.stockName} v${item.reportVersion ?? ''}`} onClick={() => onReport(item.judgementId as string)}>报告 v{item.reportVersion}</button>
+                  : <small>{item.reportVersion === null ? '手动添加' : '来源报告已删除'}</small>}<button className={styles['researchInboxEdit']} disabled={updatingId !== null} aria-label={`编辑待办：${item.title}`} onClick={() => setEditingId(item.id)}>编辑</button></span>{item.masterName !== null && <em>{item.masterName}</em>}</span></>}
+          </li>
+        })}</ul>}
+    </div>}
+  </section>
+}
+
+function ResearchPredictionInboxPanel({ client, items, loading, failed, open, onOpenChange, onItems, onRefresh, onStock, notify }: {
+  client: HanaiClient
+  items: ResearchPredictionInboxItem[]
+  loading: boolean
+  failed: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onItems: (items: ResearchPredictionInboxItem[]) => void
+  onRefresh: () => Promise<void>
+  onStock: (stock: Pick<SecurityMaster, 'secId'>) => void
+  notify: Notify
+}) {
+  const [showResolved, setShowResolved] = useState(false)
+  const [busyId, setBusyId] = useState('')
+  const [confirming, setConfirming] = useState<{ id: string; outcome: 'occurred' | 'not-occurred' | 'invalid' } | null>(null)
+  const today = localDateKey(new Date())
+  const pending = items.filter(item => item.outcome === 'pending')
+  const due = pending.filter(item => item.dueDate <= today)
+  const scored = items.filter(item => item.brierScore !== null)
+  const meanBrier = scored.length === 0
+    ? null
+    : scored.reduce((total, item) => total + (item.brierScore ?? 0), 0) / scored.length
+  const visible = showResolved ? items : pending
+  const summary = loading
+    ? '正在汇总跨公司命题…'
+    : failed
+      ? '命题复盘暂时无法读取'
+      : pending.length === 0
+        ? scored.length === 0 ? '暂无待复盘命题' : `暂无待复盘命题 · 平均 Brier ${meanBrier?.toFixed(4)}`
+        : `${pending.length} 项待判定${due.length > 0 ? ` · ${due.length} 项已到期` : ''}${meanBrier === null ? '' : ` · 平均 Brier ${meanBrier.toFixed(4)}`}`
+
+  const resolve = async (item: ResearchPredictionInboxItem, outcome: 'occurred' | 'not-occurred' | 'invalid') => {
+    if (confirming?.id !== item.id || confirming.outcome !== outcome) {
+      setConfirming({ id: item.id, outcome })
+      return
+    }
+    if (busyId !== '') return
+    setBusyId(item.id)
+    try {
+      const updated = await client.call('research.prediction.resolve', { id: item.id, outcome })
+      onItems(sortResearchPredictions(items.map(current => current.id === updated.id
+        ? { ...current, ...updated }
+        : current)))
+      setConfirming(null)
+      notify(outcome === 'invalid' ? '命题已标记为无法判定' : '结果已记录并完成校准')
+    } catch (error) {
+      notify(messageOf(error), 'error')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  return <section className={`${styles['card']} ${styles['researchInbox']} ${styles['predictionInbox']}`} data-open={open}>
+    <div className={styles['researchInboxHead']}>
+      <button aria-expanded={open} onClick={() => onOpenChange(!open)}>
+        <span aria-hidden="true">◷</span>
+        <span><b>命题复盘</b><small>{summary}</small></span>
+        <span aria-hidden="true">{open ? '收起' : '展开'}⌄</span>
+      </button>
+      <button className={styles['button']} disabled={loading} onClick={() => void onRefresh()}>{loading ? '刷新中…' : '↻ 刷新'}</button>
+    </div>
+    {open && <div className={styles['researchInboxBody']}>
+      <div className={styles['researchInboxToolbar']}>
+        <p>集中复核到期命题。结果一经确认不会被覆盖；“无法判定”不进入 Brier 均值。</p>
+        <div><button aria-pressed={!showResolved} onClick={() => setShowResolved(false)}>待复盘 {pending.length}</button><button aria-pressed={showResolved} onClick={() => setShowResolved(true)}>全部 {items.length}</button></div>
+      </div>
+      {visible.length === 0
+        ? <div className={styles['researchInboxEmpty']}>{failed ? '读取失败，请刷新重试。' : showResolved ? '还没有研究命题。可从个股页建立。' : '当前没有待复盘命题。'}</div>
+        : <ul className={styles['predictionInboxList']}>{visible.map(item => {
+          const pendingItem = item.outcome === 'pending'
+          const overdue = pendingItem && item.dueDate <= today
+          return <li key={item.id} data-outcome={item.outcome} data-overdue={overdue}>
+            <button className={styles['researchInboxStock']} aria-label={`打开股票：${item.stockName} ${item.code}`} onClick={() => onStock(item)}><b>{item.stockName}</b><small>{item.code}</small></button>
+            <span className={styles['predictionInboxProbability']}><b>{item.probabilityPct}%</b><small>{pendingItem ? overdue ? '已到期' : item.dueDate : predictionOutcomeLabel(item.outcome)}</small></span>
+            <span className={styles['predictionInboxClaim']}><b>{item.statement}</b><small title={item.resolutionCriteria}>口径：{item.resolutionCriteria}</small></span>
+            {pendingItem
+              ? <span className={styles['predictionInboxActions']}><button disabled={busyId !== ''} aria-label={`${confirming?.id === item.id && confirming.outcome === 'occurred' ? '确认命题发生' : '命题发生'}：${item.statement}`} onClick={() => void resolve(item, 'occurred')}>{confirming?.id === item.id && confirming.outcome === 'occurred' ? '确认发生' : '发生'}</button><button disabled={busyId !== ''} aria-label={`${confirming?.id === item.id && confirming.outcome === 'not-occurred' ? '确认命题未发生' : '命题未发生'}：${item.statement}`} onClick={() => void resolve(item, 'not-occurred')}>{confirming?.id === item.id && confirming.outcome === 'not-occurred' ? '确认未发生' : '未发生'}</button><button disabled={busyId !== ''} aria-label={`${confirming?.id === item.id && confirming.outcome === 'invalid' ? '确认命题无法判定' : '命题无法判定'}：${item.statement}`} onClick={() => void resolve(item, 'invalid')}>{confirming?.id === item.id && confirming.outcome === 'invalid' ? '确认无效' : '无法判定'}</button></span>
+              : <span className={styles['predictionInboxResult']}><b>{predictionOutcomeLabel(item.outcome)}</b>{item.brierScore !== null && <small>Brier {item.brierScore.toFixed(4)}</small>}</span>}
+          </li>
+        })}</ul>}
+    </div>}
+  </section>
+}
+
+function FollowUpInlineEditor({ item, saving, onSave, onCancel }: {
+  item: ResearchFollowUp
+  saving: boolean
+  onSave: (title: string, dueDate: string) => void
+  onCancel: () => void
+}) {
+  const [title, setTitle] = useState(item.title)
+  const [dueDate, setDueDate] = useState(item.dueDate ?? '')
+  const normalizedTitle = title.trim()
+  return <form className={styles['followUpEditor']} aria-label={`编辑跟踪事项：${item.title}`} onSubmit={(event) => {
+    event.preventDefault()
+    if (normalizedTitle !== '' && !saving) onSave(normalizedTitle, dueDate)
+  }}>
+    <input value={title} onChange={event => setTitle(event.target.value)} maxLength={160} aria-label="事项内容" autoFocus />
+    <input type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} aria-label="事项到期日" />
+    <button className={styles['buttonPrimary']} disabled={saving || normalizedTitle === ''}>{saving ? '保存中…' : '保存'}</button>
+    <button type="button" className={styles['button']} disabled={saving} onClick={onCancel}>取消</button>
+  </form>
 }
 
 function JudgementLauncher({ client, masters, prefill, initialMasterId, onClose, onCreated, notify }: { client: HanaiClient; masters: MasterPersona[]; prefill: SearchResult | null; initialMasterId: string | null; onClose: () => void; onCreated: (judgement: Judgement) => Promise<void>; notify: Notify }) {
@@ -1174,6 +1833,15 @@ function JudgementLauncher({ client, masters, prefill, initialMasterId, onClose,
 function JudgementDetailPage({ client, id, onBack, onRetry, notify }: { client: HanaiClient; id: string; onBack: () => void; onRetry: (stock: SearchResult, masterId: string) => void; notify: Notify }) {
   const [detail, setDetail] = useState<JudgementDetail | null>(null)
   const [view, setView] = useState<'report' | 'process' | 'chat'>('report')
+  const [selectedReportVersion, setSelectedReportVersion] = useState<number | null>(null)
+  const [auditOpen, setAuditOpen] = useState(false)
+  const [versionChangeOpen, setVersionChangeOpen] = useState(false)
+  const [revisionOpen, setRevisionOpen] = useState(false)
+  const [revisionInstruction, setRevisionInstruction] = useState('')
+  const [revisionSubmitting, setRevisionSubmitting] = useState(false)
+  const [followUps, setFollowUps] = useState<ResearchFollowUp[]>([])
+  const [followUpsLoading, setFollowUpsLoading] = useState(true)
+  const [followUpsOpen, setFollowUpsOpen] = useState(false)
   const routeId = useRef(id)
   const requestGeneration = useRef(0)
   const requestController = useRef<AbortController | null>(null)
@@ -1212,6 +1880,13 @@ function JudgementDetailPage({ client, id, onBack, onRetry, notify }: { client: 
     requestedRouteId.current = null
     setDetail(null)
     setView('report')
+    setSelectedReportVersion(null)
+    setAuditOpen(false)
+    setVersionChangeOpen(false)
+    setRevisionOpen(false)
+    setFollowUps([])
+    setFollowUpsLoading(true)
+    setFollowUpsOpen(false)
     void load(id)
     return () => {
       requestGeneration.current += 1
@@ -1224,11 +1899,72 @@ function JudgementDetailPage({ client, id, onBack, onRetry, notify }: { client: 
     const timer = window.setInterval(() => void load(id), 1800)
     return () => window.clearInterval(timer)
   }, [currentDetail, id, load])
+  const detailSecId = currentDetail?.judgement.secId ?? null
+  useEffect(() => {
+    if (detailSecId === null) return
+    const controller = new AbortController()
+    setFollowUpsLoading(true)
+    void client.call('research.followup.list', { secId: detailSecId }, controller.signal)
+      .then(items => { if (!controller.signal.aborted) setFollowUps(items) })
+      .catch(error => { if (!controller.signal.aborted) notify(`跟踪事项加载失败：${messageOf(error)}`, 'error') })
+      .finally(() => { if (!controller.signal.aborted) setFollowUpsLoading(false) })
+    return () => controller.abort()
+  }, [client, detailSecId, notify])
+  const newestReportVersion = currentDetail?.reports[0]?.version ?? null
+  useEffect(() => {
+    if (newestReportVersion === null) return
+    setSelectedReportVersion(current => current === null || newestReportVersion > current
+      ? newestReportVersion
+      : current)
+  }, [newestReportVersion])
   if (currentDetail === null) return <Page><PageSkeleton cards={4} /></Page>
   const judgement = currentDetail.judgement
-  const report = currentDetail.reports[0]
+  const report = currentDetail.reports.find(item => item.version === selectedReportVersion)
+    ?? currentDetail.reports[0]
+  const previousReport = report === undefined ? undefined : currentDetail.reports
+    .filter(item => item.version < report.version)
+    .sort((left, right) => right.version - left.version)[0]
   const ready = judgement.reportStatus === 'ready' && report !== undefined
   const sessionId = judgement.dshSessionId
+  const openRevision = () => {
+    if (report === undefined) return
+    setRevisionInstruction(revisionSuggestion(report.audit))
+    setRevisionOpen(true)
+  }
+  const copyReport = async () => {
+    if (report === undefined) return
+    try {
+      await copyPlainText(report.content)
+      notify('报告 Markdown 已复制')
+    } catch (error) {
+      notify(`复制失败：${messageOf(error)}`, 'error')
+    }
+  }
+  const downloadReport = () => {
+    if (report === undefined) return
+    try {
+      downloadMarkdown(report.content, `${judgement.code}-${judgement.masterName}-v${report.version}.md`)
+      notify('报告 Markdown 已下载')
+    } catch (error) {
+      notify(`下载失败：${messageOf(error)}`, 'error')
+    }
+  }
+  const submitRevision = async () => {
+    const instruction = revisionInstruction.trim()
+    if (instruction === '' || revisionSubmitting) return
+    setRevisionSubmitting(true)
+    try {
+      const next = await client.call('judgement.revise', { id: judgement.id, instruction })
+      setDetail(current => current === null ? current : { ...current, judgement: next })
+      setRevisionOpen(false)
+      setView('process')
+      notify('已开始生成新的正式报告版本')
+    } catch (error) {
+      notify(messageOf(error), 'error')
+    } finally {
+      setRevisionSubmitting(false)
+    }
+  }
 
   return <Page>
     <PageHeader title={<>{judgement.stockName} <span className={styles['codeText']}>{judgement.code}</span></>} meta={<span>{judgement.masterName} · {dateTime(judgement.createdAt)} · {judgement.model ?? '默认模型'}</span>} action={<><Status status={judgement.reportStatus} />{judgement.reportStatus === 'failed' && <button className={styles['buttonPrimary']} onClick={() => onRetry({ secId: judgement.secId, code: judgement.code, name: judgement.stockName, exchange: exchangeFor(judgement.secId, judgement.code), pinyinFull: '', pinyinInitial: '', price: null, changePct: null }, judgement.masterId)}>重新研判</button>}<button className={`${styles['button']} ${styles['buttonGhost']}`} onClick={onBack}>← 返回</button></>} />
@@ -1237,12 +1973,407 @@ function JudgementDetailPage({ client, id, onBack, onRetry, notify }: { client: 
       <div className={styles['processHead']}><span>{judgement.masterName.slice(0, 1)}</span><div><h2>研判过程</h2><small>{judgement.masterName} 正在分析公开资料</small></div><Status status={judgement.reportStatus} /></div>
       {sessionId === null ? <Empty title="研判会话正在准备" detail="DSH Session 建立后将在这里显示实时执行过程。" /> : <ChatPanel key={`${id}:${sessionId}:live`} clientContext={client.ctx} sessionId={sessionId} title="实时研判过程" compact hideHeader readOnlyReason="报告生成期间仅查看执行过程；报告封存后才可继续对话。" />}
     </article> : <div className={styles['completedLayout']}>
-      <aside className={`${styles['card']} ${styles['archiveInfo']}`}><span className={styles['sectionEyebrow']}>本次研判</span><dl><div><dt>股票</dt><dd>{judgement.stockName} {judgement.code}</dd></div><div><dt>分析专家</dt><dd>{judgement.masterName}</dd></div><div><dt>开始时间</dt><dd>{dateTime(judgement.createdAt)}</dd></div><div><dt>完成时间</dt><dd>{dateTime(judgement.completedAt)}</dd></div><div><dt>模型</dt><dd>{judgement.model ?? '默认模型'}</dd></div><div><dt>报告大小</dt><dd>{formatBytes(report.sizeBytes)}</dd></div></dl><button className={styles['button']} onClick={() => setView(current => current === 'process' ? 'report' : 'process')}>{view === 'process' ? '隐藏' : '查看'}研判过程</button>{sessionId !== null && <button className={styles['buttonPrimary']} onClick={() => setView(current => current === 'chat' ? 'report' : 'chat')}>{view === 'chat' ? '返回报告' : '继续对话'}</button>}</aside>
-      {view === 'report' && <article className={`${styles['card']} ${styles['reportCard']}`}><div className={styles['reportHead']}><div><span className={styles['sectionEyebrow']}>分析结果</span><h2>研判报告</h2></div><span className={`${styles['tag']} ${styles['tagReady']}`}>已完成</span></div><MarkdownView content={report.content} /></article>}
+      <aside className={`${styles['card']} ${styles['archiveInfo']}`}>
+        <span className={styles['sectionEyebrow']}>本次研判</span>
+        {currentDetail.reports.length > 1 && <label className={styles['reportVersionPicker']}>报告版本<select aria-label="报告版本" value={report.version} onChange={event => { setSelectedReportVersion(Number(event.target.value)); setAuditOpen(false); setVersionChangeOpen(false); setView('report') }}>{currentDetail.reports.map(item => <option key={item.version} value={item.version}>v{item.version} · {dateOnly(item.sealedAt)}</option>)}</select></label>}
+        <dl>
+          <div><dt>股票</dt><dd>{judgement.stockName} {judgement.code}</dd></div>
+          <div><dt>分析专家</dt><dd>{judgement.masterName}</dd></div>
+          <div><dt>开始时间</dt><dd>{dateTime(judgement.createdAt)}</dd></div>
+          <div><dt>报告封存</dt><dd>{dateTime(report.sealedAt)}</dd></div>
+          <div><dt>模型</dt><dd>{report.model ?? judgement.model ?? '默认模型'}</dd></div>
+          <div><dt>报告版本</dt><dd>v{report.version} · {formatBytes(report.sizeBytes)}</dd></div>
+          <div><dt>完整性哈希</dt><dd className={styles['hashValue']} title={report.sha256}>{report.sha256.slice(0, 12)}…</dd></div>
+        </dl>
+        <button className={styles['button']} onClick={() => void copyReport()}>复制 Markdown</button>
+        <button className={styles['button']} onClick={downloadReport}>下载 .md</button>
+        <button className={styles['button']} onClick={() => setView(current => current === 'process' ? 'report' : 'process')}>{view === 'process' ? '隐藏' : '查看'}研判过程</button>
+        <button className={styles['button']} onClick={openRevision}>修订报告</button>
+        {sessionId !== null && <button className={styles['buttonPrimary']} onClick={() => setView(current => current === 'chat' ? 'report' : 'chat')}>{view === 'chat' ? '返回报告' : '继续对话'}</button>}
+      </aside>
+      {view === 'report' && <article className={`${styles['card']} ${styles['reportCard']}`}>
+        <div className={styles['reportHead']}><div><span className={styles['sectionEyebrow']}>分析结果 · v{report.version}</span><h2>研判报告</h2></div><span className={`${styles['tag']} ${styles['tagReady']}`}>已完成</span></div>
+        <ReportAuditPanel audit={report.audit} open={auditOpen} onToggle={() => setAuditOpen(current => !current)} onRevise={openRevision} />
+        {previousReport !== undefined && <ReportVersionChangePanel
+          current={report}
+          previous={previousReport}
+          open={versionChangeOpen}
+          onToggle={() => setVersionChangeOpen(current => !current)}
+          onOpenPrevious={() => { setSelectedReportVersion(previousReport.version); setVersionChangeOpen(false) }}
+        />}
+        <ResearchFollowUpPanel
+          client={client}
+          secId={judgement.secId}
+          judgementId={judgement.id}
+          reportVersion={report.version}
+          reportContent={report.content}
+          items={followUps}
+          loading={followUpsLoading}
+          open={followUpsOpen}
+          onToggle={() => setFollowUpsOpen(current => !current)}
+          onItems={setFollowUps}
+          notify={notify}
+        />
+        <MarkdownView content={report.content} />
+      </article>}
       {view === 'process' && <article className={`${styles['card']} ${styles['archivedProcess']}`}>{sessionId === null ? <Empty title="研判过程不可用" detail="这份归档未关联 DSH Session。" /> : <ChatPanel key={`${id}:${sessionId}:process`} clientContext={client.ctx} sessionId={sessionId} title="研判过程" compact readOnlyReason="已归档的研判过程为只读记录。" />}</article>}
       {view === 'chat' && <article className={`${styles['card']} ${styles['continuedChat']}`}>{sessionId === null ? <Empty title="对话不可用" detail="这份报告未关联 DSH Session。" /> : <ChatPanel key={`${id}:${sessionId}:chat`} clientContext={client.ctx} sessionId={sessionId} title={`继续与${judgement.masterName}对话`} compact />}</article>}
     </div>}
+    {revisionOpen && <Modal title="修订正式报告" subtitle={`将在同一大师会话中生成 v${(judgement.latestReportVersion ?? report?.version ?? 0) + 1}；现有版本保持不可变`} onClose={() => { if (!revisionSubmitting) setRevisionOpen(false) }} wide>
+      <div className={styles['revisionBody']}>
+        <label htmlFor="report-revision-instruction">修订要求</label>
+        <textarea id="report-revision-instruction" value={revisionInstruction} onChange={event => setRevisionInstruction(event.target.value)} rows={7} placeholder="说明需要补充核验、纠正或重写的内容" />
+        <p>修订会重新核验必要来源并形成新版本；普通追问仍请使用“继续对话”。</p>
+      </div>
+      <footer className={styles['launcherActions']}><button className={`${styles['button']} ${styles['buttonGhost']}`} disabled={revisionSubmitting} onClick={() => setRevisionOpen(false)}>取消</button><button className={styles['buttonPrimary']} disabled={revisionSubmitting || revisionInstruction.trim() === ''} onClick={() => void submitRevision()}>{revisionSubmitting ? '正在启动修订…' : '生成新版本'}</button></footer>
+    </Modal>}
   </Page>
+}
+
+function ReportAuditPanel({ audit, open, onToggle, onRevise }: { audit: ReportAudit; open: boolean; onToggle: () => void; onRevise: () => void }) {
+  const missing = audit.checks.filter(item => item.state !== 'met').length
+  const labels: Record<ReportAudit['rating'], string> = {
+    strong: missing === 0 ? '结构完整' : '结构较完整',
+    review: '建议复核',
+    thin: '要素偏少',
+  }
+  return <section className={`${styles['reportAudit']} ${styles[`reportAudit_${audit.rating}`]}`} aria-label="报告结构自检">
+    <button className={styles['reportAuditSummary']} onClick={onToggle} aria-expanded={open}>
+      <span className={styles['auditScore']}><b>{audit.score}</b><small>/100</small></span>
+      <span><b>报告结构自检 · {labels[audit.rating]}</b><small>{audit.sources.length} 个可追溯链接 · {audit.evidence.length} 条证据主张 · {missing === 0 ? '7 项均已覆盖' : `${missing} 项需要复核`}</small></span>
+      <em>{open ? '收起详情 ↑' : '查看详情 ↓'}</em>
+    </button>
+    {open && <div className={styles['reportAuditDetail']}>
+      <p>这里只检查日期、来源、反证、情景等可观察结构，不代表来源权威，也不判断投资结论是否正确。</p>
+      <div className={styles['auditChecks']}>{audit.checks.map(item => <AuditCheck key={item.id} check={item} />)}</div>
+      {audit.evidence.length > 0 && <ReportEvidencePreview items={audit.evidence} />}
+      <div className={styles['auditSources']}><span>来源链接</span>{audit.sources.length === 0 ? <small>报告中没有识别到公开链接</small> : <div>{audit.sources.slice(0, 8).map(source => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" title={source.url}>{source.label ?? source.domain}<small>{source.domain}</small></a>)}</div>}</div>
+      {missing > 0 && <button className={styles['button']} onClick={onRevise}>按缺失项修订报告</button>}
+    </div>}
+  </section>
+}
+
+function AuditCheck({ check }: { check: ReportAuditCheck }) {
+  const symbol = check.state === 'met' ? '✓' : check.state === 'partial' ? '△' : '—'
+  const state = check.state === 'met' ? '已覆盖' : check.state === 'partial' ? '部分覆盖' : '缺失'
+  return <div className={styles[`auditCheck_${check.state}`]} title={check.detail}><span>{symbol}</span><b>{check.label}</b><small>{state}</small></div>
+}
+
+function ReportEvidencePreview({ items }: { items: ReportEvidenceItem[] }) {
+  const [kind, setKind] = useState<'all' | ReportEvidenceItem['kind']>('all')
+  const [expanded, setExpanded] = useState(false)
+  const kindLabel: Record<ReportEvidenceItem['kind'], string> = {
+    fact: '事实', inference: '推断', assumption: '假设', unknown: '待核验',
+  }
+  const confidenceLabel: Record<ReportEvidenceItem['confidence'], string> = {
+    high: '高', medium: '中', low: '低', unknown: '未标注',
+  }
+  const counts = {
+    fact: items.filter(item => item.kind === 'fact').length,
+    inference: items.filter(item => item.kind === 'inference').length,
+    assumption: items.filter(item => item.kind === 'assumption').length,
+    unknown: items.filter(item => item.kind === 'unknown').length,
+  }
+  const filtered = kind === 'all' ? items : items.filter(item => item.kind === kind)
+  const visible = expanded ? filtered : filtered.slice(0, 6)
+  const incomplete = items.filter(item => (
+    item.kind === 'unknown'
+    || item.sourceUrl === null
+    || item.sourceDate === null
+    || item.confidence === 'unknown'
+  )).length
+  return <section className={styles['auditEvidence']} aria-label="证据账本速览">
+    <header><div><span>证据账本速览</span><small>解析到 {items.length} 条主张{incomplete > 0 ? ` · ${incomplete} 条字段待补` : ' · 字段完整'}；点击来源可回到公开页面</small></div><div className={styles['auditEvidenceFilters']}><button aria-pressed={kind === 'all'} onClick={() => { setKind('all'); setExpanded(false) }}>全部 {items.length}</button>{(['fact', 'inference', 'assumption', 'unknown'] as const).map(value => <button key={value} aria-pressed={kind === value} onClick={() => { setKind(value); setExpanded(false) }}>{kindLabel[value]} {counts[value]}</button>)}</div></header>
+    <div>
+      <table>
+        <thead><tr><th>关键主张</th><th>边界</th><th>来源 / 日期</th><th>置信度</th></tr></thead>
+        <tbody>{visible.map((item, index) => <tr key={`${item.claim}:${index}`}>
+          <td><b>{item.claim}</b></td>
+          <td><span data-kind={item.kind}>{kindLabel[item.kind]}</span></td>
+          <td>{item.sourceUrl === null
+            ? <>{item.sourceLabel ?? '—'}<small>{item.sourceDate ?? '未标日期'}</small></>
+            : <a href={item.sourceUrl} target="_blank" rel="noreferrer">{item.sourceLabel ?? '打开来源'}<small>{item.sourceDate ?? '未标日期'}</small></a>}</td>
+          <td>{confidenceLabel[item.confidence]}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+    {filtered.length === 0 && <p>当前筛选下没有证据主张。</p>}
+    {filtered.length > 6 && <button className={styles['auditEvidenceExpand']} onClick={() => setExpanded(current => !current)}>{expanded ? '收起证据主张' : `展开全部 ${filtered.length} 条`}</button>}
+  </section>
+}
+
+function ReportVersionChangePanel({ current, previous, open, onToggle, onOpenPrevious }: {
+  current: ReportVersion
+  previous: ReportVersion
+  open: boolean
+  onToggle: () => void
+  onOpenPrevious: () => void
+}) {
+  const change = useMemo(() => summarizeReportVersionChange(previous, current), [current, previous])
+  const sectionChanges = change.added.length + change.removed.length + change.changed.length
+  return <section className={styles['reportChange']} aria-label="报告版本变化">
+    <button className={styles['reportChangeSummary']} onClick={onToggle} aria-expanded={open}>
+      <span>↗</span>
+      <span><b>版本变化 · v{previous.version} → v{current.version}</b><small>{sectionChanges === 0 ? '未识别到二级章节变化' : `${change.changed.length} 节调整 · ${change.added.length} 节新增 · ${change.removed.length} 节移除`}</small></span>
+      <em>{open ? '收起 ↑' : '查看变化 ↓'}</em>
+    </button>
+    {open && <div className={styles['reportChangeBody']}>
+      <p>按报告结构做机械对比，只说明文本和可观察要素发生变化，不代表结论变得更正确。</p>
+      <div className={styles['reportChangeMetrics']}>
+        <span><small>结构质量</small><b>{current.audit.score}<em>{signedDelta(change.scoreDelta)}</em></b></span>
+        <span><small>来源链接</small><b>{current.audit.sources.length}<em>{signedDelta(change.sourceDelta)}</em></b></span>
+        <span><small>报告篇幅</small><b>{formatBytes(current.sizeBytes)}<em>{signedDelta(change.sizeDelta, ' B')}</em></b></span>
+        <span><small>检查项改善</small><b>{change.improvedChecks.length}<em>{change.regressedChecks.length > 0 ? `${change.regressedChecks.length} 项回退` : '无回退'}</em></b></span>
+      </div>
+      {sectionChanges > 0 && <div className={styles['reportChangeSections']}>
+        {change.added.map(name => <span key={`added:${name}`} data-kind="added">＋ {name}</span>)}
+        {change.changed.map(name => <span key={`changed:${name}`} data-kind="changed">～ {name}</span>)}
+        {change.removed.map(name => <span key={`removed:${name}`} data-kind="removed">－ {name}</span>)}
+      </div>}
+      <button className={styles['button']} onClick={onOpenPrevious}>查看 v{previous.version} 全文</button>
+    </div>}
+  </section>
+}
+
+function ResearchFollowUpPanel({ client, secId, judgementId, reportVersion, reportContent, items, loading, open, onToggle, onItems, notify, standalone = false }: {
+  client: HanaiClient
+  secId: string
+  judgementId?: string
+  reportVersion?: number
+  reportContent?: string
+  items: ResearchFollowUp[]
+  loading: boolean
+  open: boolean
+  onToggle: () => void
+  onItems: (items: ResearchFollowUp[]) => void
+  notify: Notify
+  standalone?: boolean
+}) {
+  const [title, setTitle] = useState('')
+  const [dueDate, setDueDate] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [busyId, setBusyId] = useState('')
+  const [editingId, setEditingId] = useState('')
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState('')
+  const today = localDateKey(new Date())
+  const openCount = items.filter(item => item.status === 'open').length
+  const overdueCount = items.filter(item => item.status === 'open' && item.dueDate !== null && item.dueDate < today).length
+  const suggestions = useMemo(() => {
+    const existing = new Set(items.map(item => normalizeComparableText(item.title)))
+    return extractMonitoringItems(reportContent ?? '')
+      .filter(item => !existing.has(normalizeComparableText(item)))
+      .slice(0, 6)
+  }, [items, reportContent])
+
+  const create = async () => {
+    const nextTitle = title.trim()
+    if (nextTitle === '' || submitting) return
+    setSubmitting(true)
+    try {
+      const created = await client.call('research.followup.create', {
+        secId,
+        ...(judgementId === undefined ? {} : { judgementId }),
+        ...(reportVersion === undefined ? {} : { reportVersion }),
+        title: nextTitle,
+        ...(dueDate === '' ? {} : { dueDate }),
+      })
+      onItems(sortResearchFollowUps([...items, created]))
+      setTitle('')
+      setDueDate('')
+      notify('已加入持续跟踪')
+    } catch (error) {
+      notify(messageOf(error), 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const toggle = async (item: ResearchFollowUp) => {
+    if (busyId !== '') return
+    setBusyId(item.id)
+    try {
+      const updated = await client.call('research.followup.update', {
+        id: item.id,
+        completed: item.status !== 'done',
+      })
+      onItems(sortResearchFollowUps(items.map(current => current.id === updated.id ? updated : current)))
+    } catch (error) {
+      notify(messageOf(error), 'error')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  const remove = async (item: ResearchFollowUp) => {
+    if (confirmingDeleteId !== item.id) {
+      setConfirmingDeleteId(item.id)
+      return
+    }
+    if (busyId !== '') return
+    setBusyId(item.id)
+    try {
+      await client.call('research.followup.remove', { id: item.id })
+      onItems(items.filter(current => current.id !== item.id))
+      setConfirmingDeleteId('')
+      notify('跟踪事项已删除')
+    } catch (error) {
+      notify(messageOf(error), 'error')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  const saveEdit = async (item: ResearchFollowUp, nextTitle: string, nextDueDate: string) => {
+    if (busyId !== '') return
+    setBusyId(item.id)
+    try {
+      const updated = await client.call('research.followup.update', {
+        id: item.id,
+        title: nextTitle,
+        dueDate: nextDueDate === '' ? null : nextDueDate,
+      })
+      onItems(sortResearchFollowUps(items.map(current => current.id === updated.id ? updated : current)))
+      setEditingId('')
+      notify('跟踪事项已更新')
+    } catch (error) {
+      notify(messageOf(error), 'error')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  return <section className={standalone ? `${styles['card']} ${styles['followUpStandalone']}` : styles['followUpPanel']} aria-label={standalone ? '个股持续研究跟踪' : '持续研究跟踪'}>
+    <button className={styles['followUpSummary']} onClick={onToggle} aria-expanded={open}>
+      <span>◎</span>
+      <span><b>持续研究跟踪</b><small>{loading ? '正在加载本地事项…' : openCount === 0 ? '暂无待验证事项' : `${openCount} 项待验证${overdueCount > 0 ? ` · ${overdueCount} 项逾期` : ''}`}</small></span>
+      <em>{open ? '收起 ↑' : '展开 ↓'}</em>
+    </button>
+    {open && <div className={styles['followUpBody']}>
+      <p>{standalone ? '这里集中管理该公司的本地检查点；删除关联研判报告时也会保留。' : '跟踪事项保存在本地并独立于报告版本；删除研判报告时也会保留。'}</p>
+      {suggestions.length > 0 && <div className={styles['followUpSuggestions']}><span>报告中的待验证项</span><div>{suggestions.map(suggestion => <button key={suggestion} title={suggestion} onClick={() => setTitle(suggestion)}>{suggestion}</button>)}</div></div>}
+      <form className={styles['followUpComposer']} onSubmit={(event) => { event.preventDefault(); void create() }}>
+        <input value={title} onChange={event => setTitle(event.target.value)} maxLength={160} placeholder="添加要持续验证的事实、指标或事件" aria-label="跟踪事项" />
+        <input type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} aria-label="跟踪到期日" />
+        <button className={styles['buttonPrimary']} disabled={submitting || title.trim() === ''}>{submitting ? '添加中…' : '添加'}</button>
+      </form>
+      {items.length === 0 ? <div className={styles['followUpEmpty']}>{reportContent === undefined ? '手动建立下一次研究检查点；后续也可从研判报告建议中一键加入。' : '从报告建议中选择一项，或手动建立下一次研究检查点。'}</div> : <ul className={styles['followUpList']}>{items.map((item) => {
+        const overdue = item.status === 'open' && item.dueDate !== null && item.dueDate < today
+        const editing = editingId === item.id
+        return <li key={item.id} data-completed={item.status === 'done' ? 'true' : 'false'} data-editing={editing ? 'true' : 'false'}>
+          <button className={styles['followUpCheck']} disabled={busyId !== ''} aria-label={item.status === 'done' ? `恢复跟踪：${item.title}` : `完成跟踪：${item.title}`} aria-pressed={item.status === 'done'} onClick={() => void toggle(item)}>{item.status === 'done' ? '✓' : ''}</button>
+          {editing
+            ? <FollowUpInlineEditor item={item} saving={busyId === item.id} onSave={(nextTitle, nextDueDate) => void saveEdit(item, nextTitle, nextDueDate)} onCancel={() => setEditingId('')} />
+            : <><span><b>{item.title}</b><small>{item.dueDate === null ? '未设到期日' : overdue ? `已逾期 · ${item.dueDate}` : `到期 ${item.dueDate}`}{item.reportVersion === null ? '' : ` · 来自 v${item.reportVersion}`}</small></span>
+              <span className={styles['followUpActions']}><button className={styles['followUpEdit']} disabled={busyId !== ''} aria-label={`编辑跟踪事项：${item.title}`} onClick={() => { setConfirmingDeleteId(''); setEditingId(item.id) }}>编辑</button><button className={`${styles['followUpRemove']} ${confirmingDeleteId === item.id ? styles['followUpRemoveConfirm'] : ''}`} disabled={busyId !== ''} onClick={() => void remove(item)}>{confirmingDeleteId === item.id ? '确认' : '删除'}</button></span></>}
+        </li>
+      })}</ul>}
+    </div>}
+  </section>
+}
+
+function ResearchPredictionPanel({ client, secId, items, loading, onItems, notify }: {
+  client: HanaiClient
+  secId: string
+  items: ResearchPrediction[]
+  loading: boolean
+  onItems: (items: ResearchPrediction[]) => void
+  notify: Notify
+}) {
+  const [composerOpen, setComposerOpen] = useState(false)
+  const [statement, setStatement] = useState('')
+  const [criteria, setCriteria] = useState('')
+  const [probability, setProbability] = useState('60')
+  const [dueDate, setDueDate] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [busyId, setBusyId] = useState('')
+  const [confirming, setConfirming] = useState<{ id: string; outcome: 'occurred' | 'not-occurred' | 'invalid' } | null>(null)
+  const pending = items.filter(item => item.outcome === 'pending')
+  const scored = items.filter(item => item.brierScore !== null)
+  const meanBrier = scored.length === 0
+    ? null
+    : scored.reduce((total, item) => total + (item.brierScore ?? 0), 0) / scored.length
+  const probabilityValue = Number(probability)
+  const canSubmit = statement.trim() !== ''
+    && criteria.trim() !== ''
+    && dueDate !== ''
+    && Number.isSafeInteger(probabilityValue)
+    && probabilityValue >= 1
+    && probabilityValue <= 99
+
+  const create = async () => {
+    if (!canSubmit || submitting) return
+    setSubmitting(true)
+    try {
+      const created = await client.call('research.prediction.create', {
+        secId,
+        statement: statement.trim(),
+        resolutionCriteria: criteria.trim(),
+        probabilityPct: probabilityValue,
+        dueDate,
+      })
+      onItems(sortResearchPredictions([...items, created]))
+      setStatement('')
+      setCriteria('')
+      setProbability('60')
+      setDueDate('')
+      setComposerOpen(false)
+      notify('研究命题已记录，等待到期复核')
+    } catch (error) {
+      notify(messageOf(error), 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const resolve = async (item: ResearchPrediction, outcome: 'occurred' | 'not-occurred' | 'invalid') => {
+    if (confirming?.id !== item.id || confirming.outcome !== outcome) {
+      setConfirming({ id: item.id, outcome })
+      return
+    }
+    if (busyId !== '') return
+    setBusyId(item.id)
+    try {
+      const updated = await client.call('research.prediction.resolve', { id: item.id, outcome })
+      onItems(sortResearchPredictions(items.map(current => current.id === updated.id ? updated : current)))
+      setConfirming(null)
+      notify(outcome === 'invalid' ? '命题已标记为无法判定' : '结果已记录并完成校准')
+    } catch (error) {
+      notify(messageOf(error), 'error')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  return <section className={`${styles['card']} ${styles['predictionPanel']}`} aria-label="研究命题与校准">
+    <PanelHead
+      title="研究命题与校准"
+      hint="可验证命题 · Brier 越低越好"
+      extra={<button className={composerOpen ? styles['buttonSelected'] : styles['button']} onClick={() => setComposerOpen(current => !current)}>{composerOpen ? '收起' : '＋ 记录命题'}</button>}
+    />
+    <div className={styles['predictionSummary']}>
+      <span><small>待判定</small><b>{loading ? '…' : pending.length}</b></span>
+      <span><small>已评分</small><b>{loading ? '…' : scored.length}</b></span>
+      <span><small>平均 Brier</small><b>{meanBrier === null ? '—' : meanBrier.toFixed(4)}</b></span>
+    </div>
+    <p className={styles['predictionNote']}>只记录可被公开事实判定的二元命题；概率是当下信念快照，不是股价目标或交易信号。</p>
+    {composerOpen && <form className={styles['predictionComposer']} aria-label="记录研究命题" onSubmit={(event) => { event.preventDefault(); void create() }}>
+      <label><span>可验证命题</span><input value={statement} onChange={event => setStatement(event.target.value)} maxLength={200} placeholder="例：下一季度经营现金流同比改善" /></label>
+      <label><span>判定口径</span><input value={criteria} onChange={event => setCriteria(event.target.value)} maxLength={300} placeholder="例：以公司法定季度报告披露值为准" /></label>
+      <div><label><span>主观概率</span><span className={styles['predictionProbability']}><input type="number" min="1" max="99" step="1" value={probability} onChange={event => setProbability(event.target.value)} aria-label="主观概率" /><em>%</em></span></label><label><span>判定日期</span><input type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} aria-label="命题判定日期" /></label><button className={styles['buttonPrimary']} disabled={!canSubmit || submitting}>{submitting ? '记录中…' : '记录快照'}</button></div>
+    </form>}
+    {items.length === 0
+      ? <div className={styles['predictionEmpty']}>{loading ? '正在读取本地校准记录…' : '还没有命题。只在口径与期限明确时记录，避免事后改写判断。'}</div>
+      : <ul className={styles['predictionList']}>{items.map(item => {
+        const pendingItem = item.outcome === 'pending'
+        const overdue = pendingItem && item.dueDate < localDateKey(new Date())
+        return <li key={item.id} data-outcome={item.outcome} data-overdue={overdue}>
+          <div className={styles['predictionClaim']}><span><b>{item.probabilityPct}%</b><small>{pendingItem ? overdue ? '已到期' : `待 ${item.dueDate}` : predictionOutcomeLabel(item.outcome)}</small></span><div><strong>{item.statement}</strong><small title={item.resolutionCriteria}>口径：{item.resolutionCriteria}</small></div></div>
+          {pendingItem
+            ? <div className={styles['predictionActions']}><button disabled={busyId !== ''} aria-label={`${confirming?.id === item.id && confirming.outcome === 'occurred' ? '确认标记发生' : '标记发生'}：${item.statement}`} onClick={() => void resolve(item, 'occurred')}>{confirming?.id === item.id && confirming.outcome === 'occurred' ? '确认发生' : '发生'}</button><button disabled={busyId !== ''} aria-label={`${confirming?.id === item.id && confirming.outcome === 'not-occurred' ? '确认标记未发生' : '标记未发生'}：${item.statement}`} onClick={() => void resolve(item, 'not-occurred')}>{confirming?.id === item.id && confirming.outcome === 'not-occurred' ? '确认未发生' : '未发生'}</button><button disabled={busyId !== ''} aria-label={`${confirming?.id === item.id && confirming.outcome === 'invalid' ? '确认无法判定' : '标记无法判定'}：${item.statement}`} onClick={() => void resolve(item, 'invalid')}>{confirming?.id === item.id && confirming.outcome === 'invalid' ? '确认无效' : '无法判定'}</button></div>
+            : <div className={styles['predictionResult']}><span>{predictionOutcomeLabel(item.outcome)}</span>{item.brierScore !== null && <b>Brier {item.brierScore.toFixed(4)}</b>}<small>{item.resolvedAt === null ? '' : dateTime(item.resolvedAt)}</small></div>}
+        </li>
+      })}</ul>}
+  </section>
 }
 
 function PersonasPage({ masters }: { masters: MasterPersona[] }) {
@@ -1516,8 +2647,8 @@ function PageSkeleton({ cards }: { cards: number }) {
   return <div className={styles['skeletonGrid']}>{Array.from({ length: cards }, (_, index) => <div key={index}><i /><i /><i /></div>)}</div>
 }
 
-function Modal({ title, subtitle, onClose, children, wide = false }: { title: string; subtitle?: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
-  return <div className={styles['modalBackdrop']} role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}><section className={`${styles['modal']} ${wide ? styles['modalWide'] : ''}`} role="dialog" aria-modal="true" aria-label={title}><header><div><h2>{title}</h2>{subtitle !== undefined && <p>{subtitle}</p>}</div><button onClick={onClose} aria-label="关闭">×</button></header>{children}</section></div>
+function Modal({ title, subtitle, onClose, children, wide = false, extraWide = false }: { title: string; subtitle?: string; onClose: () => void; children: ReactNode; wide?: boolean; extraWide?: boolean }) {
+  return <div className={styles['modalBackdrop']} role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}><section className={`${styles['modal']} ${wide ? styles['modalWide'] : ''} ${extraWide ? styles['modalExtraWide'] : ''}`} role="dialog" aria-modal="true" aria-label={title}><header><div><h2>{title}</h2>{subtitle !== undefined && <p>{subtitle}</p>}</div><button onClick={onClose} aria-label="关闭">×</button></header>{children}</section></div>
 }
 
 function emptyStockDetail(): StockDetail {
@@ -1613,6 +2744,202 @@ function compareNullable(left: string | number | null, right: string | number | 
   if (right === null) return -1
   const result = typeof left === 'string' && typeof right === 'string' ? left.localeCompare(right, 'zh-CN') : Number(left) - Number(right)
   return result * (descending ? -1 : 1)
+}
+
+function summarizeResearchCoverage(items: readonly WatchResearchCoverage[]) {
+  return {
+    total: items.length,
+    covered: items.filter(item => item.reportVersionCount > 0).length,
+    current: items.filter(item => item.state === 'current').length,
+    active: items.filter(item => item.state === 'active').length,
+    stale: items.filter(item => item.state === 'stale').length,
+    missing: items.filter(item => item.state === 'failed' || item.state === 'uncovered').length,
+    openFollowUps: items.reduce((total, item) => total + item.openFollowUpCount, 0),
+    overdueFollowUps: items.reduce((total, item) => total + item.overdueFollowUpCount, 0),
+    pendingPredictions: items.reduce((total, item) => total + item.pendingPredictionCount, 0),
+    duePredictions: items.reduce((total, item) => total + item.duePredictionCount, 0),
+  }
+}
+
+function matchesResearchCoverageFilter(coverage: WatchResearchCoverage | undefined, filter: WatchCoverageFilter) {
+  if (filter === 'all') return true
+  if (filter === 'followups') return (coverage?.openFollowUpCount ?? 0) > 0
+  if (filter === 'predictions') return (coverage?.pendingPredictionCount ?? 0) > 0
+  const state = coverage?.state ?? 'uncovered'
+  if (filter === 'missing') return state === 'uncovered' || state === 'failed'
+  return state === filter
+}
+
+function revisionSuggestion(audit: ReportAudit): string {
+  const incomplete = audit.checks.filter(item => item.state !== 'met')
+  const focus = incomplete.length === 0
+    ? '- 重新核验关键事实、估值假设、反方证据与最新信息时点。'
+    : incomplete.map(item => `- ${item.label}：${item.detail}`).join('\n')
+  return `请基于最新公开信息完整修订本报告，并重点处理以下事项：\n${focus}\n\n`
+    + `要求：保留清晰的事实/推断/假设边界；关键主张写入证据账本并附可点击来源与日期；`
+    + `若来源冲突或信息不足，明确标记不确定性，不得用推测补齐。`
+}
+
+function summarizeReportVersionChange(previous: ReportVersion, current: ReportVersion) {
+  const previousSections = extractReportSections(previous.content)
+  const currentSections = extractReportSections(current.content)
+  const added = [...currentSections.keys()].filter(key => !previousSections.has(key))
+  const removed = [...previousSections.keys()].filter(key => !currentSections.has(key))
+  const changed = [...currentSections.keys()].filter(key => {
+    const before = previousSections.get(key)
+    return before !== undefined && normalizeReportSection(before.content) !== normalizeReportSection(currentSections.get(key)?.content ?? '')
+  })
+  const checkRank: Record<ReportAuditCheck['state'], number> = { missing: 0, partial: 1, met: 2 }
+  const previousChecks = new Map(previous.audit.checks.map(check => [check.id, check]))
+  const improvedChecks = current.audit.checks.filter(check => checkRank[check.state] > checkRank[previousChecks.get(check.id)?.state ?? 'missing']).map(check => check.label)
+  const regressedChecks = current.audit.checks.filter(check => checkRank[check.state] < checkRank[previousChecks.get(check.id)?.state ?? 'missing']).map(check => check.label)
+  const labels = (keys: string[], map: Map<string, { label: string; content: string }>) => keys.slice(0, 8).map(key => map.get(key)?.label ?? key)
+  return {
+    added: labels(added, currentSections),
+    removed: labels(removed, previousSections),
+    changed: labels(changed, currentSections),
+    scoreDelta: current.audit.score - previous.audit.score,
+    sourceDelta: current.audit.sources.length - previous.audit.sources.length,
+    sizeDelta: current.sizeBytes - previous.sizeBytes,
+    improvedChecks,
+    regressedChecks,
+  }
+}
+
+function extractReportSections(content: string): Map<string, { label: string; content: string }> {
+  const lines = content.replace(/\r\n?/g, '\n').split('\n')
+  const sections = new Map<string, { label: string; content: string }>()
+  let label = '报告开篇'
+  let key = '报告开篇'
+  let body: string[] = []
+  const store = () => {
+    const text = body.join('\n').trim()
+    if (text === '' && sections.size > 0) return
+    const existing = sections.get(key)
+    sections.set(key, { label, content: existing === undefined ? text : `${existing.content}\n${text}` })
+  }
+  for (const line of lines) {
+    const heading = /^##\s+(.+?)\s*$/.exec(line)
+    if (heading === null) { body.push(line); continue }
+    store()
+    label = cleanReportHeading(heading[1] ?? '')
+    key = normalizeComparableText(label)
+    body = []
+  }
+  store()
+  return sections
+}
+
+function cleanReportHeading(value: string): string {
+  return value.replace(/[*_~`#]/g, '').replace(/^[\d一二三四五六七八九十百]+[.、．\s-]*/, '').trim() || '未命名章节'
+}
+
+function normalizeReportSection(value: string): string {
+  return value
+    .replace(/\[([^\]]+)]\([^)]*\)/g, '$1')
+    .replace(/[*_~`>#|:\-]/g, '')
+    .replace(/[\s，。；：、,.!！?？]/g, '')
+    .toLowerCase()
+}
+
+function signedDelta(value: number, suffix = ''): string {
+  if (value === 0) return '无变化'
+  return `${value > 0 ? '+' : ''}${value}${suffix}`
+}
+
+function extractMonitoringItems(content: string): string[] {
+  const lines = content.replace(/\r\n?/g, '\n').split('\n')
+  const start = lines.findIndex(line => /^#{1,6}\s+.*(待持续验证|持续跟踪|跟踪清单|观察清单|监测清单|下一步)/i.test(line))
+  if (start < 0) return []
+  const level = /^#+/.exec(lines[start] ?? '')?.[0].length ?? 6
+  const items: string[] = []
+  for (let index = start + 1; index < lines.length; index += 1) {
+    const line = lines[index] ?? ''
+    const heading = /^(#{1,6})\s+/.exec(line)
+    if (heading !== null && heading[1]!.length <= level) break
+    const bullet = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s*)?(.+)$/.exec(line)
+    if (bullet === null) continue
+    const raw = bullet[1]!.trim()
+    const boldLead = /^\*\*([^*]+)\*\*/.exec(raw)?.[1]
+    const title = (boldLead ?? raw)
+      .replace(/\[([^\]]+)]\([^)]*\)/g, '$1')
+      .replace(/[*_~`>#]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 160)
+    if (title !== '' && !items.some(item => normalizeComparableText(item) === normalizeComparableText(title))) {
+      items.push(title)
+    }
+  }
+  return items
+}
+
+function normalizeComparableText(value: string): string {
+  return value.trim().replace(/[\s，。；：、,.!！?？]/g, '').toLowerCase()
+}
+
+function sortResearchFollowUps<T extends ResearchFollowUp>(items: readonly T[]): T[] {
+  return [...items].sort((left, right) => {
+    if (left.status !== right.status) return left.status === 'open' ? -1 : 1
+    if (left.dueDate !== right.dueDate) {
+      if (left.dueDate === null) return 1
+      if (right.dueDate === null) return -1
+      return left.dueDate.localeCompare(right.dueDate)
+    }
+    return right.createdAt.localeCompare(left.createdAt)
+  })
+}
+
+function sortResearchPredictions<T extends ResearchPrediction>(items: readonly T[]): T[] {
+  return [...items].sort((left, right) => {
+    const leftPending = left.outcome === 'pending'
+    const rightPending = right.outcome === 'pending'
+    if (leftPending !== rightPending) return leftPending ? -1 : 1
+    if (left.dueDate !== right.dueDate) return left.dueDate.localeCompare(right.dueDate)
+    return right.createdAt.localeCompare(left.createdAt)
+  })
+}
+
+function predictionOutcomeLabel(outcome: ResearchPrediction['outcome']): string {
+  if (outcome === 'occurred') return '已发生'
+  if (outcome === 'not-occurred') return '未发生'
+  if (outcome === 'invalid') return '无法判定'
+  return '待判定'
+}
+
+async function copyPlainText(value: string): Promise<void> {
+  if (navigator.clipboard?.writeText !== undefined) {
+    await navigator.clipboard.writeText(value)
+    return
+  }
+  const textarea = document.createElement('textarea')
+  textarea.value = value
+  textarea.readOnly = true
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  document.body.append(textarea)
+  textarea.select()
+  const copied = document.execCommand?.('copy') ?? false
+  textarea.remove()
+  if (!copied) throw new Error('浏览器未开放剪贴板权限')
+}
+
+function downloadMarkdown(content: string, fileName: string): void {
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName.replace(/[^\p{L}\p{N}._-]+/gu, '-')
+  anchor.style.display = 'none'
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
+function localDateKey(date: Date): string {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 10)
 }
 
 function highlight(value: string, query: string): ReactNode {

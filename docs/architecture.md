@@ -6,7 +6,7 @@
 
 ## 1. 结论
 
-Hanai Worth · 值见当前以兼容包名 `hanai-investment-dsh` 实现为一个树外 DeepSeek Harness Bundle。它复用 DSH 的模型、凭据、Agent、Session、会话历史、流式事件和 Web Client 插件机制；Hanai Worth 自己拥有股票、行情、估值、自选、大师研判、报告版本和聊天呈现等业务能力。
+Hanai Worth · 值见当前以兼容包名 `hanai-investment-dsh` 实现为一个树外 DeepSeek Harness Bundle。它复用 DSH 的模型、凭据、Agent、Session、会话历史、流式事件和 Web Client 插件机制；Hanai Worth 自己拥有股票、行情、估值、自选、大师研判、报告版本、研究待办、可校准命题和聊天呈现等业务能力。
 
 新 UI 全部使用 React 重写，但产品基线仍是旧版客户端：一级导航固定为“今日市场、自选与发现、大师研判、专家中心、设置与诊断”，个股和研判详情仍是从这些页面进入的详情路由。`hanai-investment` Profile 启动后在 `shell.overlay` 中自动挂载全屏常驻的 Hanai 工作台；Workbench 自己同步 Hash 路由，因此无需 DSH 新增通用 Router Slot。Hanai 自己渲染消息时间线和 composer，所有轮次仍发送给绑定的 DSH Session。
 
@@ -71,7 +71,7 @@ flowchart LR
 | 模型及普通 DSH 设置 | DSH Settings | `$DSH_HOME/settings.yaml` |
 | 会话事件、消息和工具历史 | DSH Session Persistence | `$DSH_HOME/sessions` |
 | 聊天附件 | DSH Attachment Service | `$DSH_HOME/attachments` |
-| 自选、证券主数据、研判索引 | Hanai | `~/.hanai-investment-dsh/db/hanai.sqlite` |
+| 自选、证券主数据、研判索引、研究待办与校准命题 | Hanai | `~/.hanai-investment-dsh/db/hanai.sqlite` |
 | 研判工作区 | Hanai | `~/.hanai-investment-dsh/judgements/<id>/workspace` |
 | 正式报告快照 | Hanai | `~/.hanai-investment-dsh/judgements/<id>/reports` |
 | 行情和估值缓存 | Hanai | `~/.hanai-investment-dsh/cache` |
@@ -323,7 +323,9 @@ judgements/<id>/reports/0001/manifest.json
 - 来源报告工作副本；
 - Schema 版本。
 
-后续对话可以读取工作副本，但不能改变 UI 已展示的 v1。版本表和 revision 状态保留为实现边界；普通追问绝不生成 `0002`，任何未来可见的修订动作都必须另行获得产品授权。
+后续对话可以读取工作副本，但不能改变 UI 已展示的 v1。普通追问绝不生成 `0002`；只有用户显式执行“修订报告”才会在同一 Session 中生成新工作副本，并经同一质量门封存为新版本。旧版本保持可读、可比较和不可变。
+
+新生成报告在封存前执行机械结构审计：必须具备结论、信息时点、公开来源、反方证据、三情景和持续验证清单；证据账本至少有一条同时具备事实/推断/假设边界、可点击 URL、来源日期和置信度的主张。审计只声明结构是否可核验，不为来源权威性或投资结论背书。历史已封存报告即使不满足新门槛也保持可读，并在界面标记待补项。
 
 ## 8. 业务数据模型
 
@@ -337,6 +339,8 @@ watch_groups
 watch_items
 judgements
 report_versions
+research_follow_ups
+research_predictions
 ```
 
 `judgements` 的核心字段：
@@ -363,6 +367,23 @@ model_provider / model_id
 sealed_at
 manifest_version
 ```
+
+`research_follow_ups` 是独立于报告生命周期的持续研究任务。报告删除后，任务保留并清除失效的报告关联；用户可从个股页、报告页和跨公司研究收件箱创建、编辑、完成或重新打开。
+
+`research_predictions` 保存不可事后改写的二元研究命题：
+
+```text
+id / sec_id
+judgement_id / report_version nullable
+statement / resolution_criteria
+probability_pct (1..99)
+due_date
+outcome: pending | occurred | not-occurred | invalid
+brier_score nullable
+created_at / resolved_at
+```
+
+命题结果第一次确认后不可覆盖；`invalid` 表示判定口径失效且不计入 Brier 均值。该对象用于校准研究判断，不生成目标价、仓位或交易指令。
 
 路径只保存相对 `dataRoot` 的值，禁止把某台机器的绝对路径写入持久化记录。
 
@@ -444,6 +465,8 @@ Provider 传输层使用 Node/DSH Host 能力重写，不能继续依赖 Electro
 | 市场、自选、个股、估值 | 已实现 | 旧版布局、字段与真实 Provider 降级链；所有来源必须显示 fresh/stale/fallback |
 | ECharts 图表 | 已实现 | treemap、分时/K 线、雷达和价值曲线；图表语义由固定 fixture 约束 |
 | 大师研判与报告版本 | 已实现 | 独立工作区、能力包快照、同一 Session、原子封存与 SHA-256 |
+| 可信报告与证据账本 | 已实现 | 结构质量门、逐条来源 URL/日期、事实边界、报告自检、版本变化和 Markdown 导出 |
+| 持续研究与校准 | 已实现 | 自选覆盖状态、跨报告待办收件箱、同股异见、到期命题复盘和 Brier 误差 |
 | Hanai 自绘聊天 | 已实现 | 历史、流式、工具树、queue/steer/cancel、审批、问题响应和生命周期冻结 |
 | 亮色/黑夜主题 | 已实现 | 只切换 Workbench 语义 token，SQLite 持久化，布局与图表语义不变 |
 | 独立 Profile | 已实现 | 临时 `DSH_HOME` 上真实安装、配置校验和随机端口启动 |

@@ -2,7 +2,8 @@ import { chmodSync, existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite'
 import type {
-  Judgement, ReportStatus, ReportVersion, SecurityMaster, ThemeId, TurnStatus, WatchGroup,
+  Judgement, ReportStatus, ReportVersion, ResearchFollowUp, ResearchFollowUpStatus,
+  ResearchPrediction, ResearchPredictionOutcome, SecurityMaster, ThemeId, TurnStatus, WatchGroup,
 } from '../../contracts/src/index.ts'
 
 interface WatchGroupRow {
@@ -43,6 +44,33 @@ interface JudgementRow {
   error_message: string | null
 }
 
+interface ResearchFollowUpRow {
+  id: string
+  sec_id: string
+  judgement_id: string | null
+  report_version: number | null
+  title: string
+  due_date: string | null
+  status: ResearchFollowUpStatus
+  created_at: string
+  completed_at: string | null
+}
+
+interface ResearchPredictionRow {
+  id: string
+  sec_id: string
+  judgement_id: string | null
+  report_version: number | null
+  statement: string
+  resolution_criteria: string
+  probability_pct: number
+  due_date: string
+  outcome: ResearchPredictionOutcome
+  brier_score: number | null
+  created_at: string
+  resolved_at: string | null
+}
+
 export interface ReportRow {
   judgement_id: string
   version: number
@@ -76,6 +104,30 @@ export interface JudgementUpdate {
   errorCode?: string | null
   errorMessage?: string | null
   repairAttempts?: number
+}
+
+export interface CreateResearchFollowUpRecord {
+  secId: string
+  judgementId?: string
+  reportVersion?: number
+  title: string
+  dueDate?: string
+}
+
+export interface ResearchFollowUpUpdate {
+  completed?: boolean
+  title?: string
+  dueDate?: string | null
+}
+
+export interface CreateResearchPredictionRecord {
+  secId: string
+  judgementId?: string
+  reportVersion?: number
+  statement: string
+  resolutionCriteria: string
+  probabilityPct: number
+  dueDate: string
 }
 
 export interface SecuritySnapshotRow extends SecurityMaster {
@@ -171,12 +223,50 @@ export class HanaiDatabase {
         model TEXT,
         PRIMARY KEY(judgement_id, version)
       );
+      CREATE TABLE IF NOT EXISTS research_follow_ups (
+        id TEXT PRIMARY KEY,
+        sec_id TEXT NOT NULL,
+        judgement_id TEXT REFERENCES judgements(id) ON DELETE SET NULL,
+        report_version INTEGER,
+        title TEXT NOT NULL,
+        due_date TEXT,
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'done')),
+        created_at TEXT NOT NULL,
+        completed_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_research_follow_ups_security
+        ON research_follow_ups(sec_id, status, due_date, created_at DESC);
+      CREATE TABLE IF NOT EXISTS research_predictions (
+        id TEXT PRIMARY KEY,
+        sec_id TEXT NOT NULL,
+        judgement_id TEXT REFERENCES judgements(id) ON DELETE SET NULL,
+        report_version INTEGER,
+        statement TEXT NOT NULL,
+        resolution_criteria TEXT NOT NULL,
+        probability_pct INTEGER NOT NULL CHECK (probability_pct BETWEEN 1 AND 99),
+        due_date TEXT NOT NULL,
+        outcome TEXT NOT NULL DEFAULT 'pending'
+          CHECK (outcome IN ('pending', 'occurred', 'not-occurred', 'invalid')),
+        brier_score REAL,
+        created_at TEXT NOT NULL,
+        resolved_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_research_predictions_security
+        ON research_predictions(sec_id, outcome, due_date, created_at DESC);
     `)
     const version = this.sqlite.prepare('SELECT MAX(version) AS value FROM schema_migrations').get() as
       | { value: number | null }
       | undefined
     if ((version?.value ?? 0) < 1) {
       this.sqlite.prepare('INSERT INTO schema_migrations(version, applied_at) VALUES(1, ?)')
+        .run(new Date().toISOString())
+    }
+    if ((version?.value ?? 0) < 2) {
+      this.sqlite.prepare('INSERT INTO schema_migrations(version, applied_at) VALUES(2, ?)')
+        .run(new Date().toISOString())
+    }
+    if ((version?.value ?? 0) < 3) {
+      this.sqlite.prepare('INSERT INTO schema_migrations(version, applied_at) VALUES(3, ?)')
         .run(new Date().toISOString())
     }
     this.ensureDefaultWatchGroup()
@@ -425,6 +515,205 @@ export class HanaiDatabase {
     })
   }
 
+  createResearchFollowUp(input: CreateResearchFollowUpRecord): ResearchFollowUp {
+    const title = normalizeFollowUpTitle(input.title)
+    const dueDate = normalizeDueDate(input.dueDate ?? null)
+    const judgementId = input.judgementId ?? null
+    const reportVersion = input.reportVersion ?? null
+    if (reportVersion !== null && (!Number.isSafeInteger(reportVersion) || reportVersion < 1)) {
+      throw new Error('报告版本必须是正整数')
+    }
+    if (judgementId !== null) {
+      const judgement = this.getJudgement(judgementId)
+      if (judgement === null) throw new Error('研判不存在')
+      if (judgement.secId !== input.secId) throw new Error('跟踪事项与研判股票不一致')
+      if (reportVersion !== null && (judgement.latestReportVersion ?? 0) < reportVersion) {
+        throw new Error('报告版本不存在')
+      }
+    } else if (reportVersion !== null) {
+      throw new Error('报告版本必须关联研判')
+    }
+    const id = randomUUID()
+    const createdAt = new Date().toISOString()
+    this.sqlite.prepare(`
+      INSERT INTO research_follow_ups(
+        id, sec_id, judgement_id, report_version, title, due_date, status, created_at, completed_at
+      ) VALUES(?, ?, ?, ?, ?, ?, 'open', ?, NULL)
+    `).run(id, input.secId, judgementId, reportVersion, title, dueDate, createdAt)
+    return this.getResearchFollowUp(id) as ResearchFollowUp
+  }
+
+  getResearchFollowUp(id: string): ResearchFollowUp | null {
+    const row = this.sqlite.prepare('SELECT * FROM research_follow_ups WHERE id = ?').get(id) as
+      | ResearchFollowUpRow
+      | undefined
+    return row === undefined ? null : researchFollowUpFromRow(row)
+  }
+
+  listResearchFollowUps(secId: string): ResearchFollowUp[] {
+    const rows = this.sqlite.prepare(`
+      SELECT * FROM research_follow_ups WHERE sec_id = ?
+      ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END,
+        CASE WHEN due_date IS NULL THEN 1 ELSE 0 END,
+        due_date,
+        created_at DESC
+    `).all(secId) as unknown as ResearchFollowUpRow[]
+    return rows.map(researchFollowUpFromRow)
+  }
+
+  listResearchFollowUpsForSecurities(secIds: readonly string[]): ResearchFollowUp[] {
+    const unique = [...new Set(secIds)]
+    if (unique.length === 0) return []
+    const placeholders = unique.map(() => '?').join(', ')
+    const rows = this.sqlite.prepare(`
+      SELECT * FROM research_follow_ups WHERE sec_id IN (${placeholders})
+      ORDER BY sec_id,
+        CASE status WHEN 'open' THEN 0 ELSE 1 END,
+        CASE WHEN due_date IS NULL THEN 1 ELSE 0 END,
+        due_date,
+        created_at DESC
+    `).all(...unique) as unknown as ResearchFollowUpRow[]
+    return rows.map(researchFollowUpFromRow)
+  }
+
+  listAllResearchFollowUps(status: ResearchFollowUpStatus | 'all' = 'all'): ResearchFollowUp[] {
+    const where = status === 'all' ? '' : 'WHERE status = ?'
+    const statement = this.sqlite.prepare(`
+      SELECT * FROM research_follow_ups ${where}
+      ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END,
+        CASE WHEN due_date IS NULL THEN 1 ELSE 0 END,
+        due_date,
+        created_at DESC
+    `)
+    const rows = (status === 'all' ? statement.all() : statement.all(status)) as unknown as ResearchFollowUpRow[]
+    return rows.map(researchFollowUpFromRow)
+  }
+
+  updateResearchFollowUp(id: string, update: ResearchFollowUpUpdate): ResearchFollowUp {
+    const current = this.getResearchFollowUp(id)
+    if (current === null) throw new Error('跟踪事项不存在')
+    const fields: string[] = []
+    const values: SQLInputValue[] = []
+    const add = (column: string, value: SQLInputValue): void => {
+      fields.push(`${column} = ?`)
+      values.push(value)
+    }
+    if (update.title !== undefined) add('title', normalizeFollowUpTitle(update.title))
+    if (update.dueDate !== undefined) add('due_date', normalizeDueDate(update.dueDate))
+    if (update.completed !== undefined) {
+      add('status', update.completed ? 'done' : 'open')
+      add('completed_at', update.completed ? new Date().toISOString() : null)
+    }
+    if (fields.length === 0) throw new Error('没有需要更新的跟踪事项字段')
+    this.sqlite.prepare(`UPDATE research_follow_ups SET ${fields.join(', ')} WHERE id = ?`).run(...values, id)
+    return this.getResearchFollowUp(id) as ResearchFollowUp
+  }
+
+  removeResearchFollowUp(id: string): void {
+    const result = this.sqlite.prepare('DELETE FROM research_follow_ups WHERE id = ?').run(id)
+    if (result.changes === 0) throw new Error('跟踪事项不存在')
+  }
+
+  createResearchPrediction(input: CreateResearchPredictionRecord): ResearchPrediction {
+    const statement = normalizePredictionText(input.statement, '研究命题', 200)
+    const resolutionCriteria = normalizePredictionText(input.resolutionCriteria, '判定口径', 300)
+    const dueDate = normalizeDueDate(input.dueDate)
+    if (dueDate === null) throw new Error('研究命题必须设置判定日期')
+    if (!Number.isSafeInteger(input.probabilityPct) || input.probabilityPct < 1 || input.probabilityPct > 99) {
+      throw new Error('主观概率必须是 1 到 99 的整数')
+    }
+    const judgementId = input.judgementId ?? null
+    const reportVersion = input.reportVersion ?? null
+    if (reportVersion !== null && (!Number.isSafeInteger(reportVersion) || reportVersion < 1)) {
+      throw new Error('报告版本必须是正整数')
+    }
+    if (judgementId !== null) {
+      const judgement = this.getJudgement(judgementId)
+      if (judgement === null) throw new Error('研判不存在')
+      if (judgement.secId !== input.secId) throw new Error('研究命题与研判股票不一致')
+      if (reportVersion !== null && (judgement.latestReportVersion ?? 0) < reportVersion) {
+        throw new Error('报告版本不存在')
+      }
+    } else if (reportVersion !== null) {
+      throw new Error('报告版本必须关联研判')
+    }
+    const id = randomUUID()
+    const createdAt = new Date().toISOString()
+    this.sqlite.prepare(`
+      INSERT INTO research_predictions(
+        id, sec_id, judgement_id, report_version, statement, resolution_criteria,
+        probability_pct, due_date, outcome, brier_score, created_at, resolved_at
+      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, 'pending', NULL, ?, NULL)
+    `).run(
+      id, input.secId, judgementId, reportVersion, statement, resolutionCriteria,
+      input.probabilityPct, dueDate, createdAt,
+    )
+    return this.getResearchPrediction(id) as ResearchPrediction
+  }
+
+  getResearchPrediction(id: string): ResearchPrediction | null {
+    const row = this.sqlite.prepare('SELECT * FROM research_predictions WHERE id = ?').get(id) as
+      | ResearchPredictionRow
+      | undefined
+    return row === undefined ? null : researchPredictionFromRow(row)
+  }
+
+  listResearchPredictions(secId: string): ResearchPrediction[] {
+    const rows = this.sqlite.prepare(`
+      SELECT * FROM research_predictions WHERE sec_id = ?
+      ORDER BY CASE outcome WHEN 'pending' THEN 0 ELSE 1 END, due_date, created_at DESC
+    `).all(secId) as unknown as ResearchPredictionRow[]
+    return rows.map(researchPredictionFromRow)
+  }
+
+  listResearchPredictionsForSecurities(secIds: readonly string[]): ResearchPrediction[] {
+    const unique = [...new Set(secIds)]
+    if (unique.length === 0) return []
+    const placeholders = unique.map(() => '?').join(', ')
+    const rows = this.sqlite.prepare(`
+      SELECT * FROM research_predictions
+      WHERE sec_id IN (${placeholders}) AND outcome = 'pending'
+      ORDER BY sec_id, due_date, created_at DESC
+    `).all(...unique) as unknown as ResearchPredictionRow[]
+    return rows.map(researchPredictionFromRow)
+  }
+
+  listAllResearchPredictions(status: 'pending' | 'resolved' | 'all' = 'all'): ResearchPrediction[] {
+    const where = status === 'pending'
+      ? "WHERE outcome = 'pending'"
+      : status === 'resolved'
+        ? "WHERE outcome != 'pending'"
+        : ''
+    const rows = this.sqlite.prepare(`
+      SELECT * FROM research_predictions ${where}
+      ORDER BY CASE outcome WHEN 'pending' THEN 0 ELSE 1 END, due_date, created_at DESC
+    `).all() as unknown as ResearchPredictionRow[]
+    return rows.map(researchPredictionFromRow)
+  }
+
+  resolveResearchPrediction(
+    id: string,
+    outcome: Exclude<ResearchPredictionOutcome, 'pending'>,
+  ): ResearchPrediction {
+    if (!['occurred', 'not-occurred', 'invalid'].includes(outcome)) throw new Error('研究命题判定结果无效')
+    const current = this.getResearchPrediction(id)
+    if (current === null) throw new Error('研究命题不存在')
+    if (current.outcome !== 'pending') {
+      if (current.outcome === outcome) return current
+      throw new Error('研究命题已经完成判定，不能覆盖历史结果')
+    }
+    const probability = current.probabilityPct / 100
+    const brierScore = outcome === 'invalid'
+      ? null
+      : roundCalibrationScore((probability - (outcome === 'occurred' ? 1 : 0)) ** 2)
+    this.sqlite.prepare(`
+      UPDATE research_predictions
+      SET outcome = ?, brier_score = ?, resolved_at = ?
+      WHERE id = ? AND outcome = 'pending'
+    `).run(outcome, brierScore, new Date().toISOString(), id)
+    return this.getResearchPrediction(id) as ResearchPrediction
+  }
+
   createJudgement(input: CreateJudgementRecord): Judgement {
     const now = new Date().toISOString()
     this.sqlite.prepare(`
@@ -475,8 +764,16 @@ export class HanaiDatabase {
   }
 
   removeJudgement(id: string): void {
-    const result = this.sqlite.prepare('DELETE FROM judgements WHERE id = ?').run(id)
-    if (result.changes === 0) throw new Error('研判不存在')
+    this.transaction(() => {
+      this.sqlite.prepare(`
+        UPDATE research_follow_ups SET report_version = NULL WHERE judgement_id = ?
+      `).run(id)
+      this.sqlite.prepare(`
+        UPDATE research_predictions SET report_version = NULL WHERE judgement_id = ?
+      `).run(id)
+      const result = this.sqlite.prepare('DELETE FROM judgements WHERE id = ?').run(id)
+      if (result.changes === 0) throw new Error('研判不存在')
+    })
   }
 
   updateJudgement(id: string, update: JudgementUpdate): Judgement {
@@ -544,7 +841,7 @@ export class HanaiDatabase {
     ).all(judgementId) as unknown as ReportRow[]
   }
 
-  listReportMetadata(judgementId: string): Omit<ReportVersion, 'content'>[] {
+  listReportMetadata(judgementId: string): Omit<ReportVersion, 'content' | 'audit'>[] {
     return this.listReportRows(judgementId).map(row => ({
       judgementId: row.judgement_id,
       version: row.version,
@@ -575,6 +872,31 @@ function normalizeGroupName(raw: string): string {
   return value
 }
 
+function normalizeFollowUpTitle(raw: string): string {
+  const value = raw.trim().replace(/\s+/g, ' ')
+  if (value === '') throw new Error('跟踪事项不能为空')
+  if ([...value].length > 160) throw new Error('跟踪事项不能超过 160 个字符')
+  return value
+}
+
+function normalizePredictionText(raw: string, label: string, maxLength: number): string {
+  const value = raw.trim().replace(/\s+/g, ' ')
+  if (value === '') throw new Error(`${label}不能为空`)
+  if ([...value].length > maxLength) throw new Error(`${label}不能超过 ${maxLength} 个字符`)
+  return value
+}
+
+function normalizeDueDate(raw: string | null): string | null {
+  if (raw === null || raw.trim() === '') return null
+  const value = raw.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error('到期日格式必须为 YYYY-MM-DD')
+  const date = new Date(`${value}T00:00:00.000Z`)
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    throw new Error('到期日无效')
+  }
+  return value
+}
+
 function judgementFromRow(row: JudgementRow): Judgement {
   return {
     id: row.id,
@@ -597,4 +919,39 @@ function judgementFromRow(row: JudgementRow): Judgement {
     errorCode: row.error_code,
     errorMessage: row.error_message,
   }
+}
+
+function researchFollowUpFromRow(row: ResearchFollowUpRow): ResearchFollowUp {
+  return {
+    id: row.id,
+    secId: row.sec_id,
+    judgementId: row.judgement_id,
+    reportVersion: row.report_version,
+    title: row.title,
+    dueDate: row.due_date,
+    status: row.status,
+    createdAt: row.created_at,
+    completedAt: row.completed_at,
+  }
+}
+
+function researchPredictionFromRow(row: ResearchPredictionRow): ResearchPrediction {
+  return {
+    id: row.id,
+    secId: row.sec_id,
+    judgementId: row.judgement_id,
+    reportVersion: row.report_version,
+    statement: row.statement,
+    resolutionCriteria: row.resolution_criteria,
+    probabilityPct: row.probability_pct,
+    dueDate: row.due_date,
+    outcome: row.outcome,
+    brierScore: row.brier_score,
+    createdAt: row.created_at,
+    resolvedAt: row.resolved_at,
+  }
+}
+
+function roundCalibrationScore(value: number): number {
+  return Math.round(value * 10_000) / 10_000
 }

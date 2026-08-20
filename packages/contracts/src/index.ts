@@ -193,6 +193,33 @@ export interface WatchValuation {
   meta: ProviderMeta | null
 }
 
+export type WatchResearchState = 'active' | 'current' | 'stale' | 'failed' | 'uncovered'
+
+/** Research coverage projected onto one watch-list row without loading full reports. */
+export interface WatchResearchCoverage {
+  secId: string
+  state: WatchResearchState
+  judgementId: string | null
+  masterId: string | null
+  masterName: string | null
+  latestReportAt: string | null
+  latestReportVersion: number | null
+  ageDays: number | null
+  reportVersionCount: number
+  openFollowUpCount: number
+  overdueFollowUpCount: number
+  nextFollowUpDueDate: string | null
+  pendingPredictionCount: number
+  duePredictionCount: number
+  nextPredictionDueDate: string | null
+}
+
+export interface WatchResearchCoverageBatch {
+  items: WatchResearchCoverage[]
+  staleAfterDays: number
+  generatedAt: string
+}
+
 export interface ValuationSummary {
   stockId: string
   ivDcf: number | null
@@ -267,6 +294,156 @@ export interface ReportVersion {
   sealedAt: string
   modelProvider: string | null
   model: string | null
+  audit: ReportAudit
+}
+
+export type ReportAuditCheckId =
+  | 'conclusion'
+  | 'information-date'
+  | 'sources'
+  | 'evidence-ledger'
+  | 'counter-evidence'
+  | 'scenarios'
+  | 'monitoring'
+
+export type ReportAuditCheckState = 'met' | 'partial' | 'missing'
+
+export interface ReportAuditCheck {
+  id: ReportAuditCheckId
+  label: string
+  state: ReportAuditCheckState
+  detail: string
+  weight: number
+}
+
+export interface ReportSourceReference {
+  url: string
+  domain: string
+  label: string | null
+}
+
+export type ReportEvidenceKind = 'fact' | 'inference' | 'assumption' | 'unknown'
+export type ReportEvidenceConfidence = 'high' | 'medium' | 'low' | 'unknown'
+
+/** A mechanically parsed row from the report's evidence ledger table. */
+export interface ReportEvidenceItem {
+  claim: string
+  kind: ReportEvidenceKind
+  sourceLabel: string | null
+  sourceUrl: string | null
+  sourceDate: string | null
+  confidence: ReportEvidenceConfidence
+}
+
+/** Deterministic structural audit. It measures traceability, never investment correctness. */
+export interface ReportAudit {
+  score: number
+  rating: 'strong' | 'review' | 'thin'
+  checks: ReportAuditCheck[]
+  sources: ReportSourceReference[]
+  evidence: ReportEvidenceItem[]
+  stats: {
+    characters: number
+    headings: number
+    tables: number
+    links: number
+  }
+}
+
+export type ResearchFollowUpStatus = 'open' | 'done'
+
+/** A local research promise that survives report replacement or deletion. */
+export interface ResearchFollowUp {
+  id: string
+  secId: string
+  judgementId: string | null
+  reportVersion: number | null
+  title: string
+  dueDate: string | null
+  status: ResearchFollowUpStatus
+  createdAt: string
+  completedAt: string | null
+}
+
+/** A follow-up enriched for the cross-company research inbox. */
+export interface ResearchInboxItem extends ResearchFollowUp {
+  code: string
+  stockName: string
+  masterName: string | null
+  reportAvailable: boolean
+}
+
+export interface ResearchInbox {
+  items: ResearchInboxItem[]
+  generatedAt: string
+}
+
+export type ResearchPredictionOutcome = 'pending' | 'occurred' | 'not-occurred' | 'invalid'
+
+/** A falsifiable research claim used to calibrate confidence after its deadline. */
+export interface ResearchPrediction {
+  id: string
+  secId: string
+  judgementId: string | null
+  reportVersion: number | null
+  statement: string
+  resolutionCriteria: string
+  probabilityPct: number
+  dueDate: string
+  outcome: ResearchPredictionOutcome
+  brierScore: number | null
+  createdAt: string
+  resolvedAt: string | null
+}
+
+/** A prediction enriched for the cross-company calibration desk. */
+export interface ResearchPredictionInboxItem extends ResearchPrediction {
+  code: string
+  stockName: string
+  masterName: string | null
+}
+
+export interface ResearchPredictionInbox {
+  items: ResearchPredictionInboxItem[]
+  generatedAt: string
+}
+
+/** A report-audit projection for triaging the whole research archive. */
+export interface ResearchQualityItem {
+  judgementId: string
+  secId: string
+  reportVersion: number
+  sealedAt: string | null
+  score: number | null
+  rating: ReportAudit['rating'] | 'unavailable'
+  sourceCount: number
+  evidenceCount: number
+  incompleteChecks: Array<Pick<ReportAuditCheck, 'id' | 'label' | 'state'>>
+  error: string | null
+}
+
+export interface ResearchQualityBatch {
+  items: ResearchQualityItem[]
+  generatedAt: string
+}
+
+export interface ResearchComparisonReport {
+  judgementId: string
+  masterId: string
+  masterName: string
+  reportVersion: number
+  sealedAt: string | null
+  audit: ReportAudit | null
+  error: string | null
+}
+
+/** Latest independent reports for one company, frozen for side-by-side review. */
+export interface ResearchComparison {
+  secId: string
+  code: string
+  stockName: string
+  reports: ResearchComparisonReport[]
+  generatedAt: string
 }
 
 export interface JudgementDetail {
@@ -403,12 +580,53 @@ export interface HanaiEndpointMap {
     request: { groupId: string }
     response: { valuations: WatchValuation[]; meta: ProviderMeta | null }
   }
+  'watch.researchCoverage': {
+    request: { groupId: string }
+    response: WatchResearchCoverageBatch
+  }
   'watch.group.create': { request: { name: string }; response: WatchGroup }
   'watch.group.rename': { request: { id: string; name: string }; response: WatchGroup[] }
   'watch.group.remove': { request: { id: string }; response: WatchGroup[] }
   'watch.item.add': { request: { groupId: string; secId: string }; response: WatchGroup[] }
   'watch.item.remove': { request: { groupId: string; secId: string }; response: WatchGroup[] }
   'watch.item.move': { request: { fromGroupId: string; toGroupId: string; secId: string }; response: WatchGroup[] }
+  'research.followup.list': { request: { secId: string }; response: ResearchFollowUp[] }
+  'research.followup.create': {
+    request: { secId: string; judgementId?: string; reportVersion?: number; title: string; dueDate?: string }
+    response: ResearchFollowUp
+  }
+  'research.followup.update': {
+    request: { id: string; completed?: boolean; title?: string; dueDate?: string | null }
+    response: ResearchFollowUp
+  }
+  'research.followup.remove': { request: { id: string }; response: { id: string } }
+  'research.inbox': {
+    request: { status?: 'open' | 'done' | 'all' }
+    response: ResearchInbox
+  }
+  'research.prediction.list': { request: { secId: string }; response: ResearchPrediction[] }
+  'research.prediction.create': {
+    request: {
+      secId: string
+      judgementId?: string
+      reportVersion?: number
+      statement: string
+      resolutionCriteria: string
+      probabilityPct: number
+      dueDate: string
+    }
+    response: ResearchPrediction
+  }
+  'research.prediction.resolve': {
+    request: { id: string; outcome: Exclude<ResearchPredictionOutcome, 'pending'> }
+    response: ResearchPrediction
+  }
+  'research.prediction.inbox': {
+    request: { status?: 'pending' | 'resolved' | 'all' }
+    response: ResearchPredictionInbox
+  }
+  'research.quality': { request: Record<string, never>; response: ResearchQualityBatch }
+  'research.compare': { request: { secId: string }; response: ResearchComparison }
   'judgement.list': { request: Record<string, never>; response: Judgement[] }
   'judgement.create': { request: CreateJudgementInput; response: Judgement }
   'judgement.get': { request: { id: string }; response: JudgementDetail }

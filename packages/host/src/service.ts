@@ -22,6 +22,7 @@ import type {
   JudgementDetail,
   KLinePeriod,
   ProviderMeta,
+  ResearchQualityItem,
   SearchResult,
   StockDetail,
   StockKLineData,
@@ -30,12 +31,18 @@ import type {
   StockTrendData,
   StockValuationData,
   WatchQuote,
+  WatchResearchCoverageBatch,
   WatchValuation,
 } from '../../contracts/src/index.ts'
 import { getMasterPersona, listMasters } from '../../masters/src/index.ts'
 import { HanaiDatabase } from '../../domain/src/database.ts'
 import type { HanaiPaths } from '../../domain/src/paths.ts'
 import { ReportStore, ReportValidationError } from '../../domain/src/reports.ts'
+import {
+  analyzeReport,
+  buildWatchResearchCoverage,
+  DEFAULT_RESEARCH_STALE_DAYS,
+} from '../../domain/src/research.ts'
 
 const MARKET_SUCCESS_SETTING = 'market.latestSuccess'
 const VALUATION_SUCCESS_SETTING = 'valuation.latestSuccess'
@@ -249,6 +256,9 @@ export class HanaiService {
       case 'watch.valuations': return this.watchValuations(
         (request as HanaiRequest<'watch.valuations'>).groupId,
       )
+      case 'watch.researchCoverage': return this.watchResearchCoverage(
+        (request as HanaiRequest<'watch.researchCoverage'>).groupId,
+      )
       case 'watch.group.create': return this.database.createWatchGroup(
         (request as HanaiRequest<'watch.group.create'>).name,
       )
@@ -272,6 +282,45 @@ export class HanaiService {
         this.database.moveWatchItem(input.fromGroupId, input.toGroupId, input.secId)
         return this.database.listWatchGroups()
       }
+      case 'research.followup.list': return this.database.listResearchFollowUps(
+        (request as HanaiRequest<'research.followup.list'>).secId,
+      )
+      case 'research.followup.create': return this.database.createResearchFollowUp(
+        request as HanaiRequest<'research.followup.create'>,
+      )
+      case 'research.followup.update': {
+        const input = request as HanaiRequest<'research.followup.update'>
+        return this.database.updateResearchFollowUp(input.id, {
+          ...(input.completed === undefined ? {} : { completed: input.completed }),
+          ...(input.title === undefined ? {} : { title: input.title }),
+          ...(input.dueDate === undefined ? {} : { dueDate: input.dueDate }),
+        })
+      }
+      case 'research.followup.remove': {
+        const id = (request as HanaiRequest<'research.followup.remove'>).id
+        this.database.removeResearchFollowUp(id)
+        return { id }
+      }
+      case 'research.inbox': return this.researchInbox(
+        (request as HanaiRequest<'research.inbox'>).status ?? 'all',
+      )
+      case 'research.prediction.list': return this.database.listResearchPredictions(
+        (request as HanaiRequest<'research.prediction.list'>).secId,
+      )
+      case 'research.prediction.create': return this.database.createResearchPrediction(
+        request as HanaiRequest<'research.prediction.create'>,
+      )
+      case 'research.prediction.resolve': {
+        const input = request as HanaiRequest<'research.prediction.resolve'>
+        return this.database.resolveResearchPrediction(input.id, input.outcome)
+      }
+      case 'research.prediction.inbox': return this.researchPredictionInbox(
+        (request as HanaiRequest<'research.prediction.inbox'>).status ?? 'all',
+      )
+      case 'research.quality': return this.researchQuality()
+      case 'research.compare': return this.researchComparison(
+        (request as HanaiRequest<'research.compare'>).secId,
+      )
       case 'judgement.list': return this.database.listJudgements()
       case 'judgement.create': return this.createJudgement(request as HanaiRequest<'judgement.create'>, signal)
       case 'judgement.get': return this.getJudgementDetail((request as HanaiRequest<'judgement.get'>).id)
@@ -485,6 +534,175 @@ export class HanaiService {
     return { valuations, meta: newestProviderMeta(metas) }
   }
 
+  private watchResearchCoverage(groupId: string): WatchResearchCoverageBatch {
+    const group = this.database.listWatchGroups().find(candidate => candidate.id === groupId)
+    if (group === undefined) throw new Error('分组不存在')
+    const now = new Date()
+    return {
+      items: buildWatchResearchCoverage(
+        group.secIds,
+        this.database.listJudgements(),
+        now,
+        DEFAULT_RESEARCH_STALE_DAYS,
+        this.database.listResearchFollowUpsForSecurities(group.secIds),
+        this.database.listResearchPredictionsForSecurities(group.secIds),
+      ),
+      staleAfterDays: DEFAULT_RESEARCH_STALE_DAYS,
+      generatedAt: now.toISOString(),
+    }
+  }
+
+  private researchInbox(status: HanaiRequest<'research.inbox'>['status'] = 'all'): HanaiResponse<'research.inbox'> {
+    const judgements = new Map(this.database.listJudgements().map(item => [item.id, item]))
+    const reportVersions = new Map<string, Set<number>>()
+    const items = this.database.listAllResearchFollowUps(status).map(item => {
+      const judgement = item.judgementId === null ? null : judgements.get(item.judgementId) ?? null
+      const security = this.database.getSecurity(item.secId)
+      let availableVersions: Set<number> | null = null
+      if (judgement !== null) {
+        availableVersions = reportVersions.get(judgement.id) ?? null
+        if (availableVersions === null) {
+          availableVersions = new Set(this.database.listReportRows(judgement.id).map(report => report.version))
+          reportVersions.set(judgement.id, availableVersions)
+        }
+      }
+      const code = security?.code ?? judgement?.code ?? item.secId.replace(/^[01]\./, '')
+      return {
+        ...item,
+        code,
+        stockName: security?.name ?? judgement?.stockName ?? code,
+        masterName: judgement?.masterName ?? null,
+        reportAvailable: item.reportVersion !== null && availableVersions?.has(item.reportVersion) === true,
+      }
+    })
+    return { items, generatedAt: new Date().toISOString() }
+  }
+
+  private researchPredictionInbox(
+    status: HanaiRequest<'research.prediction.inbox'>['status'] = 'all',
+  ): HanaiResponse<'research.prediction.inbox'> {
+    const judgements = new Map(this.database.listJudgements().map(item => [item.id, item]))
+    const items = this.database.listAllResearchPredictions(status).map(item => {
+      const judgement = item.judgementId === null ? null : judgements.get(item.judgementId) ?? null
+      const security = this.database.getSecurity(item.secId)
+      const code = security?.code ?? judgement?.code ?? item.secId.replace(/^[01]\./, '')
+      return {
+        ...item,
+        code,
+        stockName: security?.name ?? judgement?.stockName ?? code,
+        masterName: judgement?.masterName ?? null,
+      }
+    })
+    return { items, generatedAt: new Date().toISOString() }
+  }
+
+  private researchQuality(): HanaiResponse<'research.quality'> {
+    const items: ResearchQualityItem[] = []
+    for (const judgement of this.database.listJudgements()) {
+      if (judgement.latestReportVersion === null) continue
+      const row = this.database.listReportRows(judgement.id)
+        .find(report => report.version === judgement.latestReportVersion)
+      if (row === undefined) {
+        items.push({
+          judgementId: judgement.id,
+          secId: judgement.secId,
+          reportVersion: judgement.latestReportVersion,
+          sealedAt: judgement.completedAt,
+          score: null,
+          rating: 'unavailable' as const,
+          sourceCount: 0,
+          evidenceCount: 0,
+          incompleteChecks: [],
+          error: '报告索引与当前版本不一致',
+        })
+        continue
+      }
+      try {
+        const audit = analyzeReport(this.reports.read(row.relative_path))
+        items.push({
+          judgementId: judgement.id,
+          secId: judgement.secId,
+          reportVersion: row.version,
+          sealedAt: row.sealed_at,
+          score: audit.score,
+          rating: audit.rating,
+          sourceCount: audit.sources.length,
+          evidenceCount: audit.evidence.length,
+          incompleteChecks: audit.checks
+            .filter(check => check.state !== 'met')
+            .map(({ id, label, state }) => ({ id, label, state })),
+          error: null,
+        })
+      } catch (error) {
+        items.push({
+          judgementId: judgement.id,
+          secId: judgement.secId,
+          reportVersion: row.version,
+          sealedAt: row.sealed_at,
+          score: null,
+          rating: 'unavailable' as const,
+          sourceCount: 0,
+          evidenceCount: 0,
+          incompleteChecks: [],
+          error: messageOf(error),
+        })
+      }
+    }
+    return { items, generatedAt: new Date().toISOString() }
+  }
+
+  private researchComparison(secId: string): HanaiResponse<'research.compare'> {
+    const judgements = this.database.listJudgements()
+      .filter(item => item.secId === secId && item.latestReportVersion !== null)
+    const security = this.database.getSecurity(secId)
+    const first = judgements[0]
+    const code = security?.code ?? first?.code ?? secId.replace(/^[01]\./, '')
+    const reports = judgements.map((judgement) => {
+      const reportVersion = judgement.latestReportVersion as number
+      const row = this.database.listReportRows(judgement.id)
+        .find(report => report.version === reportVersion)
+      if (row === undefined) {
+        return {
+          judgementId: judgement.id,
+          masterId: judgement.masterId,
+          masterName: judgement.masterName,
+          reportVersion,
+          sealedAt: judgement.completedAt,
+          audit: null,
+          error: '报告索引与当前版本不一致',
+        }
+      }
+      try {
+        return {
+          judgementId: judgement.id,
+          masterId: judgement.masterId,
+          masterName: judgement.masterName,
+          reportVersion,
+          sealedAt: row.sealed_at,
+          audit: analyzeReport(this.reports.read(row.relative_path)),
+          error: null,
+        }
+      } catch (error) {
+        return {
+          judgementId: judgement.id,
+          masterId: judgement.masterId,
+          masterName: judgement.masterName,
+          reportVersion,
+          sealedAt: row.sealed_at,
+          audit: null,
+          error: messageOf(error),
+        }
+      }
+    })
+    return {
+      secId,
+      code,
+      stockName: security?.name ?? first?.stockName ?? code,
+      reports,
+      generatedAt: new Date().toISOString(),
+    }
+  }
+
   private async addWatchItem(input: HanaiRequest<'watch.item.add'>): Promise<ReturnType<HanaiDatabase['listWatchGroups']>> {
     let basePrice: number | null = null
     try {
@@ -578,16 +796,20 @@ export class HanaiService {
   private getJudgementDetail(id: string): JudgementDetail {
     const judgement = this.database.getJudgement(id)
     if (judgement === null) throw new Error('研判不存在')
-    const reports = this.database.listReportRows(id).map(row => ({
-      judgementId: row.judgement_id,
-      version: row.version,
-      content: this.reports.read(row.relative_path),
-      sha256: row.sha256,
-      sizeBytes: row.size_bytes,
-      sealedAt: row.sealed_at,
-      modelProvider: row.model_provider,
-      model: row.model,
-    }))
+    const reports = this.database.listReportRows(id).map((row) => {
+      const content = this.reports.read(row.relative_path)
+      return {
+        judgementId: row.judgement_id,
+        version: row.version,
+        content,
+        sha256: row.sha256,
+        sizeBytes: row.size_bytes,
+        sealedAt: row.sealed_at,
+        modelProvider: row.model_provider,
+        model: row.model,
+        audit: analyzeReport(content),
+      }
+    })
     return { judgement, reports }
   }
 
@@ -690,19 +912,20 @@ function initialReportPrompt(
     + `现在请以${masterName}大师的方法论与表达方式，为 ${stockName}（${code}）完成首次正式研判。必须使用该大师能力包的分析框架、启发式和表达方式。`
     + `请主动联网检索公司公告、财报、监管披露、行业资料及其他必要的一手或可信来源，获取最新公开信息并交叉核验；不要向用户提问，也不要等待用户补充材料。`
     + `事实、推断、假设和未知项必须清楚分开；关键事实注明来源链接和日期，关键数字写明口径与日期。严禁编造数据、来源或引文，证据不足时明确标记不确定性。`
-    + `请把完整中文 Markdown 报告覆盖写入工作区根目录 REPORT.md。报告必须可独立阅读，并至少包含一级标题、执行摘要、信息时点与来源、业务与护城河或竞争格局、财务质量、估值与关键假设或交易条件、催化剂、反方证据、核心风险、乐观/基准/悲观情景、待持续验证清单，以及符合该大师框架的最终研判。`
+    + `请建立“证据账本”表格，至少列出决定结论的关键主张、证据类型（事实/推断/假设/未知）、来源链接、YYYY-MM-DD 格式的来源或数据日期与置信度；关键主张必须能回到具体公开来源。`
+    + `请把完整中文 Markdown 报告覆盖写入工作区根目录 REPORT.md。报告必须可独立阅读，并至少包含一级标题、执行摘要、信息时点与来源、证据账本、业务与护城河或竞争格局、财务质量、估值与关键假设或交易条件、催化剂、反方证据、核心风险、乐观/基准/悲观情景、待持续验证清单，以及符合该大师框架的最终研判。`
     + `不要给出收益承诺或伪造精确目标。写入成功后，只用一句话向用户确认报告已经完成，不要在回复中重复整份报告。\n\n`
     + (customPrompt === undefined ? '' : `用户补充要求：\n${customPrompt}\n`)
 }
 
 function revisionPrompt(instruction: string): string {
   return `用户明确要求创建一版新的正式报告。请保持当前大师方法论，重新读取现有 REPORT.md 与研究上下文，按以下要求完整修订，`
-    + `并把完整 Markdown 覆盖写回 REPORT.md。不要只输出补丁或摘要。\n\n修订要求：\n${instruction}`
+    + `重新核验必要来源，保留可点击来源链接与日期，并把完整 Markdown 覆盖写回 REPORT.md。不要只输出补丁或摘要。\n\n修订要求：\n${instruction}`
 }
 
 function repairPrompt(reason: string): string {
   return `上一轮 REPORT.md 未通过产品校验：${reason}。这是唯一一次自动修复机会。请立即重新读取大师能力包与研究上下文，`
-    + `生成结构完整、内容充分、带一级标题的中文研判报告，覆盖写入 REPORT.md；完成后简短确认。`
+    + `生成结构完整、内容充分、带一级标题、信息时点、可点击来源和证据账本的中文研判报告，覆盖写入 REPORT.md；完成后简短确认。`
 }
 
 function emptyQuote(secId: string, code: string, name: string): StockQuote {

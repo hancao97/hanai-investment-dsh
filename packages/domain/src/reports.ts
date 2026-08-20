@@ -6,12 +6,15 @@ import { join, relative, resolve, sep } from 'node:path'
 import type { Judgement, MasterPersona, ReportVersion, StockDetail } from '../../contracts/src/index.ts'
 import type { HanaiPaths } from './paths.ts'
 import { installMasterSnapshot } from '../../masters/src/index.ts'
+import { analyzeReport, reportAuditBlockingReasons } from './research.ts'
 
 export interface PreparedWorkspace {
   workspace: string
   workingReport: string
   skillPath: string
 }
+
+type SealedReportVersion = Omit<ReportVersion, 'audit'> & { relativePath: string }
 
 export interface ReportManifest {
   schemaVersion: 1
@@ -74,11 +77,18 @@ export class ReportStore {
     if (!/^#\s+.+/m.test(content)) {
       throw new ReportValidationError('report-heading-missing', 'REPORT.md 缺少一级标题')
     }
+    const blockingReasons = reportAuditBlockingReasons(analyzeReport(content))
+    if (blockingReasons.length > 0) {
+      throw new ReportValidationError(
+        'report-quality-gate',
+        `REPORT.md 未通过可信研究结构门：${blockingReasons.join('、')}`,
+      )
+    }
     const bytes = Buffer.byteLength(content, 'utf8')
     return { content, sizeBytes: bytes, sha256: sha256(content) }
   }
 
-  seal(judgement: Judgement, version: number): ReportVersion & { relativePath: string } {
+  seal(judgement: Judgement, version: number): SealedReportVersion {
     if (judgement.dshSessionId === null) throw new Error('无法封存未绑定 DSH Session 的研判')
     if (!Number.isSafeInteger(version) || version < 1) throw new Error('报告版本必须是正整数')
     const validated = this.validateWorkingReport(judgement.id)
@@ -157,7 +167,7 @@ export class ReportStore {
     judgement: Judgement,
     version: number,
     targetDirectory: string,
-  ): ReportVersion & { relativePath: string } {
+  ): SealedReportVersion {
     const reportPath = join(targetDirectory, 'report.md')
     const manifestPath = join(targetDirectory, 'manifest.json')
     if (!existsSync(reportPath) || !existsSync(manifestPath)) throw new Error('既有报告版本不完整，拒绝覆盖')

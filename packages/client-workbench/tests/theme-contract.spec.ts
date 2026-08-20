@@ -9,6 +9,11 @@ const chatCss = source('packages/client-chat/src/ChatPanel.module.css')
 const researchCss = source('packages/client-workbench/src/research-surfaces.module.css')
 
 describe('workbench theme contract', () => {
+  it('keeps the full-frame Hanai surface above the DSH host shell', () => {
+    expect(shellCss).toMatch(/\.app\s*\{[^}]*position: fixed;[^}]*z-index: 100;/s)
+    expect(shellCss).toMatch(/\.splash\s*\{[^}]*position: fixed;[^}]*z-index: 100;/s)
+  })
+
   it('provides the complete legacy Hanai token bridge for shared surfaces', () => {
     const aliases: Record<string, string> = {
       '--hanai-bg': '--bg',

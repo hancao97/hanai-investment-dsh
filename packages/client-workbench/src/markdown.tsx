@@ -14,7 +14,19 @@ const CODE_LABELS = {
 export function MarkdownView({ content }: { content: string }) {
   return (
     <article className={researchStyles['markdownSurface']}>
-      <MarkdownText text={content} codeLabels={CODE_LABELS} />
+      <MarkdownText text={normalizeReportMarkdown(content)} codeLabels={CODE_LABELS} />
     </article>
   )
+}
+
+/**
+ * Older model-authored reports sometimes append a full-width Chinese date
+ * annotation directly to a URL. GFM linkification then treats the annotation
+ * as part of the destination. Repair only that unambiguous boundary while
+ * keeping the visible annotation in the report.
+ */
+export function normalizeReportMarkdown(content: string): string {
+  return content
+    .replace(/\[([^\]]+)]\((https?:\/\/[^\s)（]+)(（[^）\n]{1,40}）)\)/gi, '[$1]($2)$3')
+    .replace(/(https?:\/\/[^\s<>"'`（]+)(（[^）\n]{1,40}）)/gi, '$1 $2')
 }

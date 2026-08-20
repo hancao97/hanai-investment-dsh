@@ -109,6 +109,34 @@ function completed(turn = 1): SessionEvent {
   return { type: 'turn/end', seq: turn, time: Date.now(), data: { turn, reason: { kind: 'completed' } } }
 }
 
+function validReport(title = '正式研判') {
+  return `# ${title}
+
+## 执行摘要
+结论先行，并区分事实、推断和假设。
+
+## 信息时点与来源
+研究截止日期：2026-08-20。[公司年报](https://example.com/annual-report)
+
+## 证据账本
+| 关键主张 | 类型 | 来源 | 日期 | 置信度 |
+| --- | --- | --- | --- | --- |
+| 收入稳定 | 事实 | [公司年报](https://example.com/annual-report) | 2026-03-31 | 高 |
+
+## 反方证据与核心风险
+需求下降会使当前判断失效。
+
+## 乐观、基准、悲观情景
+- 乐观：份额提升。
+- 基准：经营稳定。
+- 悲观：需求下滑。
+
+## 待持续验证清单
+- [ ] 复核下一季度现金流。
+
+${'事实、推断、风险与验证条件。'.repeat(20)}`
+}
+
 async function eventually(assertion: () => void): Promise<void> {
   let last: unknown
   for (let attempt = 0; attempt < 60; attempt += 1) {
@@ -160,12 +188,25 @@ describe('HanaiService report lifecycle', () => {
     expect(sessions.prompts[0]?.text).toContain('关键事实注明来源链接和日期')
     expect(sessions.prompts[0]?.text).toContain('严禁编造数据、来源或引文')
     expect(sessions.prompts[0]?.text).toContain('证据不足时明确标记不确定性')
+    expect(sessions.prompts[0]?.text).toContain('证据账本')
     expect(sessions.prompts[0]?.text).toContain('只用一句话向用户确认报告已经完成')
     expect(sessions.prompts[0]?.text).toContain('不要在回复中重复整份报告')
-    writeFileSync(reports.workingReportPath(created.id), `# 正式研判\n\n${'事实、推断、风险与验证条件。'.repeat(20)}`)
+    writeFileSync(reports.workingReportPath(created.id), validReport())
     service.handleSessionEvent(created.dshSessionId!, completed())
     await eventually(() => expect(database.getJudgement(created.id)?.reportStatus).toBe('ready'))
     expect(database.listReportRows(created.id)).toHaveLength(1)
+    const detail = await service.call('judgement.get', { id: created.id }, new AbortController().signal)
+    expect(detail.reports[0]?.audit).toMatchObject({ rating: 'strong', stats: { links: 1 } })
+    const quality = await service.call('research.quality', {}, new AbortController().signal)
+    expect(quality.items).toEqual([expect.objectContaining({
+      judgementId: created.id,
+      reportVersion: 1,
+      rating: 'strong',
+      score: expect.any(Number),
+      sourceCount: 1,
+      evidenceCount: 1,
+      error: null,
+    })])
 
     service.handleSessionEvent(created.dshSessionId!, {
       type: 'turn/start', seq: 2, time: Date.now(), data: { turn: 2 },
@@ -173,6 +214,24 @@ describe('HanaiService report lifecycle', () => {
     service.handleSessionEvent(created.dshSessionId!, completed(2))
     expect(database.getJudgement(created.id)?.turnStatus).toBe('idle')
     expect(database.listReportRows(created.id)).toHaveLength(1)
+
+    const second = await service.call('judgement.create', {
+      secId: '1.600519', masterId: 'warren-buffett-perspective',
+    }, new AbortController().signal)
+    writeFileSync(reports.workingReportPath(second.id), validReport('第二位大师的独立研判'))
+    service.handleSessionEvent(second.dshSessionId!, completed())
+    await eventually(() => expect(database.getJudgement(second.id)?.reportStatus).toBe('ready'))
+    const comparison = await service.call(
+      'research.compare',
+      { secId: created.secId },
+      new AbortController().signal,
+    )
+    expect(comparison).toMatchObject({ secId: created.secId, code: created.code, stockName: created.stockName })
+    expect(comparison.reports).toHaveLength(2)
+    expect(comparison.reports.map(report => report.masterName)).toEqual(expect.arrayContaining([
+      '查理·芒格', '沃伦·巴菲特',
+    ]))
+    expect(comparison.reports.every(report => report.audit?.rating === 'strong')).toBe(true)
     database.close()
   })
 
@@ -181,14 +240,15 @@ describe('HanaiService report lifecycle', () => {
     const created = await service.call('judgement.create', {
       secId: '1.600519', masterId: 'warren-buffett-perspective',
     }, new AbortController().signal)
-    writeFileSync(reports.workingReportPath(created.id), '# 太短')
+    writeFileSync(reports.workingReportPath(created.id), `# 篇幅足够但不可核验\n\n${'这是没有日期、来源、证据账本、情景或跟踪事项的长篇观点。'.repeat(30)}`)
     service.handleSessionEvent(created.dshSessionId!, completed())
     await eventually(() => expect(database.getJudgement(created.id)?.reportStatus).toBe('repairing'))
     expect(database.getRepairAttempts(created.id)).toBe(1)
     expect(sessions.prompts).toHaveLength(2)
     expect(sessions.prompts[1]?.text).toContain('唯一一次自动修复机会')
+    expect(sessions.prompts[1]?.text).toContain('可信研究结构门')
 
-    writeFileSync(reports.workingReportPath(created.id), `# 修复后的正式报告\n\n${'所有者收益、安全边际、反方证据与验证条件。'.repeat(20)}`)
+    writeFileSync(reports.workingReportPath(created.id), validReport('修复后的正式报告'))
     service.handleSessionEvent(created.dshSessionId!, completed(2))
     await eventually(() => expect(database.getJudgement(created.id)?.reportStatus).toBe('ready'))
     expect(database.listReportRows(created.id)).toHaveLength(1)
@@ -204,7 +264,7 @@ describe('HanaiService report lifecycle', () => {
     await eventually(() => expect(database.getJudgement(created.id)?.reportStatus).toBe('repairing'))
     expect(database.getRepairAttempts(created.id)).toBe(1)
 
-    writeFileSync(reports.workingReportPath(created.id), `# 修复后的第二版报告\n\n${'估值、反方证据、风险与验证条件。'.repeat(20)}`)
+    writeFileSync(reports.workingReportPath(created.id), validReport('修复后的第二版报告'))
     service.handleSessionEvent(created.dshSessionId!, completed(4))
     await eventually(() => expect(database.getJudgement(created.id)?.reportStatus).toBe('ready'))
     expect(database.getJudgement(created.id)?.latestReportVersion).toBe(2)
@@ -246,7 +306,7 @@ describe('HanaiService report lifecycle', () => {
     const created = await service.call('judgement.create', {
       secId: '1.600519', masterId: 'munger-perspective',
     }, new AbortController().signal)
-    writeFileSync(reports.workingReportPath(created.id), `# 第一版正式报告\n\n${'事实、推断、风险与验证条件。'.repeat(24)}`)
+    writeFileSync(reports.workingReportPath(created.id), validReport('第一版正式报告'))
     service.handleSessionEvent(created.dshSessionId!, completed())
     await eventually(() => expect(database.getJudgement(created.id)?.reportStatus).toBe('ready'))
 
@@ -284,7 +344,7 @@ describe('HanaiService report lifecycle', () => {
     const created = await service.call('judgement.create', {
       secId: '1.600519', masterId: 'munger-perspective',
     }, new AbortController().signal)
-    writeFileSync(reports.workingReportPath(created.id), `# 第一版正式报告\n\n${'事实、推断、风险与验证条件。'.repeat(24)}`)
+    writeFileSync(reports.workingReportPath(created.id), validReport('第一版正式报告'))
     service.handleSessionEvent(created.dshSessionId!, completed())
     await eventually(() => expect(database.getJudgement(created.id)?.reportStatus).toBe('ready'))
 
@@ -420,6 +480,127 @@ describe('HanaiService report lifecycle', () => {
 })
 
 describe('HanaiService parity endpoints and diagnostics', () => {
+  it('aggregates report-linked and orphaned follow-ups into a research inbox', async () => {
+    const { database, service } = fixture()
+    const judgement = database.createJudgement({
+      id: 'inbox-judgement', secId: '1.600519', code: '600519', stockName: '贵州茅台',
+      masterId: 'munger-perspective', masterName: '查理·芒格', masterVersion: 'v1',
+    })
+    database.updateJudgement(judgement.id, { reportStatus: 'ready', latestReportVersion: 1 })
+    database.addReportVersion({
+      judgement_id: judgement.id,
+      version: 1,
+      relativePath: 'judgements/inbox-judgement/reports/0001/report.md',
+      sha256: 'a'.repeat(64),
+      size_bytes: 200,
+      sealed_at: '2026-08-20T00:00:00.000Z',
+      model_provider: null,
+      model: null,
+    })
+    const linked = database.createResearchFollowUp({
+      secId: judgement.secId,
+      judgementId: judgement.id,
+      reportVersion: 1,
+      title: '核验下一季现金流',
+      dueDate: '2026-09-30',
+    })
+    database.createResearchFollowUp({ secId: '0.000001', title: '复核资产质量' })
+
+    const all = await service.call('research.inbox', { status: 'all' }, new AbortController().signal)
+    expect(all.items).toHaveLength(2)
+    expect(all.items.find(item => item.id === linked.id)).toMatchObject({
+      code: '600519',
+      stockName: '贵州茅台',
+      masterName: '查理·芒格',
+      reportAvailable: true,
+    })
+
+    database.updateResearchFollowUp(linked.id, { completed: true })
+    const open = await service.call('research.inbox', { status: 'open' }, new AbortController().signal)
+    expect(open.items.map(item => item.title)).toEqual(['复核资产质量'])
+
+    database.removeJudgement(judgement.id)
+    const orphaned = await service.call('research.inbox', { status: 'done' }, new AbortController().signal)
+    expect(orphaned.items[0]).toMatchObject({
+      id: linked.id,
+      judgementId: null,
+      reportVersion: null,
+      reportAvailable: false,
+    })
+    database.close()
+  })
+
+  it('exposes a local prediction log with deterministic Brier calibration', async () => {
+    const { database, service } = fixture()
+    const signal = new AbortController().signal
+    const judgement = database.createJudgement({
+      id: 'prediction-judgement', secId: '1.600519', code: '600519', stockName: '贵州茅台',
+      masterId: 'munger-perspective', masterName: '查理·芒格', masterVersion: 'v1',
+    })
+    database.updateJudgement(judgement.id, { reportStatus: 'ready', latestReportVersion: 1 })
+    const created = await service.call('research.prediction.create', {
+      secId: '1.600519',
+      judgementId: judgement.id,
+      reportVersion: 1,
+      statement: '下一季度经营现金流同比改善',
+      resolutionCriteria: '以公司法定季度报告披露值为准',
+      probabilityPct: 80,
+      dueDate: '2026-10-31',
+    }, signal)
+    expect(created).toMatchObject({ outcome: 'pending', probabilityPct: 80, brierScore: null })
+    expect(await service.call('research.prediction.list', { secId: '1.600519' }, signal)).toEqual([created])
+    const inbox = await service.call('research.prediction.inbox', { status: 'pending' }, signal)
+    expect(inbox.items).toEqual([expect.objectContaining({
+      id: created.id, code: '600519', stockName: '贵州茅台', masterName: '查理·芒格',
+    })])
+
+    const resolved = await service.call('research.prediction.resolve', {
+      id: created.id,
+      outcome: 'not-occurred',
+    }, signal)
+    expect(resolved).toMatchObject({ outcome: 'not-occurred', brierScore: 0.64 })
+    database.close()
+  })
+
+  it('projects watch items into actionable research coverage states', async () => {
+    const { database, service } = fixture()
+    const group = database.listWatchGroups()[0]!
+    database.addWatchItem(group.id, '1.600519', 100)
+    database.addWatchItem(group.id, '0.000001', 10)
+    database.addWatchItem(group.id, '0.000002', 20)
+
+    const current = database.createJudgement({
+      id: 'coverage-current', secId: '1.600519', code: '600519', stockName: '贵州茅台',
+      masterId: 'munger-perspective', masterName: '查理·芒格', masterVersion: 'v1',
+    })
+    database.updateJudgement(current.id, {
+      reportStatus: 'ready', latestReportVersion: 2, completedAt: new Date().toISOString(),
+    })
+    database.createResearchPrediction({
+      secId: '1.600519', judgementId: current.id, reportVersion: 2,
+      statement: '下一季度现金流改善', resolutionCriteria: '以下一季法定报告为准',
+      probabilityPct: 70, dueDate: '2000-01-01',
+    })
+    const active = database.createJudgement({
+      id: 'coverage-active', secId: '0.000001', code: '000001', stockName: '平安银行',
+      masterId: 'warren-buffett-perspective', masterName: '沃伦·巴菲特', masterVersion: 'v1',
+    })
+    database.updateJudgement(active.id, { reportStatus: 'generating', turnStatus: 'running' })
+
+    const result = await service.call(
+      'watch.researchCoverage',
+      { groupId: group.id },
+      new AbortController().signal,
+    )
+    expect(result.staleAfterDays).toBe(90)
+    expect(result.items.map(item => item.state)).toEqual(['uncovered', 'active', 'current'])
+    expect(result.items.find(item => item.secId === '1.600519')).toMatchObject({
+      judgementId: current.id, latestReportVersion: 2, reportVersionCount: 2,
+      pendingPredictionCount: 1, duePredictionCount: 1, nextPredictionDueDate: '2000-01-01',
+    })
+    database.close()
+  })
+
   it('loads daily watch valuations as one resilient group batch', async () => {
     const { database, market, service } = fixture()
     const group = database.listWatchGroups()[0]!

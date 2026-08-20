@@ -11,9 +11,17 @@ import type {
   JudgementDetail,
   MasterPersona,
   ProviderMeta,
+  ReportAudit,
+  ResearchComparison,
+  ResearchFollowUp,
+  ResearchInboxItem,
+  ResearchPrediction,
+  ResearchPredictionInboxItem,
+  ResearchQualityItem,
   StockDetail,
   WatchGroup,
   WatchQuote,
+  WatchResearchCoverage,
   WatchValuation,
 } from '../../contracts/src/index.ts'
 import { HanaiWorkbench } from '../src/app.tsx'
@@ -195,6 +203,44 @@ const watchValuation: WatchValuation = {
   fairValue: 1800,
   valuationRank: 4,
   meta: valuationFresh,
+}
+
+const reportAudit: ReportAudit = {
+  score: 72,
+  rating: 'review',
+  checks: [
+    { id: 'conclusion', label: '结论先行', state: 'met', detail: '已覆盖', weight: 10 },
+    { id: 'information-date', label: '信息时点', state: 'met', detail: '已覆盖', weight: 15 },
+    { id: 'sources', label: '来源可追溯', state: 'partial', detail: '仅一个来源', weight: 20 },
+    { id: 'evidence-ledger', label: '证据账本', state: 'missing', detail: '缺少证据账本', weight: 15 },
+    { id: 'counter-evidence', label: '反方证据与风险', state: 'met', detail: '已覆盖', weight: 15 },
+    { id: 'scenarios', label: '情景与失效条件', state: 'partial', detail: '部分覆盖', weight: 15 },
+    { id: 'monitoring', label: '持续跟踪清单', state: 'met', detail: '已覆盖', weight: 10 },
+  ],
+  sources: [{ url: 'https://example.com/report', domain: 'example.com', label: '公司年报' }],
+  evidence: [{
+    claim: '收入保持增长', kind: 'fact', sourceLabel: '公司年报', sourceUrl: 'https://example.com/report',
+    sourceDate: '2026-03-31', confidence: 'high',
+  }],
+  stats: { characters: 128, headings: 2, tables: 0, links: 1 },
+}
+
+const watchCoverage: WatchResearchCoverage = {
+  secId: watchQuote.secId,
+  state: 'current',
+  judgementId: readyJudgement.id,
+  masterId: readyJudgement.masterId,
+  masterName: readyJudgement.masterName,
+  latestReportAt: readyJudgement.completedAt,
+  latestReportVersion: 1,
+  ageDays: 5,
+  reportVersionCount: 1,
+  openFollowUpCount: 0,
+  overdueFollowUpCount: 0,
+  nextFollowUpDueDate: null,
+  pendingPredictionCount: 0,
+  duePredictionCount: 0,
+  nextPredictionDueDate: null,
 }
 
 const stockDetail: StockDetail = {
@@ -456,7 +502,7 @@ describe('HanaiWorkbench old-client parity', () => {
     await screen.findByRole('heading', { name: '自选与发现' })
     const table = screen.getByRole('table')
     expect(within(table).getAllByRole('columnheader').map(cell => cell.textContent?.trim())).toEqual([
-      '名称', '最新价', '涨跌幅', '成交额', '换手率', '总市值', 'PE(动)', 'PB', '合理估值', '距现价', '加入日期 ↓', '加入以来', '',
+      '名称', '研究覆盖', '最新价', '涨跌幅', '成交额', '换手率', '总市值', 'PE(动)', 'PB', '合理估值', '距现价', '加入日期 ↓', '加入以来', '',
     ])
     expect(within(table).getByLabelText('查看 贵州茅台 600519').tabIndex).toBe(0)
     expect(within(table).getByText('1,800.00')).not.toBeNull()
@@ -525,6 +571,86 @@ describe('HanaiWorkbench old-client parity', () => {
     await waitFor(() => expect([quoteCalls, valuationCalls]).toEqual([2, 2]))
   })
 
+  it('turns watch research coverage into report and new-research actions', async () => {
+    renderAt('/watch')
+    await screen.findByLabelText('查看 贵州茅台 600519')
+    const coverageOverview = screen.getByRole('region', { name: '自选研究覆盖概览' })
+    expect(coverageOverview.textContent).toContain('1/2')
+    expect(within(screen.getByLabelText('查看 贵州茅台 600519')).getByRole('button', { name: /已覆盖/ })).not.toBeNull()
+
+    fireEvent.click(within(coverageOverview).getByRole('button', { name: /待研判或失败/ }))
+    expect(screen.queryByLabelText('查看 贵州茅台 600519')).toBeNull()
+    expect(screen.getByLabelText('查看 缺失数据 000001')).not.toBeNull()
+    fireEvent.click(within(coverageOverview).getByRole('button', { name: /查看全部自选/ }))
+    expect(screen.getByLabelText('查看 贵州茅台 600519')).not.toBeNull()
+
+    const missingRow = screen.getByLabelText('查看 缺失数据 000001')
+    fireEvent.click(within(missingRow).getByRole('button', { name: '开始' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建大师研判' })
+    expect(within(dialog).getByText('缺失数据')).not.toBeNull()
+  })
+
+  it('filters the coverage desk to companies with open research follow-ups', async () => {
+    const client = makeClient({
+      'watch.researchCoverage': () => ({
+        items: [
+          { ...watchCoverage, openFollowUpCount: 2, overdueFollowUpCount: 1, nextFollowUpDueDate: '2026-08-19' },
+          {
+            secId: watchQuoteMissing.secId,
+            state: 'uncovered', judgementId: null, masterId: null, masterName: null,
+            latestReportAt: null, latestReportVersion: null, ageDays: null, reportVersionCount: 0,
+            openFollowUpCount: 0, overdueFollowUpCount: 0, nextFollowUpDueDate: null,
+            pendingPredictionCount: 0, duePredictionCount: 0, nextPredictionDueDate: null,
+          },
+        ],
+        staleAfterDays: 90,
+        generatedAt: '2026-08-20T00:00:00+08:00',
+      }),
+    })
+    renderAt('/watch', client)
+    await screen.findByLabelText('查看 贵州茅台 600519')
+
+    fireEvent.click(screen.getByRole('button', { name: '查看涉及公司' }))
+    expect(screen.getByLabelText('查看 贵州茅台 600519')).not.toBeNull()
+    expect(screen.queryByLabelText('查看 缺失数据 000001')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '查看全部' }))
+    expect(screen.getByLabelText('查看 缺失数据 000001')).not.toBeNull()
+  })
+
+  it('surfaces due calibration predictions and filters to affected companies', async () => {
+    const client = makeClient({
+      'watch.researchCoverage': () => ({
+        items: [
+          {
+            ...watchCoverage,
+            pendingPredictionCount: 2,
+            duePredictionCount: 1,
+            nextPredictionDueDate: '2026-08-20',
+          },
+          {
+            secId: watchQuoteMissing.secId,
+            state: 'uncovered', judgementId: null, masterId: null, masterName: null,
+            latestReportAt: null, latestReportVersion: null, ageDays: null, reportVersionCount: 0,
+            openFollowUpCount: 0, overdueFollowUpCount: 0, nextFollowUpDueDate: null,
+            pendingPredictionCount: 0, duePredictionCount: 0, nextPredictionDueDate: null,
+          },
+        ],
+        staleAfterDays: 90,
+        generatedAt: '2026-08-20T00:00:00+08:00',
+      }),
+    })
+    renderAt('/watch', client)
+    const coverageOverview = await screen.findByRole('region', { name: '自选研究覆盖概览' })
+    expect(coverageOverview.textContent).toContain('待判定命题 2 项，其中 1 项已到期')
+    expect(within(screen.getByLabelText('查看 贵州茅台 600519')).getByRole('button', { name: /1 项命题到期/ })).not.toBeNull()
+
+    fireEvent.click(within(coverageOverview).getByRole('button', { name: '查看命题公司' }))
+    expect(screen.getByLabelText('查看 贵州茅台 600519')).not.toBeNull()
+    expect(screen.queryByLabelText('查看 缺失数据 000001')).toBeNull()
+    fireEvent.click(within(coverageOverview).getByRole('button', { name: '查看全部' }))
+    expect(screen.getByLabelText('查看 缺失数据 000001')).not.toBeNull()
+  })
+
   it('deletes a settled judgement only after explicit confirmation and protects active runs', async () => {
     const removeRequests: unknown[] = []
     const client = makeClient({
@@ -548,6 +674,186 @@ describe('HanaiWorkbench old-client parity', () => {
     expect(screen.queryByRole('dialog', { name: '删除研判报告' })).toBeNull()
     expect(screen.queryByRole('button', { name: /删除已完成研判/ })).toBeNull()
     expect(screen.getByText('研判报告已删除')).not.toBeNull()
+  })
+
+  it('turns report follow-ups into one actionable cross-company research inbox', async () => {
+    const inboxItem: ResearchInboxItem = {
+      id: 'inbox-overdue',
+      secId: readyJudgement.secId,
+      judgementId: readyJudgement.id,
+      reportVersion: 1,
+      title: '核验下一季度经营现金流',
+      dueDate: '2000-01-01',
+      status: 'open',
+      createdAt: '2026-08-15T10:00:00+08:00',
+      completedAt: null,
+      code: readyJudgement.code,
+      stockName: readyJudgement.stockName,
+      masterName: readyJudgement.masterName,
+      reportAvailable: true,
+    }
+    const updateRequests: unknown[] = []
+    const client = makeClient({
+      'research.inbox': () => ({ items: [inboxItem], generatedAt: '2026-08-20T00:00:00+08:00' }),
+      'research.followup.update': request => {
+        updateRequests.push(request)
+        return { ...inboxItem, status: 'done', completedAt: '2026-08-20T00:01:00+08:00' }
+      },
+    })
+    renderAt('/judgements', client)
+
+    const complete = await screen.findByRole('button', { name: `标记完成：${inboxItem.title}` })
+    expect(screen.getByText('逾期 · 2000-01-01')).not.toBeNull()
+    expect(screen.getByRole('button', { name: `打开来源报告：${inboxItem.stockName} v1` })).not.toBeNull()
+    expect(screen.getByRole('button', { name: `打开股票：${inboxItem.stockName} ${inboxItem.code}` })).not.toBeNull()
+
+    fireEvent.click(complete)
+    await waitFor(() => expect(updateRequests).toEqual([{ id: inboxItem.id, completed: true }]))
+    expect(screen.getByText('跟踪事项已完成')).not.toBeNull()
+    expect(screen.queryByText(inboxItem.title)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '全部 1' }))
+    expect(screen.getByText(inboxItem.title)).not.toBeNull()
+  })
+
+  it('edits a research task and its deadline directly from the cross-company inbox', async () => {
+    const inboxItem: ResearchInboxItem = {
+      id: 'inbox-editable', secId: readyJudgement.secId, judgementId: readyJudgement.id,
+      reportVersion: 1, title: '复核库存', dueDate: '2026-08-31', status: 'open',
+      createdAt: '2026-08-15T10:00:00+08:00', completedAt: null,
+      code: readyJudgement.code, stockName: readyJudgement.stockName,
+      masterName: readyJudgement.masterName, reportAvailable: true,
+    }
+    const updates: unknown[] = []
+    const client = makeClient({
+      'research.inbox': () => ({ items: [inboxItem], generatedAt: '2026-08-20T00:00:00+08:00' }),
+      'research.followup.update': request => {
+        updates.push(request)
+        const change = request as { title?: string; dueDate?: string | null }
+        return { ...inboxItem, title: change.title ?? inboxItem.title, dueDate: change.dueDate ?? null }
+      },
+    })
+    renderAt('/judgements', client)
+
+    fireEvent.click(await screen.findByRole('button', { name: /研究待办/ }))
+    fireEvent.click(await screen.findByRole('button', { name: `编辑待办：${inboxItem.title}` }))
+    const editor = screen.getByRole('form', { name: `编辑跟踪事项：${inboxItem.title}` })
+    fireEvent.change(within(editor).getByLabelText('事项内容'), { target: { value: '复核库存与现金流匹配' } })
+    fireEvent.change(within(editor).getByLabelText('事项到期日'), { target: { value: '2026-09-15' } })
+    fireEvent.click(within(editor).getByRole('button', { name: '保存' }))
+
+    await waitFor(() => expect(updates).toEqual([{
+      id: inboxItem.id,
+      title: '复核库存与现金流匹配',
+      dueDate: '2026-09-15',
+    }]))
+    expect(await screen.findByText('研究待办已更新')).not.toBeNull()
+    expect(screen.getByText('复核库存与现金流匹配')).not.toBeNull()
+    expect(screen.getByText('截止 2026-09-15')).not.toBeNull()
+  })
+
+  it('surfaces due predictions across companies and resolves them with explicit confirmation', async () => {
+    const prediction: ResearchPredictionInboxItem = {
+      id: 'prediction-inbox-due', secId: readyJudgement.secId, judgementId: readyJudgement.id,
+      reportVersion: 1, statement: '下一季度经营现金流同比改善',
+      resolutionCriteria: '以公司法定季度报告披露值为准', probabilityPct: 70,
+      dueDate: '2000-01-01', outcome: 'pending', brierScore: null,
+      createdAt: '2026-08-15T10:00:00+08:00', resolvedAt: null,
+      code: readyJudgement.code, stockName: readyJudgement.stockName, masterName: readyJudgement.masterName,
+    }
+    const resolves: unknown[] = []
+    const client = makeClient({
+      'research.prediction.inbox': () => ({ items: [prediction], generatedAt: '2026-08-20T00:00:00+08:00' }),
+      'research.prediction.resolve': request => {
+        resolves.push(request)
+        return {
+          ...prediction,
+          outcome: 'not-occurred' as const,
+          brierScore: 0.49,
+          resolvedAt: '2026-08-20T01:00:00+08:00',
+        }
+      },
+    })
+    renderAt('/judgements', client)
+
+    expect(await screen.findByText('1 项待判定 · 1 项已到期')).not.toBeNull()
+    expect(screen.getByText(prediction.statement)).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: `命题未发生：${prediction.statement}` }))
+    fireEvent.click(screen.getByRole('button', { name: `确认命题未发生：${prediction.statement}` }))
+    await waitFor(() => expect(resolves).toEqual([{ id: prediction.id, outcome: 'not-occurred' }]))
+    expect(await screen.findByText('结果已记录并完成校准')).not.toBeNull()
+    expect(screen.queryByText(prediction.statement)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '全部 1' }))
+    expect(screen.getByText(prediction.statement)).not.toBeNull()
+    expect(screen.getByText('Brier 0.4900')).not.toBeNull()
+  })
+
+  it('surfaces archive-wide report quality and filters reports needing review', async () => {
+    const quality: ResearchQualityItem = {
+      judgementId: readyJudgement.id,
+      secId: readyJudgement.secId,
+      reportVersion: 1,
+      sealedAt: readyJudgement.completedAt,
+      score: 93,
+      rating: 'strong',
+      sourceCount: 2,
+      evidenceCount: 0,
+      incompleteChecks: [{ id: 'evidence-ledger', label: '证据账本', state: 'missing' }],
+      error: null,
+    }
+    const client = makeClient({
+      'research.quality': () => ({ items: [quality], generatedAt: '2026-08-20T00:00:00+08:00' }),
+    })
+    renderAt('/judgements', client)
+
+    expect(await screen.findByText('结构 93')).not.toBeNull()
+    expect(screen.getByTitle('待补 1 项：证据账本')).not.toBeNull()
+    expect(screen.getByRole('option', { name: '需要复核（1）' })).not.toBeNull()
+    fireEvent.change(screen.getByLabelText('筛选报告质量'), { target: { value: 'strong' } })
+    expect(screen.queryByRole('button', { name: /打开 贵州茅台/ })).toBeNull()
+    fireEvent.change(screen.getByLabelText('筛选报告质量'), { target: { value: 'attention' } })
+    expect(screen.getByRole('button', { name: /打开 贵州茅台/ })).not.toBeNull()
+  })
+
+  it('compares independent reports for the same stock without inventing consensus', async () => {
+    const secondReady: Judgement = {
+      ...readyJudgement,
+      id: 'judgement-ready-second',
+      masterId: 'munger',
+      masterName: '查理 · 芒格',
+      dshSessionId: 'session-ready-second',
+      createdAt: '2026-08-16T09:00:00+08:00',
+      updatedAt: '2026-08-16T09:10:00+08:00',
+      completedAt: '2026-08-16T09:10:00+08:00',
+    }
+    const comparison: ResearchComparison = {
+      secId: readyJudgement.secId,
+      code: readyJudgement.code,
+      stockName: readyJudgement.stockName,
+      reports: [readyJudgement, secondReady].map(run => ({
+        judgementId: run.id,
+        masterId: run.masterId,
+        masterName: run.masterName,
+        reportVersion: 1,
+        sealedAt: run.completedAt,
+        audit: reportAudit,
+        error: null,
+      })),
+      generatedAt: '2026-08-20T00:00:00+08:00',
+    }
+    const compareRequests: unknown[] = []
+    const client = makeClient({
+      bootstrap: () => ({ ...bootstrap, judgements: [readyJudgement, secondReady] }),
+      'research.compare': request => { compareRequests.push(request); return comparison },
+    })
+    renderAt('/judgements', client)
+
+    fireEvent.click(await screen.findByRole('button', { name: '⇄ 同股异见' }))
+    const dialog = await screen.findByRole('dialog', { name: '同股异见' })
+    await waitFor(() => expect(compareRequests).toEqual([{ secId: readyJudgement.secId }]))
+    expect(within(dialog).getByText(/2 份独立研判/)).not.toBeNull()
+    expect(within(dialog).getAllByText('example.com')).toHaveLength(3)
+    expect(within(dialog).getAllByText('收入保持增长')).toHaveLength(2)
+    expect(within(dialog).getAllByRole('button', { name: '查看这份报告' })).toHaveLength(2)
   })
 
   it('cancels a previous watch-group batch and ignores its late rows', async () => {
@@ -623,6 +929,109 @@ describe('HanaiWorkbench old-client parity', () => {
     expect(screen.getByRole('heading', { name: '价值曲线' })).not.toBeNull()
     expect(screen.getByRole('img', { name: '价格与大师价值曲线' })).not.toBeNull()
     expect(screen.getByText(/价值线末端为供应商预测/)).not.toBeNull()
+  })
+
+  it('keeps report-independent follow-ups manageable from the stock page', async () => {
+    const orphaned: ResearchFollowUp = {
+      id: 'followup-orphaned', secId: '1.600519', judgementId: null, reportVersion: null,
+      title: '复核下一期现金流', dueDate: '2026-09-30', status: 'open',
+      createdAt: '2026-08-20T00:00:00Z', completedAt: null,
+    }
+    const creates: unknown[] = []
+    const updates: unknown[] = []
+    const client = makeClient({
+      'research.followup.list': () => [orphaned],
+      'research.followup.create': request => {
+        creates.push(request)
+        return { ...orphaned, id: 'followup-stock-created', title: (request as { title: string }).title }
+      },
+      'research.followup.update': request => {
+        updates.push(request)
+        const change = request as { title?: string; dueDate?: string | null }
+        return { ...orphaned, title: change.title ?? orphaned.title, dueDate: change.dueDate ?? null }
+      },
+    })
+    renderAt('/stock/1.600519', client)
+
+    const panel = await screen.findByRole('region', { name: '个股持续研究跟踪' })
+    expect(within(panel).getByText('复核下一期现金流')).not.toBeNull()
+    fireEvent.change(within(panel).getByLabelText('跟踪事项'), { target: { value: '确认年报毛利率' } })
+    fireEvent.click(within(panel).getByRole('button', { name: '添加' }))
+
+    await waitFor(() => expect(creates).toEqual([{ secId: '1.600519', title: '确认年报毛利率' }]))
+    expect(await within(panel).findByText('确认年报毛利率')).not.toBeNull()
+
+    fireEvent.click(within(panel).getByRole('button', { name: `编辑跟踪事项：${orphaned.title}` }))
+    const editor = within(panel).getByRole('form', { name: `编辑跟踪事项：${orphaned.title}` })
+    fireEvent.change(within(editor).getByLabelText('事项内容'), { target: { value: '复核下一期自由现金流' } })
+    fireEvent.change(within(editor).getByLabelText('事项到期日'), { target: { value: '' } })
+    fireEvent.click(within(editor).getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(updates).toEqual([{
+      id: orphaned.id,
+      title: '复核下一期自由现金流',
+      dueDate: null,
+    }]))
+    expect(await screen.findByText('跟踪事项已更新')).not.toBeNull()
+    expect(within(panel).getByText('未设到期日')).not.toBeNull()
+  })
+
+  it('records falsifiable stock research predictions and calibrates resolved confidence', async () => {
+    const pending: ResearchPrediction = {
+      id: 'prediction-pending', secId: '1.600519', judgementId: null, reportVersion: null,
+      statement: '下一季度经营现金流同比改善',
+      resolutionCriteria: '以公司法定季度报告披露值为准',
+      probabilityPct: 70, dueDate: '2026-10-31', outcome: 'pending', brierScore: null,
+      createdAt: '2026-08-20T00:00:00Z', resolvedAt: null,
+    }
+    const creates: unknown[] = []
+    const resolves: unknown[] = []
+    const client = makeClient({
+      'research.prediction.list': () => [pending],
+      'research.prediction.create': request => {
+        creates.push(request)
+        const input = request as {
+          secId: string; statement: string; resolutionCriteria: string; probabilityPct: number; dueDate: string
+        }
+        return {
+          ...pending,
+          id: 'prediction-created',
+          ...input,
+          createdAt: '2026-08-20T01:00:00Z',
+        }
+      },
+      'research.prediction.resolve': request => {
+        resolves.push(request)
+        return {
+          ...pending,
+          outcome: 'occurred' as const,
+          brierScore: 0.09,
+          resolvedAt: '2026-11-01T00:00:00Z',
+        }
+      },
+    })
+    renderAt('/stock/1.600519', client)
+
+    const panel = await screen.findByRole('region', { name: '研究命题与校准' })
+    expect(within(panel).getByText('下一季度经营现金流同比改善')).not.toBeNull()
+    expect(within(panel).getByText(/不是股价目标或交易信号/)).not.toBeNull()
+    fireEvent.click(within(panel).getByRole('button', { name: '＋ 记录命题' }))
+    const composer = within(panel).getByRole('form', { name: '记录研究命题' })
+    fireEvent.change(within(composer).getByLabelText('可验证命题'), { target: { value: '库存周转天数同比下降' } })
+    fireEvent.change(within(composer).getByLabelText('判定口径'), { target: { value: '以年度报告披露口径为准' } })
+    fireEvent.change(within(composer).getByLabelText('主观概率'), { target: { value: '65' } })
+    fireEvent.change(within(composer).getByLabelText('命题判定日期'), { target: { value: '2027-04-30' } })
+    fireEvent.click(within(composer).getByRole('button', { name: '记录快照' }))
+    await waitFor(() => expect(creates).toEqual([{
+      secId: '1.600519', statement: '库存周转天数同比下降',
+      resolutionCriteria: '以年度报告披露口径为准', probabilityPct: 65, dueDate: '2027-04-30',
+    }]))
+    expect(await screen.findByText('研究命题已记录，等待到期复核')).not.toBeNull()
+
+    fireEvent.click(within(panel).getByRole('button', { name: `标记发生：${pending.statement}` }))
+    fireEvent.click(within(panel).getByRole('button', { name: `确认标记发生：${pending.statement}` }))
+    await waitFor(() => expect(resolves).toEqual([{ id: pending.id, outcome: 'occurred' }]))
+    expect(await screen.findByText('结果已记录并完成校准')).not.toBeNull()
+    expect(within(panel).getAllByText('0.0900').length).toBeGreaterThan(0)
   })
 
   it('loads quote, daily K, and valuation independently and lazily requests longer periods', async () => {
@@ -788,6 +1197,212 @@ describe('HanaiWorkbench old-client parity', () => {
     expect(continuedChat.getAttribute('data-compact')).toBe('true')
   })
 
+  it('shows a transparent report audit and turns missing checks into an explicit revision', async () => {
+    const revisions: unknown[] = []
+    const client = makeClient({
+      'judgement.revise': request => {
+        revisions.push(request)
+        return { ...readyJudgement, reportStatus: 'revising', turnStatus: 'queued' }
+      },
+    })
+    renderAt('/judgements/judgement-ready', client)
+    await screen.findByRole('heading', { name: '研判报告' })
+
+    const summary = screen.getByRole('button', { name: /报告结构自检/ })
+    expect(summary.textContent).toContain('72')
+    expect(summary.textContent).toContain('1 个可追溯链接')
+    expect(summary.textContent).toContain('1 条证据主张')
+    fireEvent.click(summary)
+    expect(screen.getByText(/不判断投资结论是否正确/)).not.toBeNull()
+    expect(screen.getAllByRole('link', { name: /公司年报/ }).every(link => link.getAttribute('href') === 'https://example.com/report')).toBe(true)
+    const evidence = screen.getByRole('region', { name: '证据账本速览' })
+    expect(within(evidence).getByText('收入保持增长')).not.toBeNull()
+    expect(within(evidence).getByText('事实')).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: '按缺失项修订报告' }))
+    const dialog = await screen.findByRole('dialog', { name: '修订正式报告' })
+    const instruction = within(dialog).getByLabelText('修订要求') as HTMLTextAreaElement
+    expect(instruction.value).toContain('证据账本')
+    fireEvent.click(within(dialog).getByRole('button', { name: '生成新版本' }))
+    await waitFor(() => expect(revisions).toEqual([{ id: readyJudgement.id, instruction: instruction.value }]))
+    expect(await screen.findByText('已开始生成新的正式报告版本')).not.toBeNull()
+  })
+
+  it('copies and downloads the sealed Markdown artifact without changing the report version', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+    const createDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL')
+    const revokeDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL')
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    const createObjectURL = vi.fn(() => 'blob:sealed-report')
+    const revokeObjectURL = vi.fn()
+    let downloaded: { href: string; name: string } | null = null
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      downloaded = { href: this.href, name: this.download }
+    })
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL })
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL })
+    try {
+      renderAt('/judgements/judgement-ready')
+      await screen.findByRole('heading', { name: '研判报告' })
+      fireEvent.click(screen.getByRole('button', { name: '复制 Markdown' }))
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(detailFor(readyJudgement.id).reports[0]?.content))
+      expect(await screen.findByText('报告 Markdown 已复制')).not.toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: '下载 .md' }))
+      expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob))
+      expect(downloaded).toEqual({ href: 'blob:sealed-report', name: '600519-沃伦-巴菲特-v1.md' })
+      expect(await screen.findByText('报告 Markdown 已下载')).not.toBeNull()
+      await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:sealed-report'))
+    } finally {
+      cleanup()
+      click.mockRestore()
+      restoreOwnProperty(navigator, 'clipboard', descriptor)
+      restoreOwnProperty(URL, 'createObjectURL', createDescriptor)
+      restoreOwnProperty(URL, 'revokeObjectURL', revokeDescriptor)
+    }
+  })
+
+  it('filters and expands a long evidence ledger without hiding incomplete provenance', async () => {
+    const evidence = [
+      ...Array.from({ length: 6 }, (_, index) => ({
+        claim: `可追溯事实 ${index + 1}`,
+        kind: 'fact' as const,
+        sourceLabel: `来源 ${index + 1}`,
+        sourceUrl: `https://example.com/source-${index + 1}`,
+        sourceDate: '2026-08-20',
+        confidence: 'high' as const,
+      })),
+      {
+        claim: '仍需验证的成本假设',
+        kind: 'assumption' as const,
+        sourceLabel: '行业访谈',
+        sourceUrl: 'https://example.com/interview',
+        sourceDate: '2026-08-19',
+        confidence: 'low' as const,
+      },
+      {
+        claim: '来源尚未补齐的主张',
+        kind: 'unknown' as const,
+        sourceLabel: null,
+        sourceUrl: null,
+        sourceDate: null,
+        confidence: 'unknown' as const,
+      },
+    ]
+    const client = makeClient({
+      'judgement.get': () => {
+        const detail = detailFor(readyJudgement.id)
+        return {
+          ...detail,
+          reports: detail.reports.map(report => ({
+            ...report,
+            audit: { ...reportAudit, evidence },
+          })),
+        }
+      },
+    })
+    renderAt('/judgements/judgement-ready', client)
+    await screen.findByRole('heading', { name: '研判报告' })
+    fireEvent.click(screen.getByRole('button', { name: /报告结构自检/ }))
+
+    const ledger = screen.getByRole('region', { name: '证据账本速览' })
+    expect(within(ledger).getByText(/8 条主张 · 1 条字段待补/)).not.toBeNull()
+    expect(within(ledger).getAllByText(/可追溯事实/)).toHaveLength(6)
+    expect(within(ledger).queryByText('仍需验证的成本假设')).toBeNull()
+
+    fireEvent.click(within(ledger).getByRole('button', { name: '假设 1' }))
+    expect(within(ledger).getByText('仍需验证的成本假设')).not.toBeNull()
+    expect(within(ledger).queryByText('可追溯事实 1')).toBeNull()
+
+    fireEvent.click(within(ledger).getByRole('button', { name: '全部 8' }))
+    fireEvent.click(within(ledger).getByRole('button', { name: '展开全部 8 条' }))
+    expect(within(ledger).getAllByText(/可追溯事实/)).toHaveLength(6)
+    expect(within(ledger).getByText('仍需验证的成本假设')).not.toBeNull()
+    expect(within(ledger).getByText('来源尚未补齐的主张')).not.toBeNull()
+    expect(within(ledger).getByRole('button', { name: '收起证据主张' })).not.toBeNull()
+  })
+
+  it('summarizes observable changes between sealed report versions', async () => {
+    const previous = detailFor(readyJudgement.id).reports[0]!
+    const currentAudit: ReportAudit = {
+      ...reportAudit,
+      score: 90,
+      rating: 'strong',
+      checks: reportAudit.checks.map(check => check.id === 'evidence-ledger' || check.id === 'scenarios'
+        ? { ...check, state: 'met' as const }
+        : check),
+      sources: [...reportAudit.sources, { url: 'https://example.com/filing', domain: 'example.com', label: '最新公告' }],
+      stats: { characters: 260, headings: 4, tables: 1, links: 2 },
+    }
+    const current = {
+      ...previous,
+      version: 2,
+      content: '# 投资结论\n\n新版结论。\n\n## 财务质量\n现金流已复核。\n\n## 反方证据\n需求仍可能下降。\n\n## 待持续验证清单\n- **库存是否下降**：核验下一期。',
+      sha256: 'test-v2',
+      sizeBytes: 260,
+      sealedAt: '2026-08-20T09:00:00+08:00',
+      audit: currentAudit,
+    }
+    const previousWithSections = {
+      ...previous,
+      content: '# 投资结论\n\n旧版结论。\n\n## 财务质量\n现金流待核验。\n\n## 待持续验证清单\n- **经营现金流**：核验两个季度。',
+    }
+    const client = makeClient({
+      'judgement.get': () => ({
+        judgement: { ...readyJudgement, latestReportVersion: 2 },
+        reports: [current, previousWithSections],
+      }),
+    })
+    renderAt('/judgements/judgement-ready', client)
+    await screen.findByRole('heading', { name: '研判报告' })
+
+    const summary = screen.getByRole('button', { name: /版本变化 · v1 → v2/ })
+    expect(summary.textContent).toContain('1 节新增')
+    fireEvent.click(summary)
+    const changePanel = screen.getByRole('region', { name: '报告版本变化' })
+    expect(within(changePanel).getByText('＋ 反方证据')).not.toBeNull()
+    expect(within(changePanel).getByText('+18')).not.toBeNull()
+    fireEvent.click(within(changePanel).getByRole('button', { name: '查看 v1 全文' }))
+    expect(await screen.findByText('分析结果 · v1')).not.toBeNull()
+  })
+
+  it('promotes report monitoring bullets into persistent follow-up actions', async () => {
+    const existing: ResearchFollowUp = {
+      id: 'followup-existing', secId: readyJudgement.secId, judgementId: readyJudgement.id,
+      reportVersion: 1, title: '核验库存去化', dueDate: '2026-08-01', status: 'open',
+      createdAt: '2026-07-01T00:00:00Z', completedAt: null,
+    }
+    const creates: unknown[] = []
+    const client = makeClient({
+      'research.followup.list': () => [existing],
+      'research.followup.create': request => {
+        creates.push(request)
+        return {
+          ...existing,
+          id: 'followup-new',
+          title: (request as { title: string }).title,
+          dueDate: (request as { dueDate?: string }).dueDate ?? null,
+        }
+      },
+    })
+    renderAt('/judgements/judgement-ready', client)
+    await screen.findByRole('heading', { name: '研判报告' })
+    await waitFor(() => expect(screen.getByRole('button', { name: /持续研究跟踪/ }).textContent).toContain('1 项逾期'))
+    fireEvent.click(screen.getByRole('button', { name: /持续研究跟踪/ }))
+    fireEvent.click(screen.getByRole('button', { name: '经营现金流是否持续恢复' }))
+    expect((screen.getByLabelText('跟踪事项') as HTMLInputElement).value).toBe('经营现金流是否持续恢复')
+    fireEvent.change(screen.getByLabelText('跟踪到期日'), { target: { value: '2026-09-30' } })
+    fireEvent.click(screen.getByRole('button', { name: '添加' }))
+    await waitFor(() => expect(creates).toEqual([{
+      secId: readyJudgement.secId,
+      judgementId: readyJudgement.id,
+      reportVersion: 1,
+      title: '经营现金流是否持续恢复',
+      dueDate: '2026-09-30',
+    }]))
+    expect(await screen.findByText('已加入持续跟踪')).not.toBeNull()
+  })
+
   it('keeps judgement detail and continuation session bound to the latest route', async () => {
     const oldRequest = deferred<JudgementDetail>()
     const nextRequest = deferred<JudgementDetail>()
@@ -809,6 +1424,7 @@ describe('HanaiWorkbench old-client parity', () => {
         sealedAt: nextJudgement.completedAt ?? nextJudgement.updatedAt,
         modelProvider: nextJudgement.modelProvider,
         model: nextJudgement.model,
+        audit: reportAudit,
       }],
     }
     const client = makeClient({
@@ -876,6 +1492,30 @@ function makeClient(overrides: Record<string, CallOverride> = {}): HanaiClient {
         valuations: [watchValuation, { secId: watchQuoteMissing.secId, fairValue: null, valuationRank: null, meta: null }],
         meta: valuationFresh,
       }
+      case 'watch.researchCoverage': return {
+        items: [
+          watchCoverage,
+          {
+            secId: watchQuoteMissing.secId,
+            state: 'uncovered',
+            judgementId: null,
+            masterId: null,
+            masterName: null,
+            latestReportAt: null,
+            latestReportVersion: null,
+            ageDays: null,
+            reportVersionCount: 0,
+            openFollowUpCount: 0,
+            overdueFollowUpCount: 0,
+            nextFollowUpDueDate: null,
+            pendingPredictionCount: 0,
+            duePredictionCount: 0,
+            nextPredictionDueDate: null,
+          },
+        ],
+        staleAfterDays: 90,
+        generatedAt: '2026-08-15T10:00:00+08:00',
+      }
       case 'watch.list': return [group]
       case 'security.search': return [{ ...stockDetail.security, price: 1500, changePct: .67 }]
       case 'security.detail': return stockDetail
@@ -887,7 +1527,28 @@ function makeClient(overrides: Record<string, CallOverride> = {}): HanaiClient {
       }
       case 'security.valuation': return { valuation: stockDetail.valuation, meta: fresh }
       case 'judgement.list': return bootstrap.judgements
+      case 'research.followup.list': return []
+      case 'research.prediction.list': return []
+      case 'research.inbox': return { items: [], generatedAt: '2026-08-15T10:00:00+08:00' }
+      case 'research.prediction.inbox': return { items: [], generatedAt: '2026-08-15T10:00:00+08:00' }
+      case 'research.quality': return { items: [], generatedAt: '2026-08-15T10:00:00+08:00' }
+      case 'research.followup.create': return {
+        id: 'followup-created',
+        secId: (request as { secId: string }).secId,
+        judgementId: (request as { judgementId?: string }).judgementId ?? null,
+        reportVersion: (request as { reportVersion?: number }).reportVersion ?? null,
+        title: (request as { title: string }).title,
+        dueDate: (request as { dueDate?: string }).dueDate ?? null,
+        status: 'open',
+        createdAt: '2026-08-15T10:00:00+08:00',
+        completedAt: null,
+      }
+      case 'research.followup.update': throw new Error('unexpected follow-up update without override')
+      case 'research.followup.remove': return { id: (request as { id: string }).id }
+      case 'research.prediction.create': throw new Error('unexpected prediction create without override')
+      case 'research.prediction.resolve': throw new Error('unexpected prediction resolve without override')
       case 'judgement.remove': return bootstrap.judgements.filter(item => item.id !== (request as { id: string }).id)
+      case 'judgement.revise': return { ...readyJudgement, reportStatus: 'revising', turnStatus: 'queued' }
       case 'judgement.get': return detailFor((request as { id: string }).id)
       case 'theme.set': return request
       case 'cache.clear': return { scope: (request as { scope: 'market' | 'valuation' }).scope, removedFiles: 0, freedBytes: 0 }
@@ -930,12 +1591,13 @@ function detailFor(id: string): JudgementDetail {
     reports: judgement.reportStatus === 'ready' ? [{
       judgementId: judgement.id,
       version: 1,
-      content: '# 投资结论\n\n价值与风险并重。',
+      content: '# 投资结论\n\n价值与风险并重。\n\n## 待持续验证清单\n\n- **经营现金流是否持续恢复**：连续核验两个季度。',
       sha256: 'test',
       sizeBytes: 128,
       sealedAt: judgement.completedAt ?? judgement.updatedAt,
       modelProvider: judgement.modelProvider,
       model: judgement.model,
+      audit: reportAudit,
     }] : [],
   }
 }

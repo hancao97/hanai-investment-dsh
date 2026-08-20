@@ -58,4 +58,15 @@ const alpha = 1
     expect(container).toHaveTextContent('danger')
     expect(container).toHaveTextContent('relative')
   })
+
+  it('keeps Chinese date annotations outside legacy report links', () => {
+    render(<MarkdownView content={`[公司公告](https://example.com/filing.html（2026-04-30）)
+
+https://example.com/report.pdf（2026-03-31）`} />)
+
+    expect(screen.getByRole('link', { name: '公司公告' })).toHaveAttribute('href', 'https://example.com/filing.html')
+    expect(screen.getByRole('link', { name: 'https://example.com/report.pdf' })).toHaveAttribute('href', 'https://example.com/report.pdf')
+    expect(screen.getByText('（2026-04-30）')).toBeInTheDocument()
+    expect(screen.getByText('（2026-03-31）')).toBeInTheDocument()
+  })
 })
