@@ -37,7 +37,7 @@ import {
   type KlineViewWindow,
 } from './chart-options.ts'
 import { EChart } from './echarts.tsx'
-import type { KlineMaMode } from './kline-ma.ts'
+import { buildKlineSnapshot, type KlineMaMode, type KlineSnapshot } from './kline-ma.ts'
 import { MarkdownView } from './markdown.tsx'
 import { describeDataStatus } from './data-status.ts'
 import { classForChange, dateTime, money, number, percent, quantity, ratio } from './format.ts'
@@ -836,6 +836,7 @@ function WatchGroupDialog({ client, open, groups, stock, mode, sourceGroupId = '
 }
 
 type StockChart = 'trend' | 'daily' | 'weekly' | 'monthly'
+type KlineCursor = { chartKey: string; date: string }
 
 function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, onCreateJudgement, notify }: { client: HanaiClient; secId: string; theme: ThemeId; groups: WatchGroup[]; onGroups: (groups: WatchGroup[]) => void; onCreateJudgement: (stock: SearchResult) => void; notify: Notify }) {
   const [detailState, setDetailState] = useState<{ secId: string; detail: StockDetail } | null>(null)
@@ -845,6 +846,7 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
   const [dailyViewWindow, setDailyViewWindow] = useState<KlineViewWindow | null>(null)
   const [chart, setChart] = useState<StockChart>('daily')
   const [klineMaMode, setKlineMaMode] = useState<KlineMaMode>('short')
+  const [klineCursor, setKlineCursor] = useState<KlineCursor | null>(null)
   const [groups, setGroups] = useState(bootstrapGroups)
   const [watchDialogOpen, setWatchDialogOpen] = useState(false)
   const requestGeneration = useRef(0)
@@ -866,6 +868,7 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
     dailyHistoryLoadingRef.current = false
     dailyHasMoreRef.current = true
     setChart('daily')
+    setKlineCursor(null)
     setWatchDialogOpen(false)
     setDetailState({ secId, detail: emptyStockDetail() })
     setValuationLoading(true)
@@ -1052,6 +1055,25 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
     }
     return buildKlineOption(detail[chart], palette, chart === 'daily' ? dailyViewWindow : null, klineMaMode)
   }, [chart, dailyViewWindow, detail?.daily, detail?.metrics?.prevClose, detail?.monthly, detail?.quote?.prevClose, detail?.trend, detail?.trendPrevClose, detail?.weekly, klineMaMode, palette])
+  const klineBars = detail === null || chart === 'trend' ? [] : detail[chart]
+  const klineChartKey = `${secId}:${chart}`
+  const klineSnapshot = useMemo(() => {
+    const requestedIndex = klineCursor?.chartKey === klineChartKey
+      ? klineBars.findIndex(bar => bar.date === klineCursor.date)
+      : null
+    return buildKlineSnapshot(klineBars, klineMaMode, requestedIndex === -1 ? null : requestedIndex)
+  }, [klineBars, klineChartKey, klineCursor, klineMaMode])
+  const handleKlineAxisPointerUpdate = useCallback((event: unknown) => {
+    const index = klineDataIndexFromAxisPointer(event, klineBars)
+    const hoveredBar = index === null ? undefined : klineBars[index]
+    if (hoveredBar === undefined) return
+    setKlineCursor(current => current?.chartKey === klineChartKey && current.date === hoveredBar.date
+      ? current
+      : { chartKey: klineChartKey, date: hoveredBar.date })
+  }, [klineBars, klineChartKey])
+  const handleKlinePointerLeave = useCallback(() => {
+    setKlineCursor(current => current?.chartKey === klineChartKey ? null : current)
+  }, [klineChartKey])
 
   if (detail === null) return <Page><PageSkeleton cards={5} /></Page>
 
@@ -1095,7 +1117,19 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
               <small>基于当前 K 周期收盘价</small>
             </div>
           </div>}
-          <div className={styles['priceChart']}>{chartOption === null ? <Empty compact title="图表数据加载中" detail="当前周期暂无可用数据。" /> : <EChart option={chartOption} ariaLabel={chart === 'trend' ? '分时价格图' : `${chart === 'daily' ? '日' : chart === 'weekly' ? '周' : '月'}K线图`} onDataZoom={handleKlineDataZoom} />}{dailyHistoryLoading && <span className={styles['historyLoading']} role="status" aria-label="正在加载更早行情"><i />正在加载更早行情…</span>}</div>
+          {chart !== 'trend' && klineSnapshot !== null && <KlineInspector
+            snapshot={klineSnapshot}
+            cursorActive={klineCursor?.chartKey === klineChartKey && klineCursor.date === klineSnapshot.bar.date}
+          />}
+          <div className={styles['priceChart']}>{chartOption === null ? <Empty compact title="图表数据加载中" detail="当前周期暂无可用数据。" /> : <EChart
+            option={chartOption}
+            ariaLabel={chart === 'trend' ? '分时价格图' : `${chart === 'daily' ? '日' : chart === 'weekly' ? '周' : '月'}K线图`}
+            onDataZoom={handleKlineDataZoom}
+            {...(chart === 'trend' ? {} : {
+              onAxisPointerUpdate: handleKlineAxisPointerUpdate,
+              onPointerLeave: handleKlinePointerLeave,
+            })}
+          />}{dailyHistoryLoading && <span className={styles['historyLoading']} role="status" aria-label="正在加载更早行情"><i />正在加载更早行情…</span>}</div>
         </article>
 
         <article className={styles['card']}><PanelHead title="实时行情快照" /><div className={styles['stockMetricGrid']}>
@@ -1542,6 +1576,33 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: '
   return <div className={styles['metric']}><span>{label}</span><b className={tone === undefined ? undefined : styles[tone]}>{value}</b></div>
 }
 
+function KlineInspector({ snapshot, cursorActive }: { snapshot: KlineSnapshot; cursorActive: boolean }) {
+  const { bar, changePct, periods, averages } = snapshot
+  const tone = changeTone(changePct)
+  return <section className={[styles['klineInspector'], bar.amount === null ? '' : styles['klineInspectorWithAmount']].filter(Boolean).join(' ')} aria-label="K线行情数据">
+    <div className={styles['klineInspectorDate']}>
+      <span>{cursorActive ? '游标数据' : '最新数据'}</span>
+      <b>{bar.date}</b>
+    </div>
+    <KlineInspectorMetric label="开盘" value={`${number(bar.open)} 元`} />
+    <KlineInspectorMetric label="涨跌幅" value={percent(changePct)} {...(tone === undefined ? {} : { tone })} />
+    <KlineInspectorMetric label={cursorActive ? '收盘' : '收盘/最新'} value={`${number(bar.close)} 元`} />
+    <KlineInspectorMetric label="最高" value={`${number(bar.high)} 元`} />
+    <KlineInspectorMetric label="最低" value={`${number(bar.low)} 元`} />
+    <KlineInspectorMetric label="成交量" value={`${quantity(bar.volume)} 手`} />
+    {bar.amount !== null && <KlineInspectorMetric label="成交额" value={money(bar.amount)} />}
+    <KlineInspectorMetric label={`MA${periods[0]}`} value={averages[0] === null ? '—' : `${number(averages[0])} 元`} accent="fast" />
+    <KlineInspectorMetric label={`MA${periods[1]}`} value={averages[1] === null ? '—' : `${number(averages[1])} 元`} accent="slow" />
+  </section>
+}
+
+function KlineInspectorMetric({ label, value, tone, accent }: { label: string; value: string; tone?: 'up' | 'down'; accent?: 'fast' | 'slow' }) {
+  return <div className={styles['klineInspectorMetric']}>
+    <span>{accent !== undefined && <i className={accent === 'fast' ? styles['maFast'] : styles['maSlow']} />}{label}</span>
+    <b className={tone === undefined ? undefined : styles[tone]}>{value}</b>
+  </div>
+}
+
 function ValuationLoading({ variant }: { variant: 'summary' | 'chart' }) {
   const label = variant === 'summary' ? '正在加载估值数据' : '正在加载估值曲线'
   return <div className={`${styles['valuationLoading']} ${styles[`valuationLoading_${variant}`]}`} role="status" aria-label={label}>
@@ -1612,6 +1673,34 @@ function mergeKlineBars(earlier: StockDetail['daily'], current: StockDetail['dai
   const byDate = new Map<string, StockDetail['daily'][number]>()
   for (const bar of [...earlier, ...current]) byDate.set(bar.date, bar)
   return [...byDate.values()].sort((left, right) => left.date.localeCompare(right.date))
+}
+
+function klineDataIndexFromAxisPointer(barsEvent: unknown, bars: StockDetail['daily']): number | null {
+  const root = recordValue(barsEvent)
+  if (root === null) return null
+  const axes = Array.isArray(root.axesInfo)
+    ? root.axesInfo.map(recordValue).filter((axis): axis is Record<string, unknown> => axis !== null)
+    : []
+  const xAxes = axes.filter(axis => axis.axisDim === 'x')
+  const primaryAxis = xAxes.find(axis => finiteValue(axis.axisIndex) === 0) ?? xAxes[0]
+  if (primaryAxis !== undefined) {
+    if (typeof primaryAxis.value === 'string') {
+      const dateIndex = bars.findIndex(bar => bar.date === primaryAxis.value)
+      if (dateIndex >= 0) return dateIndex
+    }
+    const valueIndex = finiteValue(primaryAxis.value)
+    if (valueIndex !== null) return Math.max(0, Math.min(bars.length - 1, Math.round(valueIndex)))
+  }
+  const candidates = [root.seriesDataIndices, primaryAxis?.seriesDataIndices]
+    .filter(Array.isArray)
+    .flat()
+    .map(recordValue)
+  for (const candidate of candidates) {
+    if (candidate === null) continue
+    const index = finiteValue(candidate.dataIndexInside) ?? finiteValue(candidate.dataIndex)
+    if (index !== null) return Math.max(0, Math.min(bars.length - 1, Math.round(index)))
+  }
+  return null
 }
 
 function klineZoomWindow(bars: StockDetail['daily'], event: unknown): { window: KlineViewWindow; atStart: boolean } | null {

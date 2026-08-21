@@ -20,12 +20,14 @@ import { HanaiWorkbench } from '../src/app.tsx'
 import type { HanaiClient } from '../src/api.ts'
 
 vi.mock('../src/echarts.tsx', () => ({
-  EChart: ({ ariaLabel, onChartClick, onDataZoom }: { ariaLabel?: string; onChartClick?: (params: unknown) => void; onDataZoom?: (params: unknown) => void }) => (
+  EChart: ({ ariaLabel, onChartClick, onDataZoom, onAxisPointerUpdate, onPointerLeave }: { ariaLabel?: string; onChartClick?: (params: unknown) => void; onDataZoom?: (params: unknown) => void; onAxisPointerUpdate?: (params: unknown) => void; onPointerLeave?: () => void }) => (
     <div
       role="img"
       aria-label={ariaLabel ?? 'ECharts 图表'}
       onClick={() => onChartClick?.({ data: { sectorCode: 'BK0475', name: '电子' } })}
       onDoubleClick={() => onDataZoom?.({ start: 0, end: 100, startValue: 0, endValue: 1 })}
+      onMouseMove={() => onAxisPointerUpdate?.({ axesInfo: [{ axisDim: 'x', axisIndex: 0, value: '2026-08-14' }] })}
+      onMouseLeave={() => onPointerLeave?.()}
     />
   ),
 }))
@@ -205,8 +207,8 @@ const stockDetail: StockDetail = {
   trend: [{ time: '09:30', price: 1495, avgPrice: 1495, volume: 100 }],
   trendPrevClose: 1490,
   daily: [
-    { date: '2026-08-14', open: 1480, close: 1490, high: 1500, low: 1470, volume: 2000, amount: 2_000_000 },
-    { date: '2026-08-15', open: 1490, close: 1500, high: 1510, low: 1480, volume: 2500, amount: 2_500_000 },
+    { date: '2026-08-14', open: 1480, close: 1490, high: 1500, low: 1470, volume: 2000, amount: null },
+    { date: '2026-08-15', open: 1490, close: 1500, high: 1510, low: 1480, volume: 2500, amount: null },
   ],
   weekly: [],
   monthly: [],
@@ -622,8 +624,26 @@ describe('HanaiWorkbench old-client parity', () => {
     expect(screen.getByRole('img', { name: '日K线图' })).not.toBeNull()
     expect(screen.getByRole('group', { name: '均线组合模式' })).not.toBeNull()
     expect(screen.getByRole('button', { name: '短线 MA5 / MA10' }).getAttribute('aria-pressed')).toBe('true')
+    const inspector = screen.getByLabelText('K线行情数据')
+    expect(within(inspector).getByText('最新数据')).not.toBeNull()
+    expect(within(inspector).getByText('2026-08-15')).not.toBeNull()
+    expect(within(inspector).getByText('收盘/最新')).not.toBeNull()
+    expect(within(inspector).getByText('MA5')).not.toBeNull()
+    expect(within(inspector).getByText('MA10')).not.toBeNull()
+    expect(within(inspector).queryByText('成交额')).toBeNull()
+    const dailyChart = screen.getByRole('img', { name: '日K线图' })
+    fireEvent.mouseMove(dailyChart)
+    expect(within(inspector).getByText('游标数据')).not.toBeNull()
+    expect(within(inspector).getByText('2026-08-14')).not.toBeNull()
+    expect(within(inspector).getByText('收盘')).not.toBeNull()
+    fireEvent.mouseLeave(dailyChart)
+    expect(within(inspector).getByText('最新数据')).not.toBeNull()
+    expect(within(inspector).getByText('2026-08-15')).not.toBeNull()
+    expect(within(inspector).getByText('收盘/最新')).not.toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '中线 MA20 / MA60' }))
     expect(screen.getByRole('button', { name: '中线 MA20 / MA60' }).getAttribute('aria-pressed')).toBe('true')
+    expect(within(inspector).getByText('MA20')).not.toBeNull()
+    expect(within(inspector).getByText('MA60')).not.toBeNull()
     expect(screen.getByText('基于当前 K 周期收盘价')).not.toBeNull()
     expect(screen.queryByText(/买点|卖点/)).toBeNull()
     expect(screen.getByRole('heading', { name: '价值判断' })).not.toBeNull()

@@ -146,4 +146,22 @@ describe('EChart', () => {
     fireEvent.click(button)
     expect(onChartClick).toHaveBeenLastCalledWith({ data: { sectorCode: 'BK002', name: '半导体' } })
   })
+
+  it('forwards axis-pointer updates for fixed chart inspectors', async () => {
+    const onAxisPointerUpdate = vi.fn()
+    const onPointerLeave = vi.fn()
+    const view = render(<EChart option={{ series: [] }} onAxisPointerUpdate={onAxisPointerUpdate} onPointerLeave={onPointerLeave} />)
+    await waitFor(() => expect(echartsMock.chart.on).toHaveBeenCalledWith('updateAxisPointer', expect.any(Function)))
+    const listener = echartsMock.chart.on.mock.calls.find(([event]) => event === 'updateAxisPointer')?.[1] as
+      | ((params: unknown) => void)
+      | undefined
+    const event = { axesInfo: [{ axisDim: 'x', axisIndex: 0, value: '2026-08-15' }] }
+    listener?.(event)
+    expect(onAxisPointerUpdate).toHaveBeenCalledWith(event)
+    fireEvent.mouseLeave(screen.getByRole('img', { name: '数据图表' }))
+    expect(onPointerLeave).toHaveBeenCalledTimes(1)
+
+    view.unmount()
+    expect(echartsMock.chart.off).toHaveBeenCalledWith('updateAxisPointer', expect.any(Function))
+  })
 })

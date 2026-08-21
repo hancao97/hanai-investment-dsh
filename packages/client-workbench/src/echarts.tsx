@@ -46,6 +46,8 @@ export interface EChartProps {
   ariaLabel?: string
   onChartClick?: (params: unknown) => void
   onDataZoom?: (params: unknown) => void
+  onAxisPointerUpdate?: (params: unknown) => void
+  onPointerLeave?: () => void
 }
 
 /** A lifecycle-safe, tree-shaken ECharts canvas for the workbench. */
@@ -56,14 +58,18 @@ export function EChart({
   ariaLabel = '数据图表',
   onChartClick,
   onDataZoom,
+  onAxisPointerUpdate,
+  onPointerLeave,
 }: EChartProps) {
   const elementRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<ECharts | null>(null)
   const clickHandlerRef = useRef(onChartClick)
   const dataZoomHandlerRef = useRef(onDataZoom)
+  const axisPointerHandlerRef = useRef(onAxisPointerUpdate)
   const optionRef = useRef(option)
   clickHandlerRef.current = onChartClick
   dataZoomHandlerRef.current = onDataZoom
+  axisPointerHandlerRef.current = onAxisPointerUpdate
   optionRef.current = option
 
   useEffect(() => {
@@ -81,6 +87,7 @@ export function EChart({
       else chart.clear()
       const handleChartClick = (params: unknown) => clickHandlerRef.current?.(params)
       const handleDataZoom = (params: unknown) => dataZoomHandlerRef.current?.(params)
+      const handleAxisPointerUpdate = (params: unknown) => axisPointerHandlerRef.current?.(params)
       const handleContainerClick = (event: MouseEvent) => {
         const target = event.target instanceof Element
           ? event.target.closest<HTMLElement>('[data-sector-code]')
@@ -101,6 +108,7 @@ export function EChart({
         off: (event: string, handler: (params: unknown) => void) => void
       }
       chartEvents.on('datazoom', handleDataZoom)
+      chartEvents.on('updateAxisPointer', handleAxisPointerUpdate)
       element.addEventListener('click', handleContainerClick)
       const resizeObserver = typeof ResizeObserver === 'undefined'
         ? null
@@ -111,6 +119,7 @@ export function EChart({
         element.removeEventListener('click', handleContainerClick)
         chart.off('click', handleChartClick)
         chartEvents.off('datazoom', handleDataZoom)
+        chartEvents.off('updateAxisPointer', handleAxisPointerUpdate)
         chart.dispose()
         if (chartRef.current === chart) chartRef.current = null
       }
@@ -138,6 +147,7 @@ export function EChart({
       style={style}
       role="img"
       aria-label={ariaLabel}
+      onMouseLeave={onPointerLeave}
     />
   )
 }

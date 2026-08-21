@@ -362,7 +362,7 @@ export function buildKlineOption(
   return {
     tooltip: {
       trigger: 'axis',
-      position: klineTooltipPosition,
+      showContent: false,
       axisPointer: {
         type: 'cross',
         snap: true,
@@ -375,35 +375,6 @@ export function buildKlineOption(
           borderColor: palette.tooltipBorder,
           borderWidth: 1,
         },
-      },
-      ...tooltipBase(palette, 11),
-      formatter: (params: unknown): string => {
-        const index = tooltipDataIndex(params)
-        if (index === null) return ''
-        const bar = bars[index]
-        if (bar === undefined) return ''
-        const previousClose = index !== null && index > 0 ? bars[index - 1]?.close : null
-        const changePct = previousClose !== null && previousClose !== undefined && previousClose !== 0
-          ? (bar.close - previousClose) / previousClose * 100
-          : null
-        const lines = [
-          `<b>${escapeHtml(bar.date)}</b>`,
-          `开盘 <b>${fmtNum(bar.open)} 元</b>`,
-          `收盘 <b>${fmtNum(bar.close)} 元</b>`,
-          `最高 <b>${fmtNum(bar.high)} 元</b>`,
-          `最低 <b>${fmtNum(bar.low)} 元</b>`,
-          `成交量 <b>${fmtHands(bar.volume)}</b>`,
-        ]
-        if (changePct !== null) {
-          const color = changePct > 0 ? palette.up : changePct < 0 ? palette.down : palette.flat
-          lines.splice(2, 0, `涨跌幅 <b style="color:${color}">${fmtPct(changePct)}</b>`)
-        }
-        if (bar.amount !== null) lines.push(`成交额 <b>${fmtAmount(bar.amount)}</b>`)
-        const fastValue = fastAverage[index]
-        const slowValue = slowAverage[index]
-        if (fastValue !== null && fastValue !== undefined) lines.push(`MA${fastPeriod} <b>${fmtNum(fastValue)} 元</b>`)
-        if (slowValue !== null && slowValue !== undefined) lines.push(`MA${slowPeriod} <b>${fmtNum(slowValue)} 元</b>`)
-        return lines.join('<br/>')
       },
     },
     axisPointer: {
@@ -642,24 +613,6 @@ function priceGrids() {
     { left: 52, right: 16, top: 12, height: '62%' },
     { left: 52, right: 16, top: '76%', height: '18%' },
   ]
-}
-
-function klineTooltipPosition(
-  point: [number, number],
-  _params: unknown,
-  _element: unknown,
-  _rect: unknown,
-  size: { contentSize: [number, number]; viewSize: [number, number] },
-): [number, number] {
-  const [contentWidth] = size.contentSize
-  const [viewWidth] = size.viewSize
-  const edge = 8
-  const gap = 14
-  const preferredLeft = point[0] >= viewWidth / 2
-    ? point[0] - contentWidth - gap
-    : point[0] + gap
-  const left = Math.min(Math.max(edge, preferredLeft), Math.max(edge, viewWidth - contentWidth - edge))
-  return [left, 12]
 }
 
 function tooltipDataIndex(rawParams: unknown): number | null {

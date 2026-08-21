@@ -33,6 +33,7 @@ interface InspectableOption {
   tooltip?: {
     formatter?: (params: unknown) => string
     position?: (...args: unknown[]) => [number, number]
+    showContent?: boolean
     backgroundColor?: string
     axisPointer?: Record<string, unknown>
   }
@@ -168,7 +169,7 @@ describe('legacy-compatible chart options', () => {
     expect(zeroBase.series?.[0]).toMatchObject({ markLine: { data: [{ yAxis: 0 }] } })
   })
 
-  it('uses every K-line bar, the old OHLC tuple, dual-grid zoom, volume colors and tooltip formula', () => {
+  it('uses every K-line bar, the old OHLC tuple, dual-grid zoom, volume colors and a content-free crosshair', () => {
     const bars: KLineBar[] = Array.from({ length: 100 }, (_, index) => ({
       date: `2026-01-${String(index + 1).padStart(2, '0')}`,
       open: 10 + index,
@@ -191,20 +192,9 @@ describe('legacy-compatible chart options', () => {
     expect(series.map(item => item.name)).toEqual(['K 线', 'MA5', 'MA10', '成交量'])
     expect(option.axisPointer).toMatchObject({ link: [{ xAxisIndex: [0, 1] }] })
     expect(option.tooltip?.axisPointer).toMatchObject({ type: 'cross', snap: true })
-    expect(option.tooltip?.position?.(
-      [800, 450],
-      [],
-      null,
-      null,
-      { contentSize: [240, 340], viewSize: [1_240, 760] },
-    )).toEqual([546, 12])
-    expect(option.tooltip?.position?.(
-      [100, 450],
-      [],
-      null,
-      null,
-      { contentSize: [240, 340], viewSize: [1_240, 760] },
-    )).toEqual([114, 12])
+    expect(option.tooltip?.showContent).toBe(false)
+    expect(option.tooltip?.formatter).toBeUndefined()
+    expect(option.tooltip?.position).toBeUndefined()
     expect(xAxes).toMatchObject([
       { axisPointer: { show: true, snap: true } },
       { axisPointer: { show: true, snap: true, label: { show: false } } },
@@ -215,15 +205,6 @@ describe('legacy-compatible chart options', () => {
     ])
     expect((volumeSeries?.data as Array<{ itemStyle: { color: string } }>)[0]?.itemStyle.color).toBe(DARK_CHART_PALETTE.upBar)
     expect((volumeSeries?.data as Array<{ itemStyle: { color: string } }>)[1]?.itemStyle.color).toBe(DARK_CHART_PALETTE.downBar)
-
-    const tooltip = option.tooltip?.formatter?.([{ seriesName: 'K 线', dataIndex: 1 }]) ?? ''
-    expect(tooltip).toContain('2026-01-02')
-    expect(tooltip).toContain('涨跌幅')
-    expect(tooltip).toContain('-9.09%')
-    expect(tooltip).not.toContain('成交额')
-    const averageTooltip = option.tooltip?.formatter?.([{ seriesName: 'K 线', dataIndex: 10 }]) ?? ''
-    expect(averageTooltip).toContain('MA5')
-    expect(averageTooltip).toContain('MA10')
 
     const medium = inspect(buildKlineOption(bars, DARK_CHART_PALETTE, null, 'medium'))
     expect(medium.series?.map(item => item.name)).toEqual(['K 线', 'MA20', 'MA60', '成交量'])

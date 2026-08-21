@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { KLineBar } from '../../contracts/src/index.ts'
-import { buildKlineMaStudy, movingAverage } from '../src/kline-ma.ts'
+import { buildKlineMaStudy, buildKlineSnapshot, movingAverage } from '../src/kline-ma.ts'
 
 function bars(closes: number[]): KLineBar[] {
   return closes.map((close, index) => ({
@@ -31,5 +31,21 @@ describe('K-line moving averages', () => {
     expect(medium.periods).toEqual([20, 60])
     expect(medium.averages[20]?.at(-1)).toBe(50.5)
     expect(medium.averages[60]?.at(-1)).toBe(30.5)
+  })
+
+  it('builds fixed inspector data for the hovered bar and falls back to the latest bar', () => {
+    const source = bars(Array.from({ length: 12 }, (_, index) => index + 1))
+    const hovered = buildKlineSnapshot(source, 'short', 10)
+    const latest = buildKlineSnapshot(source, 'short', 99)
+
+    expect(hovered).toMatchObject({
+      index: 10,
+      bar: { date: '2026-01-11', close: 11 },
+      changePct: 10,
+      periods: [5, 10],
+      averages: [9, 6.5],
+    })
+    expect(latest).toMatchObject({ index: 11, bar: { date: '2026-01-12' } })
+    expect(buildKlineSnapshot([], 'short')).toBeNull()
   })
 })
