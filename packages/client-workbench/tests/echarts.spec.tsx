@@ -43,6 +43,7 @@ vi.mock('echarts/charts', () => ({
   TreemapChart: {},
 }))
 vi.mock('echarts/components', () => ({
+  AxisPointerComponent: {},
   DataZoomComponent: {},
   GridComponent: {},
   LegendComponent: {},

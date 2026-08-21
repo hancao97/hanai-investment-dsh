@@ -450,6 +450,18 @@
 .stockDetailGrid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr); align-items: start; gap: 12px; }
 .stockMainColumn,
 .stockSideColumn { display: grid; min-width: 0; gap: 12px; }
+.klineMaBar { display: flex; min-height: 39px; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 12px; border-bottom: 1px solid var(--border); background: var(--panel-soft); }
+.klineMaModes,
+.klineMaLegend { display: flex; min-width: 0; align-items: center; gap: 6px; }
+.klineMaModes > span { margin-right: 2px; color: var(--faint); font-size: 9px; white-space: nowrap; }
+.klineMaModes .button,
+.klineMaModes .buttonSelected { min-height: 25px; padding: 0 9px; border-radius: 6px; font-size: 10px; }
+.klineMaLegend { justify-content: flex-end; flex-wrap: wrap; color: var(--muted); font: 9px ui-monospace, monospace; }
+.klineMaLegend > span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.klineMaLegend i { display: inline-block; width: 13px; height: 2px; border-radius: 999px; }
+.maFast { background: var(--gold); }
+.maSlow { background: #5b8def; }
+.klineMaLegend small { color: var(--faint); font-family: inherit; white-space: nowrap; }
 .priceChart { height: 380px; padding: 8px; position: relative; }
 .historyLoading { position: absolute; top: 12px; left: 14px; z-index: 3; display: inline-flex; min-height: 24px; align-items: center; gap: 7px; padding: 0 9px; border: 1px solid var(--control-border); border-radius: 999px; color: var(--muted); font-size: 9px; background: var(--panel); box-shadow: var(--control-shadow); pointer-events: none; }
 .historyLoading i { width: 10px; height: 10px; border: 1.5px solid var(--control-border); border-top-color: var(--gold); border-radius: 50%; animation: spin 800ms linear infinite; }
@@ -780,6 +792,8 @@
   .treemapCard,
   .rankCard { height: 520px; min-height: 520px; }
   .stockMetricGrid { grid-template-columns: repeat(4, 1fr); }
+  .klineMaBar { align-items: flex-start; flex-direction: column; }
+  .klineMaLegend { justify-content: flex-start; }
   .judgementGrid { grid-template-columns: repeat(2, 1fr); }
 }
 

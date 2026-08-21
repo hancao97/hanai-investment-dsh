@@ -32,6 +32,7 @@ declare module 'echarts/components' {
   export const GridComponent: unknown
   export const LegendComponent: unknown
   export const DataZoomComponent: unknown
+  export const AxisPointerComponent: unknown
   export const MarkLineComponent: unknown
 }
 

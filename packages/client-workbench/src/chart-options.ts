@@ -6,6 +6,7 @@ import type {
   TrendPoint,
   ValuationSummary,
 } from '../../contracts/src/index.ts'
+import { buildKlineMaStudy, type KlineMaMode } from './kline-ma.ts'
 
 export interface ChartPalette {
   axisLine: string
@@ -347,20 +348,40 @@ export function buildKlineOption(
   bars: KLineBar[],
   palette: ChartPalette = DARK_CHART_PALETTE,
   viewWindow?: KlineViewWindow | null,
+  maMode: KlineMaMode = 'short',
 ): EChartsCoreOption | null {
   if (bars.length === 0) return null
   const axis = axisStyle(palette)
+  const study = buildKlineMaStudy(bars, maMode)
+  const [fastPeriod, slowPeriod] = study.periods
+  const fastAverage = study.averages[fastPeriod] ?? []
+  const slowAverage = study.averages[slowPeriod] ?? []
   const zoomWindow = viewWindow === null || viewWindow === undefined
     ? { start: 55, end: 100 }
     : { startValue: viewWindow.startDate, endValue: viewWindow.endDate }
   return {
     tooltip: {
       trigger: 'axis',
+      position: klineTooltipPosition,
+      axisPointer: {
+        type: 'cross',
+        snap: true,
+        lineStyle: { color: palette.axisLabel, type: 'dashed', width: 1 },
+        crossStyle: { color: palette.axisLabel, type: 'dashed', width: 1 },
+        label: {
+          show: true,
+          color: palette.tooltipText,
+          backgroundColor: palette.tooltipBackground,
+          borderColor: palette.tooltipBorder,
+          borderWidth: 1,
+        },
+      },
       ...tooltipBase(palette, 11),
       formatter: (params: unknown): string => {
         const index = tooltipDataIndex(params)
-        const bar = index === null ? null : bars[index]
-        if (!bar) return ''
+        if (index === null) return ''
+        const bar = bars[index]
+        if (bar === undefined) return ''
         const previousClose = index !== null && index > 0 ? bars[index - 1]?.close : null
         const changePct = previousClose !== null && previousClose !== undefined && previousClose !== 0
           ? (bar.close - previousClose) / previousClose * 100
@@ -378,17 +399,43 @@ export function buildKlineOption(
           lines.splice(2, 0, `涨跌幅 <b style="color:${color}">${fmtPct(changePct)}</b>`)
         }
         if (bar.amount !== null) lines.push(`成交额 <b>${fmtAmount(bar.amount)}</b>`)
+        const fastValue = fastAverage[index]
+        const slowValue = slowAverage[index]
+        if (fastValue !== null && fastValue !== undefined) lines.push(`MA${fastPeriod} <b>${fmtNum(fastValue)} 元</b>`)
+        if (slowValue !== null && slowValue !== undefined) lines.push(`MA${slowPeriod} <b>${fmtNum(slowValue)} 元</b>`)
         return lines.join('<br/>')
+      },
+    },
+    axisPointer: {
+      link: [{ xAxisIndex: [0, 1] }],
+      label: {
+        color: palette.tooltipText,
+        backgroundColor: palette.tooltipBackground,
+        borderColor: palette.tooltipBorder,
+        borderWidth: 1,
       },
     },
     grid: priceGrids(),
     xAxis: [
-      { type: 'category', data: bars.map((bar) => bar.date), gridIndex: 0, ...axis },
-      { type: 'category', data: bars.map((bar) => bar.date), gridIndex: 1, ...axis, axisLabel: { show: false } },
+      {
+        type: 'category',
+        data: bars.map((bar) => bar.date),
+        gridIndex: 0,
+        ...axis,
+        axisPointer: { show: true, snap: true },
+      },
+      {
+        type: 'category',
+        data: bars.map((bar) => bar.date),
+        gridIndex: 1,
+        ...axis,
+        axisLabel: { show: false },
+        axisPointer: { show: true, snap: true, label: { show: false } },
+      },
     ],
     yAxis: [
-      { scale: true, gridIndex: 0, ...axis },
-      { gridIndex: 1, axisLabel: { show: false }, splitLine: { show: false } },
+      { scale: true, gridIndex: 0, ...axis, axisPointer: { show: true, label: { show: true } } },
+      { gridIndex: 1, axisLabel: { show: false }, splitLine: { show: false }, axisPointer: { show: true, label: { show: true } } },
     ],
     dataZoom: [
       { type: 'inside', xAxisIndex: [0, 1], ...zoomWindow },
@@ -413,6 +460,24 @@ export function buildKlineOption(
           borderColor: palette.up,
           borderColor0: palette.down,
         },
+      },
+      {
+        name: `MA${fastPeriod}`,
+        type: 'line',
+        data: fastAverage,
+        showSymbol: false,
+        connectNulls: false,
+        lineStyle: { color: palette.gold, width: 1.15, opacity: 0.92 },
+        z: 4,
+      },
+      {
+        name: `MA${slowPeriod}`,
+        type: 'line',
+        data: slowAverage,
+        showSymbol: false,
+        connectNulls: false,
+        lineStyle: { color: palette.averageBlue, width: 1.15, opacity: 0.92 },
+        z: 4,
       },
       {
         name: '成交量',
@@ -579,11 +644,33 @@ function priceGrids() {
   ]
 }
 
+function klineTooltipPosition(
+  point: [number, number],
+  _params: unknown,
+  _element: unknown,
+  _rect: unknown,
+  size: { contentSize: [number, number]; viewSize: [number, number] },
+): [number, number] {
+  const [contentWidth] = size.contentSize
+  const [viewWidth] = size.viewSize
+  const edge = 8
+  const gap = 14
+  const preferredLeft = point[0] >= viewWidth / 2
+    ? point[0] - contentWidth - gap
+    : point[0] + gap
+  const left = Math.min(Math.max(edge, preferredLeft), Math.max(edge, viewWidth - contentWidth - edge))
+  return [left, 12]
+}
+
 function tooltipDataIndex(rawParams: unknown): number | null {
-  const first = Array.isArray(rawParams) ? rawParams[0] : rawParams
-  if (!isRecord(first)) return null
-  const index = Number(first.dataIndex)
-  return Number.isInteger(index) && index >= 0 ? index : null
+  const candidates = Array.isArray(rawParams) ? rawParams : [rawParams]
+  for (const candidate of candidates) {
+    if (!isRecord(candidate)) continue
+    if (candidate.seriesName !== 'K 线' && candidates.length > 1) continue
+    const index = Number(candidate.dataIndex)
+    if (Number.isInteger(index) && index >= 0) return index
+  }
+  return null
 }
 
 function treemapTooltipPosition(

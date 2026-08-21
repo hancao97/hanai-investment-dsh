@@ -34,12 +34,14 @@ interface InspectableOption {
     formatter?: (params: unknown) => string
     position?: (...args: unknown[]) => [number, number]
     backgroundColor?: string
+    axisPointer?: Record<string, unknown>
   }
   legend?: { data?: string[] }
   grid?: unknown[] | Record<string, unknown>
   xAxis?: Array<Record<string, unknown>> | Record<string, unknown>
   yAxis?: Array<Record<string, unknown>> | Record<string, unknown>
   dataZoom?: Array<Record<string, unknown>>
+  axisPointer?: Record<string, unknown>
   radar?: Record<string, unknown>
   series?: Array<Record<string, unknown>>
 }
@@ -179,22 +181,52 @@ describe('legacy-compatible chart options', () => {
     const option = inspect(buildKlineOption(bars))
     const series = option.series ?? []
     const xAxes = option.xAxis as Array<Record<string, unknown>>
+    const candleSeries = series.find(item => item.name === 'K 线')
+    const volumeSeries = series.find(item => item.name === '成交量')
 
     expect((xAxes[0]?.data as unknown[])).toHaveLength(100)
-    expect(series[0]?.data).toHaveLength(100)
-    expect((series[0]?.data as number[][])[0]).toEqual([10, 11, 9, 12])
+    expect(candleSeries?.data).toHaveLength(100)
+    expect((candleSeries?.data as number[][])[0]).toEqual([10, 11, 9, 12])
+    expect(candleSeries?.markPoint).toBeUndefined()
+    expect(series.map(item => item.name)).toEqual(['K 线', 'MA5', 'MA10', '成交量'])
+    expect(option.axisPointer).toMatchObject({ link: [{ xAxisIndex: [0, 1] }] })
+    expect(option.tooltip?.axisPointer).toMatchObject({ type: 'cross', snap: true })
+    expect(option.tooltip?.position?.(
+      [800, 450],
+      [],
+      null,
+      null,
+      { contentSize: [240, 340], viewSize: [1_240, 760] },
+    )).toEqual([546, 12])
+    expect(option.tooltip?.position?.(
+      [100, 450],
+      [],
+      null,
+      null,
+      { contentSize: [240, 340], viewSize: [1_240, 760] },
+    )).toEqual([114, 12])
+    expect(xAxes).toMatchObject([
+      { axisPointer: { show: true, snap: true } },
+      { axisPointer: { show: true, snap: true, label: { show: false } } },
+    ])
     expect(option.dataZoom).toMatchObject([
       { type: 'inside', xAxisIndex: [0, 1], start: 55, end: 100 },
       { type: 'slider', xAxisIndex: [0, 1], start: 55, end: 100, top: '95%', height: 14 },
     ])
-    expect((series[1]?.data as Array<{ itemStyle: { color: string } }>)[0]?.itemStyle.color).toBe(DARK_CHART_PALETTE.upBar)
-    expect((series[1]?.data as Array<{ itemStyle: { color: string } }>)[1]?.itemStyle.color).toBe(DARK_CHART_PALETTE.downBar)
+    expect((volumeSeries?.data as Array<{ itemStyle: { color: string } }>)[0]?.itemStyle.color).toBe(DARK_CHART_PALETTE.upBar)
+    expect((volumeSeries?.data as Array<{ itemStyle: { color: string } }>)[1]?.itemStyle.color).toBe(DARK_CHART_PALETTE.downBar)
 
-    const tooltip = option.tooltip?.formatter?.([{ dataIndex: 1 }]) ?? ''
+    const tooltip = option.tooltip?.formatter?.([{ seriesName: 'K 线', dataIndex: 1 }]) ?? ''
     expect(tooltip).toContain('2026-01-02')
     expect(tooltip).toContain('涨跌幅')
     expect(tooltip).toContain('-9.09%')
     expect(tooltip).not.toContain('成交额')
+    const averageTooltip = option.tooltip?.formatter?.([{ seriesName: 'K 线', dataIndex: 10 }]) ?? ''
+    expect(averageTooltip).toContain('MA5')
+    expect(averageTooltip).toContain('MA10')
+
+    const medium = inspect(buildKlineOption(bars, DARK_CHART_PALETTE, null, 'medium'))
+    expect(medium.series?.map(item => item.name)).toEqual(['K 线', 'MA20', 'MA60', '成交量'])
 
     const preserved = inspect(buildKlineOption(bars, DARK_CHART_PALETTE, {
       startDate: bars[25]?.date ?? '',

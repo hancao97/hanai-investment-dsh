@@ -37,6 +37,7 @@ import {
   type KlineViewWindow,
 } from './chart-options.ts'
 import { EChart } from './echarts.tsx'
+import type { KlineMaMode } from './kline-ma.ts'
 import { MarkdownView } from './markdown.tsx'
 import { describeDataStatus } from './data-status.ts'
 import { classForChange, dateTime, money, number, percent, quantity, ratio } from './format.ts'
@@ -843,6 +844,7 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
   const [dailyHasMore, setDailyHasMore] = useState(true)
   const [dailyViewWindow, setDailyViewWindow] = useState<KlineViewWindow | null>(null)
   const [chart, setChart] = useState<StockChart>('daily')
+  const [klineMaMode, setKlineMaMode] = useState<KlineMaMode>('short')
   const [groups, setGroups] = useState(bootstrapGroups)
   const [watchDialogOpen, setWatchDialogOpen] = useState(false)
   const requestGeneration = useRef(0)
@@ -1048,8 +1050,8 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
     if (chart === 'trend') {
       return buildTrendOption(detail.trend, detail.trendPrevClose ?? detail.quote?.prevClose ?? detail.metrics?.prevClose ?? null, palette)
     }
-    return buildKlineOption(detail[chart], palette, chart === 'daily' ? dailyViewWindow : null)
-  }, [chart, dailyViewWindow, detail?.daily, detail?.metrics?.prevClose, detail?.monthly, detail?.quote?.prevClose, detail?.trend, detail?.trendPrevClose, detail?.weekly, palette])
+    return buildKlineOption(detail[chart], palette, chart === 'daily' ? dailyViewWindow : null, klineMaMode)
+  }, [chart, dailyViewWindow, detail?.daily, detail?.metrics?.prevClose, detail?.monthly, detail?.quote?.prevClose, detail?.trend, detail?.trendPrevClose, detail?.weekly, klineMaMode, palette])
 
   if (detail === null) return <Page><PageSkeleton cards={5} /></Page>
 
@@ -1081,6 +1083,18 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
       <div className={styles['stockMainColumn']}>
         <article className={styles['card']}>
           <PanelHead title="价格走势" hint={`${chart === 'trend' ? '分时均价' : '东方财富 · 前复权'} · ${chartMeta?.sourceName ?? '来源未知'}${chart === 'daily' ? ` · ${dailyHasMore ? '左拖加载更早数据' : '已加载完整历史'}` : chart === 'weekly' || chart === 'monthly' ? ' · 完整历史' : ''}`} extra={<div className={styles['buttonGroup']}>{([['trend', '分时'], ['daily', '日K'], ['weekly', '周K'], ['monthly', '月K']] as const).map(([id, label]) => <button key={id} className={chart === id ? styles['buttonSelected'] : styles['button']} onClick={() => setChart(id)}>{label}</button>)}</div>} />
+          {chart !== 'trend' && <div className={styles['klineMaBar']}>
+            <div className={styles['klineMaModes']} role="group" aria-label="均线组合模式">
+              <span>均线组合</span>
+              <button aria-pressed={klineMaMode === 'short'} className={klineMaMode === 'short' ? styles['buttonSelected'] : styles['button']} onClick={() => setKlineMaMode('short')}>短线 MA5 / MA10</button>
+              <button aria-pressed={klineMaMode === 'medium'} className={klineMaMode === 'medium' ? styles['buttonSelected'] : styles['button']} onClick={() => setKlineMaMode('medium')}>中线 MA20 / MA60</button>
+            </div>
+            <div className={styles['klineMaLegend']}>
+              <span><i className={styles['maFast']} />MA{klineMaMode === 'short' ? '5' : '20'}</span>
+              <span><i className={styles['maSlow']} />MA{klineMaMode === 'short' ? '10' : '60'}</span>
+              <small>基于当前 K 周期收盘价</small>
+            </div>
+          </div>}
           <div className={styles['priceChart']}>{chartOption === null ? <Empty compact title="图表数据加载中" detail="当前周期暂无可用数据。" /> : <EChart option={chartOption} ariaLabel={chart === 'trend' ? '分时价格图' : `${chart === 'daily' ? '日' : chart === 'weekly' ? '周' : '月'}K线图`} onDataZoom={handleKlineDataZoom} />}{dailyHistoryLoading && <span className={styles['historyLoading']} role="status" aria-label="正在加载更早行情"><i />正在加载更早行情…</span>}</div>
         </article>
 
