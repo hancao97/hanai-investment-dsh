@@ -2,10 +2,10 @@
  * Minimal out-of-tree DSH client bundle adapter.
  *
  * Derived from deepseek-harness packages/client/tsdown.client.ts at
- * 47f943859bef60e4160492346772ded9b24f765a (MIT). The adapter intentionally
- * keeps only the public loader closure, platform externals and CSS Modules
- * behavior needed by this plugin. Compatibility is covered by package and
- * real-profile smoke tests.
+ * b150a551b8d465e31e418e1b2eaf5e79bbb7d28e (MIT). The adapter intentionally
+ * keeps only the public loader closure, default module-table externals, the
+ * client bundle purity guard and CSS Modules behavior needed by this plugin.
+ * Compatibility is covered by package and real-profile smoke tests.
  */
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
@@ -16,23 +16,21 @@ import type { UserConfig } from 'tsdown'
 const CSS_VIRTUAL_PREFIX = '\0hanai-dsh-css:'
 const CSS_VIRTUAL_SUFFIX = '.mjs'
 
-const PLATFORM_MODULES = [
+const DEFAULT_CLIENT_EXTERNALS = [
   'react',
   'react/jsx-runtime',
   'react-dom',
   'react-dom/client',
   '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-client-ui-slots',
-  '@deepseek-ai/dsh-client-web-react',
   '@deepseek-ai/dsh-client-ui-primitives',
-  '@deepseek-ai/dsh-client-ui-attachment',
-  '@deepseek-ai/dsh-client-schema-form',
   '@deepseek-ai/dsh-client-runtime/client',
 ] as const
 
 /** Build one DSH Module Loader compatible, single-file browser client. */
 export function hanaiClientBundle(id: string, entry: string): UserConfig {
   const projectRoot = resolvePath('.')
+  const isRequested = (specifier: string): boolean => DEFAULT_CLIENT_EXTERNALS.includes(specifier as never)
   return {
     name: `${id}/client`,
     entry: { client: entry },
@@ -43,14 +41,25 @@ export function hanaiClientBundle(id: string, entry: string): UserConfig {
     dts: false,
     sourcemap: true,
     clean: false,
-    external: [...PLATFORM_MODULES],
-    noExternal: (specifier: string) => PLATFORM_MODULES.includes(specifier as never) ? undefined : true,
+    deps: {
+      neverBundle: isRequested,
+      alwaysBundle: (specifier: string) => !isRequested(specifier),
+    },
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'production'),
       'import.meta.env.MODE': JSON.stringify(process.env.NODE_ENV ?? 'production'),
       'import.meta.env': JSON.stringify({ MODE: process.env.NODE_ENV ?? 'production' }),
     },
     plugins: [{
+      name: 'hanai-dsh-client-bundle-purity',
+      resolveId(source: string) {
+        if (!source.startsWith('@deepseek-ai/') || isRequested(source)) return null
+        throw new Error(
+          `client bundle purity: "${source}" is not a default DSH client external; `
+          + 'use a type-only import or extend the adapter and dsh.client.external manifest together',
+        )
+      },
+    }, {
       name: 'hanai-dsh-css-modules-inline',
       resolveId(source: string, importer: string | undefined) {
         if (!source.endsWith('.module.css')) return null

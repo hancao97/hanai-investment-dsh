@@ -75,12 +75,17 @@ describe('out-of-tree DSH client bundle adapter', () => {
     )
   })
 
-  it('keeps platform packages external for the loader-injected require', () => {
-    expect(adapterSource).toContain('external: [...PLATFORM_MODULES]')
-    expect(adapterSource).toContain('noExternal: (specifier: string) =>')
+  it('uses the current DSH module-table external contract', () => {
+    expect(adapterSource).toContain('deps: {')
+    expect(adapterSource).toContain('neverBundle: isRequested')
+    expect(adapterSource).toContain('alwaysBundle: (specifier: string) => !isRequested(specifier)')
     expect(adapterSource).toContain("'react/jsx-runtime'")
     expect(adapterSource).toContain("'@deepseek-ai/cordis'")
     expect(adapterSource).toContain("'@deepseek-ai/dsh-client-runtime/client'")
+    expect(adapterSource).toContain("name: 'hanai-dsh-client-bundle-purity'")
+    expect(adapterSource).not.toContain("'@deepseek-ai/dsh-client-web-react'")
+    expect(adapterSource).not.toContain("'@deepseek-ai/dsh-client-schema-form'")
+    expect(adapterSource).not.toContain("'@deepseek-ai/dsh-client-ui-attachment'")
   })
 })
 

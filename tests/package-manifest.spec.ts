@@ -38,6 +38,24 @@ const EXPECTED_CLIENT_INJECT = [
   '@deepseek-ai/dsh-client-ui-conversation',
 ]
 
+const DSH_PEER_RANGE = '^0.1.1-rc.2'
+const DSH_DEV_VERSION = '0.1.1-rc.2'
+const DYNAMIC_DSH_PEERS = [
+  '@deepseek-ai/dsh-agent-default-model',
+  '@deepseek-ai/dsh-client-connection',
+  '@deepseek-ai/dsh-client-runtime',
+  '@deepseek-ai/dsh-client-ui-conversation',
+  '@deepseek-ai/dsh-client-ui-layout',
+  '@deepseek-ai/dsh-host-apiproxy',
+  '@deepseek-ai/dsh-session',
+]
+const STATIC_CLIENT_DEV_ONLY = [
+  '@deepseek-ai/dsh-client-ui-primitives',
+  '@deepseek-ai/dsh-client-ui-slots',
+  'react',
+  'react-dom',
+]
+
 const LEGACY_DATA_DIRECTORY = `.${['hanai', 'investment'].join('-')}`
 const LEGACY_DATA_DIRECTORY_PATTERN = new RegExp(
   `${escapeRegExp(LEGACY_DATA_DIRECTORY)}(?!-dsh)`,
@@ -160,11 +178,19 @@ describe('npm and DSH package manifest', () => {
     expect(notices).toContain('Copyright (c) Microsoft Corporation.')
   })
 
-  it('declares the DSH default-model owner used by the Host bridge', () => {
+  it('targets the verified DSH release and keeps shell-seeded modules dev-only', () => {
     const peerDependencies = manifest.peerDependencies as JsonObject
     const devDependencies = manifest.devDependencies as JsonObject
-    expect(peerDependencies['@deepseek-ai/dsh-agent-default-model']).toBe('>=0.1.0-rc.5 <0.2.0')
-    expect(devDependencies['@deepseek-ai/dsh-agent-default-model']).toBe('0.1.0-rc.6')
+    for (const dependency of DYNAMIC_DSH_PEERS) {
+      expect(peerDependencies[dependency]).toBe(DSH_PEER_RANGE)
+      expect(devDependencies[dependency]).toBe(DSH_DEV_VERSION)
+    }
+    for (const dependency of STATIC_CLIENT_DEV_ONLY) {
+      expect(peerDependencies).not.toHaveProperty(dependency)
+      expect(devDependencies).toHaveProperty(dependency)
+    }
+    expect(peerDependencies).not.toHaveProperty('@deepseek-ai/dsh-client-web-react')
+    expect(devDependencies).not.toHaveProperty('@deepseek-ai/dsh-client-web-react')
   })
 
   it('does not ship runtime/config source that names the legacy data directory', () => {

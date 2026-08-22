@@ -1,6 +1,6 @@
 # Hanai Worth · 值见 DSH 启动与验收报告
 
-> 验收日期：2026-08-16
+> 验收日期：2026-08-22
 
 ## 1. 结论
 
@@ -12,7 +12,7 @@ Hanai Worth · 值见当前以兼容包名 `hanai-investment-dsh` 和独立 DSH 
 | --- | --- |
 | Node.js | `v22.22.0` |
 | pnpm | `11.7.0` |
-| DeepSeek Harness | `0.1.0-rc.6` |
+| DeepSeek Harness | `0.1.1-rc.2` |
 | Profile | `hanai-investment` |
 | 默认监听 | `http://127.0.0.1:3080` |
 
@@ -109,12 +109,12 @@ pnpm run check
 | 门禁 | 结果 |
 | --- | --- |
 | `pnpm run typecheck` | 通过 |
-| `pnpm run test` | 26 个测试文件、151 项测试全部通过 |
+| `pnpm run test` | 27 个测试文件、171 项测试全部通过 |
 | `pnpm run build` | Host、Client 与 Profile tools 构建通过 |
 | `pnpm run pack:check` | 68 个发布文件通过 |
 | `git diff --check` | 通过 |
 
-四个大师 Skill 均通过 `skill-creator` 的 `quick_validate.py`；51 个迁移文件由 SHA-256 清单校验，发布包包含全部 8 个脚本。研判 Session 固定并校验 DSH `standard` Agent preset，已在 rc.6 Host 上实际创建、核对回显并归档 smoke Session，确保文件系统、Skill 发现和 Agent instructions 能力可用。
+四个大师 Skill 均通过 `skill-creator` 的 `quick_validate.py`；51 个迁移文件由 SHA-256 清单校验，发布包包含全部 8 个脚本。已在 rc.2 Host/Web 上完成 Profile 启动、页面加载、Session 创建与 prompt/event 链路 smoke；临时无 Key 环境中的模型调用按预期停在凭据校验。
 
 另外已使用全新的临时 `DSH_HOME` 实际执行：
 

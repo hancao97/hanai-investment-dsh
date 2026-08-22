@@ -1,8 +1,8 @@
 # Hanai Worth · 值见 DSH 总体架构设计
 
 - 状态：核心架构已实现
-- 更新日期：2026-08-15
-- DSH 分析基线：`deepseek-harness@47f943859bef60e4160492346772ded9b24f765a`
+- 更新日期：2026-08-22
+- DSH 分析基线：`deepseek-harness@b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`
 
 ## 1. 结论
 
@@ -481,10 +481,10 @@ Provider 传输层使用 Node/DSH Host 能力重写，不能继续依赖 Electro
 
 以下链接固定到本设计分析时使用的 DSH commit：
 
-- [Bundle 发布与安装](https://github.com/deepseek-ai/deepseek-harness/blob/47f943859bef60e4160492346772ded9b24f765a/docs/user/develop/basic/publish.md)
-- [Web 样式规范](https://github.com/deepseek-ai/deepseek-harness/blob/47f943859bef60e4160492346772ded9b24f765a/docs/web-styling.md)
-- [根布局 Slot](https://github.com/deepseek-ai/deepseek-harness/blob/47f943859bef60e4160492346772ded9b24f765a/packages/client/ui-layout/src/client/index.ts)
-- [Sidebar Slot](https://github.com/deepseek-ai/deepseek-harness/blob/47f943859bef60e4160492346772ded9b24f765a/packages/client/ui-sidebar/src/client/index.ts)
-- [Session Host API](https://github.com/deepseek-ai/deepseek-harness/blob/47f943859bef60e4160492346772ded9b24f765a/packages/host/apiproxy/src/api/sessions.ts)
-- [Client Session Runtime](https://github.com/deepseek-ai/deepseek-harness/tree/47f943859bef60e4160492346772ded9b24f765a/packages/client/runtime/src/client/sessions)
-- [DeepSeek、Credentials 与 Session Persistence 装配](https://github.com/deepseek-ai/deepseek-harness/blob/47f943859bef60e4160492346772ded9b24f765a/packages/bundle/base/cordis.patch.yml)
+- [Bundle 发布与安装](https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/docs/user/develop/basic/publish.md)
+- [Web 样式规范](https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/docs/web-styling.md)
+- [根布局 Slot](https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/packages/client/ui-layout/src/client/index.ts)
+- [Sidebar Slot](https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/packages/client/ui-sidebar/src/client/index.ts)
+- [Session Host API](https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/packages/host/apiproxy/src/api/sessions.ts)
+- [Client Session Runtime](https://github.com/deepseek-ai/deepseek-harness/tree/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/packages/client/runtime/src/client/sessions)
+- [DeepSeek、Credentials 与 Session Persistence 装配](https://github.com/deepseek-ai/deepseek-harness/blob/b150a551b8d465e31e418e1b2eaf5e79bbb7d28e/packages/bundle/base/cordis.patch.yml)

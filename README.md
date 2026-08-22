@@ -107,7 +107,7 @@ flowchart LR
 
 - Node.js `^22.19.0` 或 `>=24.0.0`
 - pnpm `11.7.0`
-- DeepSeek Harness `0.1.0-rc.5` 至 `<0.2.0`；推荐 CLI、Web App 与 Hanai 使用同一 rc 版本
+- DeepSeek Harness `0.1.1-rc.2`；DSH 仍处于 pre-release，升级到其它 rc 前必须重新验证，CLI、Web App 与 Hanai 应使用同一版本
 - 一个 DeepSeek API Key（只在实际运行 Agent 时需要）
 
 DSH 仍处于 pre-release，rc 之间不承诺兼容。仓库把 Host、Client 和 profile 装配都纳入兼容性检查，但升级前仍应运行完整门禁。
