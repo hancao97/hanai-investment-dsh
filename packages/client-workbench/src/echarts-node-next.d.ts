@@ -34,6 +34,7 @@ declare module 'echarts/components' {
   export const DataZoomComponent: unknown
   export const AxisPointerComponent: unknown
   export const MarkLineComponent: unknown
+  export const MarkPointComponent: unknown
 }
 
 declare module 'echarts/renderers' {

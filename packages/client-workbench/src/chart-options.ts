@@ -1,12 +1,18 @@
 import type { EChartsCoreOption } from 'echarts/core'
 import type {
   KLineBar,
+  KLinePeriod,
   SectorBoard,
   ThemeId,
   TrendPoint,
   ValuationSummary,
 } from '../../contracts/src/index.ts'
-import { buildKlineMaStudy, type KlineMaMode } from './kline-ma.ts'
+import {
+  buildKlineMaStudy,
+  buildKlineTurningStudy,
+  type KlineMaMode,
+  type KlineTurningMarker,
+} from './kline-ma.ts'
 
 export interface ChartPalette {
   axisLine: string
@@ -344,11 +350,123 @@ export interface KlineViewWindow {
   endDate: string
 }
 
+const KLINE_PERIOD_LABEL: Record<KLinePeriod, string> = {
+  daily: '日 K',
+  weekly: '周 K',
+  monthly: '月 K',
+}
+
+function klineTooltipPosition(
+  point: [number, number],
+  _params: unknown,
+  _element: unknown,
+  _rect: unknown,
+  size: { contentSize: [number, number]; viewSize: [number, number] },
+): [number, number] {
+  const [contentWidth, contentHeight] = size.contentSize
+  const [viewWidth, viewHeight] = size.viewSize
+  const gap = 16
+  const left = point[0] < viewWidth / 2
+    ? point[0] + gap
+    : point[0] - contentWidth - gap
+  const top = Math.min(
+    Math.max(10, point[1] - contentHeight / 2),
+    Math.max(10, viewHeight - contentHeight - 10),
+  )
+  return [Math.max(10, Math.min(left, viewWidth - contentWidth - 10)), top]
+}
+
+function klineTooltip(
+  rawParams: unknown,
+  bars: KLineBar[],
+  fastAverage: Array<number | null>,
+  slowAverage: Array<number | null>,
+  fastPeriod: number,
+  slowPeriod: number,
+  markersByIndex: KlineTurningMarker[][],
+  period: KLinePeriod,
+  palette: ChartPalette,
+): string {
+  const index = tooltipDataIndex(rawParams)
+  const bar = index === null ? undefined : bars[index]
+  if (bar === undefined || index === null) return ''
+  const previousClose = bars[index - 1]?.close ?? null
+  const changePct = previousClose === null || previousClose === 0
+    ? null
+    : (bar.close - previousClose) / previousClose * 100
+  const changeColor = changePct === null || changePct === 0
+    ? palette.flat
+    : changePct > 0 ? palette.up : palette.down
+  const metrics = [
+    ['开盘', `${fmtNum(bar.open)} 元`],
+    [index === bars.length - 1 ? '收盘/最新' : '收盘', `${fmtNum(bar.close)} 元`],
+    ['最高', `${fmtNum(bar.high)} 元`],
+    ['最低', `${fmtNum(bar.low)} 元`],
+  ].map(([label, value]) => `<span><small style="display:block;color:${palette.axisLabel};font-size:10px">${label}</small><b>${value}</b></span>`).join('')
+  const amount = bar.amount === null
+    ? ''
+    : ` · 成交额 <b>${fmtAmount(bar.amount)}</b>`
+  const markerRows = (markersByIndex[index] ?? []).map(marker => {
+    const markerColor = marker.tone === 'risk' ? palette.gold : palette.up
+    return `<div style="margin-top:8px;padding-top:8px;border-top:1px solid ${palette.tooltipBorder}"><div style="display:flex;align-items:center;gap:6px;color:${markerColor}"><b style="display:inline-grid;width:20px;height:20px;place-items:center;border:1px solid ${markerColor};border-radius:5px;font-size:10px">${marker.glyph}</b><strong>${escapeHtml(marker.label)}</strong></div><div style="margin-top:5px;color:${palette.legendText};font-size:11px;line-height:1.55;white-space:normal;overflow-wrap:anywhere;word-break:break-word">${escapeHtml(marker.description)}</div></div>`
+  }).join('')
+  return `<div style="box-sizing:border-box;width:330px;max-width:calc(100vw - 32px);white-space:normal;overflow-wrap:anywhere"><div style="display:flex;align-items:center;justify-content:space-between;gap:16px"><b style="font-size:13px">${escapeHtml(bar.date)}</b><span style="color:${palette.axisLabel};font-size:10px">${KLINE_PERIOD_LABEL[period]} · 收盘确认</span></div><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:9px">${metrics}</div><div style="margin-top:8px;color:${palette.legendText};font-size:11px">涨跌 <b style="color:${changeColor}">${fmtPct(changePct)}</b> · 成交量 <b>${fmtHands(bar.volume)}</b>${amount}</div><div style="margin-top:5px;color:${palette.legendText};font-size:11px"><span style="color:${palette.gold}">●</span> MA${fastPeriod} <b>${fmtNum(fastAverage[index])}</b> 元&nbsp;&nbsp;<span style="color:${palette.averageBlue}">●</span> MA${slowPeriod} <b>${fmtNum(slowAverage[index])}</b> 元</div>${markerRows}</div>`
+}
+
+function klineMarkPointData(
+  bars: KLineBar[],
+  markers: KlineTurningMarker[],
+  palette: ChartPalette,
+): Array<Record<string, unknown>> {
+  const stackByAnchor = new Map<string, number>()
+  return markers.map((marker) => {
+    const bar = bars[marker.index]
+    const anchor = `${marker.index}:${marker.position}`
+    const stack = stackByAnchor.get(anchor) ?? 0
+    stackByAnchor.set(anchor, stack + 1)
+    const above = marker.position === 'above'
+    const risk = marker.tone === 'risk'
+    const hollow = marker.kind === 'deep-decline-huge-volume'
+    const symbol = marker.kind === 'post-rise-huge-volume'
+      ? 'diamond'
+      : marker.kind === 'post-rise-huge-volume-weak'
+        ? 'roundRect'
+        : marker.kind === 'deep-decline-huge-volume-lower-shadow'
+          ? 'triangle'
+          : marker.kind === 'deep-decline-reclaim-ma5'
+            ? 'roundRect'
+            : 'circle'
+    const fill = risk ? palette.gold : hollow ? palette.tooltipBackground : palette.up
+    const textColor = risk || !hollow ? palette.tooltipBackground : palette.up
+    return {
+      name: marker.label,
+      coord: [marker.index, above ? bar?.high : bar?.low],
+      value: marker.glyph,
+      symbol,
+      symbolSize: 23,
+      symbolOffset: [0, above ? -12 - stack * 22 : 12 + stack * 22],
+      itemStyle: {
+        color: fill,
+        borderColor: risk ? palette.tooltipBackground : palette.up,
+        borderWidth: hollow ? 2 : 1,
+      },
+      label: {
+        show: true,
+        color: textColor,
+        fontSize: 9,
+        fontWeight: 700,
+        formatter: marker.glyph,
+      },
+    }
+  })
+}
+
 export function buildKlineOption(
   bars: KLineBar[],
   palette: ChartPalette = DARK_CHART_PALETTE,
   viewWindow?: KlineViewWindow | null,
   maMode: KlineMaMode = 'short',
+  period: KLinePeriod = 'daily',
 ): EChartsCoreOption | null {
   if (bars.length === 0) return null
   const axis = axisStyle(palette)
@@ -356,13 +474,32 @@ export function buildKlineOption(
   const [fastPeriod, slowPeriod] = study.periods
   const fastAverage = study.averages[fastPeriod] ?? []
   const slowAverage = study.averages[slowPeriod] ?? []
+  const turningStudy = buildKlineTurningStudy(bars)
+  const turningMarkers = turningStudy.markers
   const zoomWindow = viewWindow === null || viewWindow === undefined
     ? { start: 55, end: 100 }
     : { startValue: viewWindow.startDate, endValue: viewWindow.endDate }
   return {
     tooltip: {
       trigger: 'axis',
-      showContent: false,
+      ...tooltipBase(palette, 11),
+      showContent: true,
+      renderMode: 'html',
+      confine: true,
+      transitionDuration: 0,
+      extraCssText: 'box-sizing:border-box;white-space:normal;max-width:calc(100vw - 32px);',
+      position: klineTooltipPosition,
+      formatter: (params: unknown): string => klineTooltip(
+        params,
+        bars,
+        fastAverage,
+        slowAverage,
+        fastPeriod,
+        slowPeriod,
+        turningStudy.byIndex,
+        period,
+        palette,
+      ),
       axisPointer: {
         type: 'cross',
         snap: true,
@@ -431,6 +568,14 @@ export function buildKlineOption(
           borderColor: palette.up,
           borderColor0: palette.down,
         },
+        ...(turningMarkers.length === 0 ? {} : {
+          markPoint: {
+            silent: true,
+            z: 8,
+            tooltip: { show: false },
+            data: klineMarkPointData(bars, turningMarkers, palette),
+          },
+        }),
       },
       {
         name: `MA${fastPeriod}`,

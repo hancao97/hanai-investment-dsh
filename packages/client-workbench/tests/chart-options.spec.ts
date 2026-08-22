@@ -35,6 +35,7 @@ interface InspectableOption {
     position?: (...args: unknown[]) => [number, number]
     showContent?: boolean
     backgroundColor?: string
+    extraCssText?: string
     axisPointer?: Record<string, unknown>
   }
   legend?: { data?: string[] }
@@ -169,7 +170,7 @@ describe('legacy-compatible chart options', () => {
     expect(zeroBase.series?.[0]).toMatchObject({ markLine: { data: [{ yAxis: 0 }] } })
   })
 
-  it('uses every K-line bar, the old OHLC tuple, dual-grid zoom, volume colors and a content-free crosshair', () => {
+  it('uses every K-line bar, dual-grid zoom, volume colors and one compact crosshair tooltip', () => {
     const bars: KLineBar[] = Array.from({ length: 100 }, (_, index) => ({
       date: `2026-01-${String(index + 1).padStart(2, '0')}`,
       open: 10 + index,
@@ -192,9 +193,17 @@ describe('legacy-compatible chart options', () => {
     expect(series.map(item => item.name)).toEqual(['K 线', 'MA5', 'MA10', '成交量'])
     expect(option.axisPointer).toMatchObject({ link: [{ xAxisIndex: [0, 1] }] })
     expect(option.tooltip?.axisPointer).toMatchObject({ type: 'cross', snap: true })
-    expect(option.tooltip?.showContent).toBe(false)
-    expect(option.tooltip?.formatter).toBeUndefined()
-    expect(option.tooltip?.position).toBeUndefined()
+    expect(option.tooltip?.showContent).toBe(true)
+    expect(option.tooltip?.formatter).toBeTypeOf('function')
+    expect(option.tooltip?.position).toBeTypeOf('function')
+    expect(option.tooltip?.extraCssText).toContain('white-space:normal')
+    const tooltip = option.tooltip?.formatter?.([{ seriesName: 'K 线', dataIndex: 1 }]) ?? ''
+    expect(tooltip).toContain('2026-01-02')
+    expect(tooltip).toContain('收盘')
+    expect(tooltip).toContain('MA5')
+    expect(tooltip).toContain('MA10')
+    expect(tooltip).not.toContain('成交额')
+    expect(tooltip).not.toMatch(/胜率|样本量|67\.4%/)
     expect(xAxes).toMatchObject([
       { axisPointer: { show: true, snap: true } },
       { axisPointer: { show: true, snap: true, label: { show: false } } },
@@ -217,6 +226,42 @@ describe('legacy-compatible chart options', () => {
       { startValue: bars[25]?.date, endValue: bars[70]?.date },
       { startValue: bars[25]?.date, endValue: bars[70]?.date },
     ])
+  })
+
+  it('draws independent stacked markers and explains them in the single tooltip without win rates', () => {
+    const bars: KLineBar[] = Array.from({ length: 140 }, (_, index) => {
+      const close = 10 * 1.01 ** index
+      return {
+        date: `2026-${String(Math.floor(index / 28) + 1).padStart(2, '0')}-${String(index % 28 + 1).padStart(2, '0')}`,
+        open: index === 139 ? close * 1.01 : close * 0.995,
+        close,
+        high: index === 139 ? close * 1.02 : close * 1.01,
+        low: close * 0.99,
+        volume: index === 139 ? 1_000 : 100,
+        amount: null,
+      }
+    })
+    const option = inspect(buildKlineOption(bars, DARK_CHART_PALETTE, null, 'short', 'daily'))
+    const candle = option.series?.find(item => item.name === 'K 线')
+    const markPoint = candle?.markPoint as { tooltip?: { show?: boolean }; data?: Array<Record<string, unknown>> }
+
+    expect(markPoint.tooltip?.show).toBe(false)
+    expect(markPoint.data).toHaveLength(2)
+    expect(markPoint.data?.[0]).toMatchObject({ name: '巨量分歧', value: '分', symbol: 'diamond' })
+    expect(markPoint.data?.[1]).toMatchObject({ name: '巨量弱收', value: '弱', symbol: 'roundRect' })
+    expect(markPoint.data?.[0]?.symbolOffset).not.toEqual(markPoint.data?.[1]?.symbolOffset)
+    const tooltip = option.tooltip?.formatter?.([{ seriesName: 'K 线', dataIndex: 139 }]) ?? ''
+    expect(tooltip).toContain('巨量分歧')
+    expect(tooltip).toContain('巨量弱收')
+    expect(tooltip).toContain('MA5 高于 MA10')
+    expect(tooltip).toContain('overflow-wrap:anywhere')
+    expect(tooltip).not.toMatch(/胜率|样本量|67\.4%|64\.9%/)
+
+    const weekly = inspect(buildKlineOption(bars, DARK_CHART_PALETTE, null, 'short', 'weekly'))
+    const weeklyTooltip = weekly.tooltip?.formatter?.([{ seriesName: 'K 线', dataIndex: 139 }]) ?? ''
+    expect(weeklyTooltip).toContain('周 K')
+    expect(weeklyTooltip).toContain('巨量分歧')
+    expect(weekly.series?.find(item => item.name === 'K 线')?.markPoint).toBeDefined()
   })
 
   it('keeps valuation price and fair-value series on a true time axis and derives all four bands from fair value', () => {

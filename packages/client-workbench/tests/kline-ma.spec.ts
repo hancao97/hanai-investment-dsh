@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { KLineBar } from '../../contracts/src/index.ts'
-import { buildKlineMaStudy, buildKlineSnapshot, movingAverage } from '../src/kline-ma.ts'
+import {
+  buildKlineMaStudy,
+  buildKlineSnapshot,
+  buildKlineTurningStudy,
+  movingAverage,
+} from '../src/kline-ma.ts'
 
 function bars(closes: number[]): KLineBar[] {
   return closes.map((close, index) => ({
@@ -47,5 +52,84 @@ describe('K-line moving averages', () => {
     })
     expect(latest).toMatchObject({ index: 11, bar: { date: '2026-01-12' } })
     expect(buildKlineSnapshot([], 'short')).toBeNull()
+  })
+
+  it('marks a close-confirmed post-rise huge-volume weak close without future bars', () => {
+    const source = Array.from({ length: 140 }, (_, index): KLineBar => {
+      const close = 10 * 1.01 ** index
+      return {
+        date: `2026-${String(Math.floor(index / 28) + 1).padStart(2, '0')}-${String(index % 28 + 1).padStart(2, '0')}`,
+        open: index === 139 ? close * 1.01 : close * 0.995,
+        close,
+        high: index === 139 ? close * 1.02 : close * 1.01,
+        low: close * 0.99,
+        volume: index === 139 ? 1_000 : 100,
+        amount: null,
+      }
+    })
+
+    const study = buildKlineTurningStudy(source)
+    expect(study.markers).toHaveLength(2)
+    expect(study.markers[0]).toMatchObject({
+      index: 139,
+      kind: 'post-rise-huge-volume',
+      label: '巨量分歧',
+      glyph: '分',
+      evidence: [{ rate: 67.4, sampleSize: 356 }],
+    })
+    expect(study.markers[1]).toMatchObject({
+      index: 139,
+      kind: 'post-rise-huge-volume-weak',
+      label: '巨量弱收',
+      glyph: '弱',
+      priorRise20Pct: expect.any(Number),
+      shapes: [],
+      evidence: [{ rate: 64.9, sampleSize: 222 }],
+    })
+    expect(buildKlineTurningStudy(source.slice(0, -1)).markers).toHaveLength(0)
+  })
+
+  it('marks deep-decline huge volume, shape evidence and a later MA5 reclaim', () => {
+    const source = Array.from({ length: 142 }, (_, index): KLineBar => {
+      const baseline = 100 - index * 0.6
+      const close = index === 140 ? 15 : index === 141 ? 20 : baseline
+      return {
+        date: `2026-${String(Math.floor(index / 28) + 1).padStart(2, '0')}-${String(index % 28 + 1).padStart(2, '0')}`,
+        open: index === 139 ? close - 0.6 : index === 141 ? 15.5 : close + 0.2,
+        close,
+        high: index === 139 ? close + 1.4 : index === 141 ? 20.5 : close + 0.8,
+        low: index === 139 ? close - 4.6 : index === 141 ? 15 : close - 0.8,
+        volume: index === 139 ? 1_000 : 100,
+        amount: null,
+      }
+    })
+
+    const study = buildKlineTurningStudy(source)
+    expect(study.markers.map(marker => marker.kind)).toEqual([
+      'deep-decline-huge-volume',
+      'deep-decline-huge-volume-strong',
+      'deep-decline-huge-volume-lower-shadow',
+      'deep-decline-reclaim-ma5',
+    ])
+    expect(study.byIndex[139]?.[0]).toMatchObject({
+      label: '深跌放量',
+      glyph: '深',
+      shapes: [],
+      evidence: [{ rate: 64, sampleSize: 125 }],
+    })
+    expect(study.byIndex[139]?.[1]).toMatchObject({
+      label: '深跌强收',
+      glyph: '强',
+      evidence: [{ rate: 68, sampleSize: 25, limited: true }],
+    })
+    expect(study.byIndex[139]?.[2]).toMatchObject({
+      label: '深跌长影',
+      glyph: '影',
+      evidence: [{ rate: 66.7, sampleSize: 18, limited: true }],
+    })
+    expect(study.byIndex[141]?.[0]).toMatchObject({
+      label: '放量回稳',
+      evidence: [{ rate: 63.1, sampleSize: 65 }],
+    })
   })
 })

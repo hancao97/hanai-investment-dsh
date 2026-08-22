@@ -6,6 +6,12 @@
 
 | 文档 | 内容 | 状态 |
 | --- | --- | --- |
+| [kline-turning-marker-product-decision-2026-08-22.md](kline-turning-marker-product-decision-2026-08-22.md) | 达到频率门槛的量价观察标记、精确触发规则、证据展示与统计边界 | 当前产品口径 |
+| [decline-quiet-doji-study-2026-08-22.md](decline-quiet-doji-study-2026-08-22.md) | 连续 3 跌 / 5 日 4 跌后的缩量十字星独立补测 | 已补测：不标记 |
+| [ma-volume-turning-point-study-2026-08-21.md](ma-volume-turning-point-study-2026-08-21.md) | MA5/10 与 MA20/60 量价变盘事件、历史条件频率、同日对照与非买卖点产品形态 | 当前建议 |
+| [ma-volume-special-turning-study-2026-08-21.md](ma-volume-special-turning-study-2026-08-21.md) | 缩量十字星回踩、深跌区巨量及后续均线确认的专项补测 | 已补测：未验证 |
+| [ma-volume-buy-sell-strategy-2026-08-21.md](ma-volume-buy-sell-strategy-2026-08-21.md) | 均线＋成交量买卖点锁参回测；保留为历史研究，不作为当前产品买卖点方案 | 历史研究 |
+| [kline-buy-sell-signal-design-2026-08-21.md](kline-buy-sell-signal-design-2026-08-21.md) | K 线买卖点产品调研与逐时点回放；保留为历史设计，当前不实现买卖点 | 历史研究 |
 | [product-capability-analysis-2026-08-17.md](product-capability-analysis-2026-08-17.md) | 参考产品/仓库解读、能力差距、目标产品形态与分阶段升级路线 | 建议方案 |
 | [architecture.md](architecture.md) | 已实现架构、插件装配、Agent/报告/续聊链路、数据模型和验收证据 | 已实现 |
 | [client-parity.md](client-parity.md) | 旧版客户端功能、页面位置、图表语义和逐项验收基线 | 已实现 |

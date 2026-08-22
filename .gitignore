@@ -4,6 +4,8 @@ coverage/
 .DS_Store
 *.tgz
 *.log
+__pycache__/
+*.py[cod]
 .env
 .env.*
 !.env.example

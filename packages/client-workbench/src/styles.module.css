@@ -461,20 +461,12 @@
 .klineMaLegend i { display: inline-block; width: 13px; height: 2px; border-radius: 999px; }
 .maFast { background: var(--gold); }
 .maSlow { background: #5b8def; }
+.klineMaLegend .klineSignalLegend { gap: 3px; margin-left: 3px; }
+.klineSignalLegend b { display: inline-grid; width: 17px; height: 17px; place-items: center; border: 1px solid currentColor; border-radius: 5px; font: 700 8px/1 ui-sans-serif, sans-serif; }
+.klineSignalLegend .signalRisk { color: var(--gold-strong); background: var(--gold-soft); }
+.klineSignalLegend .signalDeep { color: var(--up); background: var(--panel); }
+.klineSignalLegend .signalUp { color: #fff; border-color: var(--up); background: var(--up); }
 .klineMaLegend small { color: var(--faint); font-family: inherit; white-space: nowrap; }
-.klineInspector { display: grid; min-width: 0; grid-template-columns: repeat(5, minmax(0, 1fr)); border-bottom: 1px solid var(--border); background: var(--panel); }
-.klineInspectorDate,
-.klineInspectorMetric { display: flex; min-width: 0; min-height: 49px; justify-content: center; flex-direction: column; gap: 4px; padding: 7px 9px; border-right: 1px solid var(--border); }
-.klineInspector > :nth-child(-n + 5) { border-bottom: 1px solid var(--border); }
-.klineInspector > :nth-child(5n) { border-right: 0; }
-.klineInspector > :last-child { border-right: 0; }
-.klineInspectorDate { background: var(--panel-soft); }
-.klineInspectorDate > span,
-.klineInspectorMetric > span { display: flex; min-width: 0; align-items: center; gap: 4px; overflow: hidden; color: var(--faint); font-size: 8px; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
-.klineInspectorDate > b,
-.klineInspectorMetric > b { overflow: hidden; color: var(--text); font: 600 9px/1.25 ui-monospace, monospace; text-overflow: ellipsis; white-space: nowrap; }
-.klineInspectorDate > b { color: var(--gold-strong); font-size: 10px; }
-.klineInspectorMetric > span i { display: inline-block; width: 9px; height: 2px; flex: 0 0 auto; border-radius: 999px; }
 .priceChart { height: 380px; padding: 8px; position: relative; }
 .historyLoading { position: absolute; top: 12px; left: 14px; z-index: 3; display: inline-flex; min-height: 24px; align-items: center; gap: 7px; padding: 0 9px; border: 1px solid var(--control-border); border-radius: 999px; color: var(--muted); font-size: 9px; background: var(--panel); box-shadow: var(--control-shadow); pointer-events: none; }
 .historyLoading i { width: 10px; height: 10px; border: 1.5px solid var(--control-border); border-top-color: var(--gold); border-radius: 50%; animation: spin 800ms linear infinite; }
@@ -794,13 +786,6 @@
 @keyframes pulse { 50% { opacity: .25; } }
 @keyframes shimmer { to { background-position: -200% 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-@media (min-width: 1500px) {
-  .klineInspector { grid-template-columns: minmax(104px, 1.2fr) repeat(8, minmax(70px, 1fr)); }
-  .klineInspectorWithAmount { grid-template-columns: minmax(104px, 1.2fr) repeat(9, minmax(70px, 1fr)); }
-  .klineInspector > :nth-child(-n + 5) { border-bottom: 0; }
-  .klineInspector > :nth-child(5) { border-right: 1px solid var(--border); }
-}
 
 @media (max-width: 1350px) {
   .judgementGrid { grid-template-columns: repeat(2, 1fr); }

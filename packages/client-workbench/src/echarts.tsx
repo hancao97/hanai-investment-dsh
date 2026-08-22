@@ -32,6 +32,7 @@ function loadEChartsRuntime(): Promise<EChartsRuntime> {
       components.DataZoomComponent,
       components.AxisPointerComponent,
       components.MarkLineComponent,
+      components.MarkPointComponent,
       renderers.CanvasRenderer,
     ])
     return echarts
