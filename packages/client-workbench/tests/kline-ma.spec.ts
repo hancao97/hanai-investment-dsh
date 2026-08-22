@@ -4,6 +4,7 @@ import {
   buildKlineMaStudy,
   buildKlineSnapshot,
   buildKlineTurningStudy,
+  klineTurningEvidence,
   movingAverage,
 } from '../src/kline-ma.ts'
 
@@ -86,6 +87,21 @@ describe('K-line moving averages', () => {
       shapes: [],
       evidence: [{ rate: 64.9, sampleSize: 222 }],
     })
+    const baseMarker = study.markers[0]
+    expect(baseMarker).toBeDefined()
+    if (baseMarker === undefined) throw new Error('missing base marker')
+    expect(klineTurningEvidence(baseMarker, 'weekly')).toEqual([expect.objectContaining({
+      horizon: 2,
+      horizonUnit: '周',
+      rate: 58.75,
+      sampleSize: 160,
+    })])
+    expect(klineTurningEvidence(baseMarker, 'monthly')).toEqual([expect.objectContaining({
+      horizon: 1,
+      horizonUnit: '月',
+      rate: 50.94,
+      sampleSize: 53,
+    })])
     expect(buildKlineTurningStudy(source.slice(0, -1)).markers).toHaveLength(0)
   })
 

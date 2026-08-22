@@ -11,6 +11,7 @@ import {
   KLINE_TURNING_STUDY_CUTOFF,
   buildKlineMaStudy,
   buildKlineTurningStudy,
+  klineTurningEvidence,
   type KlineMaMode,
   type KlineTurningMarker,
 } from './kline-ma.ts'
@@ -410,26 +411,38 @@ function klineTooltip(
   const markers = markersByIndex[index] ?? []
   const markerRows = markers.map(marker => {
     const markerColor = marker.tone === 'risk' ? palette.gold : palette.up
-    const probability = period === 'daily' ? klineMarkerProbability(marker, palette) : ''
+    const probability = klineMarkerProbability(marker, period, palette)
     return `<div style="margin-top:8px;padding-top:8px;border-top:1px solid ${palette.tooltipBorder}"><div style="display:flex;align-items:center;gap:6px;color:${markerColor}"><b style="display:inline-grid;width:20px;height:20px;place-items:center;border:1px solid ${markerColor};border-radius:5px;font-size:10px">${marker.glyph}</b><strong>${escapeHtml(marker.label)}</strong></div><div style="margin-top:5px;color:${palette.legendText};font-size:11px;line-height:1.55;white-space:normal;overflow-wrap:anywhere;word-break:break-word">${escapeHtml(marker.description)}</div>${probability}</div>`
   }).join('')
   const evidenceFoot = markers.length === 0
     ? ''
-    : period === 'daily'
-      ? `<div style="margin-top:7px;color:${palette.axisLabel};font-size:9px">日线样本截至 ${KLINE_TURNING_STUDY_CUTOFF} · 历史条件频率，不是预测</div>`
-      : `<div style="margin-top:7px;padding-top:7px;border-top:1px solid ${palette.tooltipBorder};color:${palette.axisLabel};font-size:10px;line-height:1.5">${KLINE_PERIOD_LABEL[period]} 标记按当前周期形态计算；该周期暂无独立回测，未外推日线概率。</div>`
+    : `<div style="margin-top:7px;color:${palette.axisLabel};font-size:9px">${KLINE_PERIOD_LABEL[period]} 独立样本截至 ${KLINE_TURNING_STUDY_CUTOFF} · 历史条件频率，不是预测</div>`
   return `<div style="box-sizing:border-box;width:330px;max-width:calc(100vw - 32px);white-space:normal;overflow-wrap:anywhere"><div style="display:flex;align-items:center;justify-content:space-between;gap:16px"><b style="font-size:13px">${escapeHtml(bar.date)}</b><span style="color:${palette.axisLabel};font-size:10px">${KLINE_PERIOD_LABEL[period]} · 收盘确认</span></div><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:9px">${metrics}</div><div style="margin-top:8px;color:${palette.legendText};font-size:11px">涨跌 <b style="color:${changeColor}">${fmtPct(changePct)}</b> · 成交量 <b>${fmtHands(bar.volume)}</b>${amount}</div><div style="margin-top:5px;color:${palette.legendText};font-size:11px"><span style="color:${palette.gold}">●</span> MA${fastPeriod} <b>${fmtNum(fastAverage[index])}</b> 元&nbsp;&nbsp;<span style="color:${palette.averageBlue}">●</span> MA${slowPeriod} <b>${fmtNum(slowAverage[index])}</b> 元</div>${markerRows}${evidenceFoot}</div>`
 }
 
-function klineMarkerProbability(marker: KlineTurningMarker, palette: ChartPalette): string {
-  return marker.evidence.map((evidence) => {
+function klineMarkerProbability(
+  marker: KlineTurningMarker,
+  period: KLinePeriod,
+  palette: ChartPalette,
+): string {
+  return klineTurningEvidence(marker, period).map((evidence) => {
     const upRate = evidence.outcome === '上涨' ? evidence.rate : 100 - evidence.rate
     const weakRate = 100 - upRate
     const likelyUp = upRate >= weakRate
     const likelyLabel = likelyUp ? '上涨' : '走弱'
-    const likelyColor = likelyUp ? palette.up : palette.down
-    const limited = evidence.limited ? ' · 样本较少' : ''
-    return `<div style="margin-top:6px;padding:6px 8px;border-radius:6px;background:${palette.splitLine}"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px"><span style="color:${palette.axisLabel}">日线历史 · 未来 ${evidence.horizon} 日</span><strong style="color:${likelyColor}">更常见：${likelyLabel}</strong></div><div style="margin-top:4px;font-size:11px"><b style="color:${palette.up}">上涨 ${upRate.toFixed(1)}%</b><span style="color:${palette.axisLabel}"> · </span><b style="color:${palette.down}">走弱 ${weakRate.toFixed(1)}%</b><span style="color:${palette.axisLabel}"> · ${evidence.sampleSize} 例${limited}</span></div></div>`
+    const unstable = evidence.sampleSize < 10
+    const balanced = Math.abs(upRate - weakRate) < 5
+    const direction = unstable
+      ? '样本极少，方向不稳定'
+      : balanced ? '方向接近均衡' : `更常见：${likelyLabel}`
+    const likelyColor = unstable || balanced
+      ? palette.axisLabel
+      : likelyUp ? palette.up : palette.down
+    const limited = evidence.sampleSize < 10
+      ? ' · 样本极少'
+      : evidence.limited || evidence.sampleSize < 30 ? ' · 样本较少' : ''
+    const historyLabel = period === 'daily' ? '日线历史' : `${KLINE_PERIOD_LABEL[period]} 历史`
+    return `<div style="margin-top:6px;padding:6px 8px;border-radius:6px;background:${palette.splitLine}"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px"><span style="color:${palette.axisLabel}">${historyLabel} · 未来 ${evidence.horizon} ${evidence.horizonUnit}</span><strong style="color:${likelyColor}">${direction}</strong></div><div style="margin-top:4px;font-size:11px"><b style="color:${palette.up}">上涨 ${upRate.toFixed(1)}%</b><span style="color:${palette.axisLabel}"> · </span><b style="color:${palette.down}">走弱 ${weakRate.toFixed(1)}%</b><span style="color:${palette.axisLabel}"> · ${evidence.sampleSize} 例${limited}</span></div></div>`
   }).join('')
 }
 

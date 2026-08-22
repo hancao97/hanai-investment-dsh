@@ -1,4 +1,4 @@
-import type { KLineBar } from '../../contracts/src/index.ts'
+import type { KLineBar, KLinePeriod } from '../../contracts/src/index.ts'
 
 export type KlineMaMode = 'short' | 'medium'
 export type KlineMaPeriod = 5 | 10 | 20 | 60
@@ -21,7 +21,8 @@ export type KlineTurningMarkerKind =
 export interface KlineTurningEvidence {
   label: string
   outcome: '上涨' | '走弱' | '下跌'
-  horizon: 10 | 20
+  horizon: number
+  horizonUnit: '交易日' | '周' | '月'
   rate: number
   sampleSize: number
   averageReturnPct: number
@@ -77,6 +78,7 @@ const POST_RISE_EVIDENCE: KlineTurningEvidence = {
   label: '上涨后巨量',
   outcome: '走弱',
   horizon: 10,
+  horizonUnit: '交易日',
   rate: 67.4,
   sampleSize: 356,
   averageReturnPct: -1.54,
@@ -86,6 +88,7 @@ const POST_RISE_WEAK_EVIDENCE: KlineTurningEvidence = {
   label: '巨量且弱收',
   outcome: '下跌',
   horizon: 10,
+  horizonUnit: '交易日',
   rate: 64.9,
   sampleSize: 222,
   averageReturnPct: -1.32,
@@ -95,6 +98,7 @@ const DEEP_VOLUME_EVIDENCE: KlineTurningEvidence = {
   label: '深跌区巨量',
   outcome: '上涨',
   horizon: 20,
+  horizonUnit: '交易日',
   rate: 64,
   sampleSize: 125,
   averageReturnPct: 5.13,
@@ -104,6 +108,7 @@ const DEEP_STRONG_EVIDENCE: KlineTurningEvidence = {
   label: '强收盘',
   outcome: '上涨',
   horizon: 20,
+  horizonUnit: '交易日',
   rate: 68,
   sampleSize: 25,
   averageReturnPct: 8.73,
@@ -114,6 +119,7 @@ const DEEP_LOWER_SHADOW_EVIDENCE: KlineTurningEvidence = {
   label: '长下影',
   outcome: '上涨',
   horizon: 20,
+  horizonUnit: '交易日',
   rate: 66.7,
   sampleSize: 18,
   averageReturnPct: -0.03,
@@ -124,9 +130,73 @@ const DEEP_RECLAIM_EVIDENCE: KlineTurningEvidence = {
   label: '深跌巨量后站回 MA5',
   outcome: '上涨',
   horizon: 10,
+  horizonUnit: '交易日',
   rate: 63.1,
   sampleSize: 65,
   averageReturnPct: 2.77,
+}
+
+const WEEKLY_EVIDENCE: Record<KlineTurningMarkerKind, KlineTurningEvidence> = {
+  'post-rise-huge-volume': {
+    label: '上涨后巨量', outcome: '走弱', horizon: 2, horizonUnit: '周',
+    rate: 58.75, sampleSize: 160, averageReturnPct: -0.32,
+  },
+  'post-rise-huge-volume-weak': {
+    label: '巨量且弱收', outcome: '上涨', horizon: 2, horizonUnit: '周',
+    rate: 53, sampleSize: 100, averageReturnPct: 0.84,
+  },
+  'deep-decline-huge-volume': {
+    label: '深跌区巨量', outcome: '走弱', horizon: 4, horizonUnit: '周',
+    rate: 52.44, sampleSize: 82, averageReturnPct: -0.25,
+  },
+  'deep-decline-huge-volume-strong': {
+    label: '强收盘', outcome: '上涨', horizon: 4, horizonUnit: '周',
+    rate: 50, sampleSize: 28, averageReturnPct: -0.84, limited: true,
+  },
+  'deep-decline-huge-volume-lower-shadow': {
+    label: '长下影', outcome: '走弱', horizon: 4, horizonUnit: '周',
+    rate: 55.56, sampleSize: 9, averageReturnPct: -0.43, limited: true,
+  },
+  'deep-decline-reclaim-ma5': {
+    label: '深跌巨量后站回 MA5', outcome: '走弱', horizon: 2, horizonUnit: '周',
+    rate: 62.86, sampleSize: 35, averageReturnPct: 0.99,
+  },
+}
+
+const MONTHLY_EVIDENCE: Record<KlineTurningMarkerKind, KlineTurningEvidence> = {
+  'post-rise-huge-volume': {
+    label: '上涨后巨量', outcome: '走弱', horizon: 1, horizonUnit: '月',
+    rate: 50.94, sampleSize: 53, averageReturnPct: 1.76,
+  },
+  'post-rise-huge-volume-weak': {
+    label: '巨量且弱收', outcome: '走弱', horizon: 1, horizonUnit: '月',
+    rate: 55.88, sampleSize: 34, averageReturnPct: -0.30,
+  },
+  'deep-decline-huge-volume': {
+    label: '深跌区巨量', outcome: '走弱', horizon: 2, horizonUnit: '月',
+    rate: 56.25, sampleSize: 16, averageReturnPct: 0.08, limited: true,
+  },
+  'deep-decline-huge-volume-strong': {
+    label: '强收盘', outcome: '上涨', horizon: 2, horizonUnit: '月',
+    rate: 66.67, sampleSize: 3, averageReturnPct: 3.57, limited: true,
+  },
+  'deep-decline-huge-volume-lower-shadow': {
+    label: '长下影', outcome: '走弱', horizon: 2, horizonUnit: '月',
+    rate: 100, sampleSize: 1, averageReturnPct: -2.89, limited: true,
+  },
+  'deep-decline-reclaim-ma5': {
+    label: '深跌巨量后站回 MA5', outcome: '走弱', horizon: 1, horizonUnit: '月',
+    rate: 75, sampleSize: 8, averageReturnPct: -6.25, limited: true,
+  },
+}
+
+/** Returns independently measured historical evidence for the active K-line period. */
+export function klineTurningEvidence(
+  marker: KlineTurningMarker,
+  period: KLinePeriod,
+): KlineTurningEvidence[] {
+  if (period === 'daily') return marker.evidence
+  return [period === 'weekly' ? WEEKLY_EVIDENCE[marker.kind] : MONTHLY_EVIDENCE[marker.kind]]
 }
 
 /** Builds close-price moving averages without deriving trading signals. */
@@ -141,13 +211,9 @@ export function buildKlineMaStudy(bars: KLineBar[], mode: KlineMaMode): KlineMaS
   }
 }
 
-/**
- * Builds close-confirmed observation markers from the current K-line period.
- * These are historical-observation markers, not buy/sell instructions.
- */
-export function buildKlineTurningStudy(bars: KLineBar[]): KlineTurningStudy {
-  const byIndex = bars.map((): KlineTurningMarker[] => [])
-  if (bars.length === 0) return { markers: [], byIndex }
+/** Builds every close-confirmed candidate before product display cooldowns. */
+export function buildKlineTurningCandidates(bars: KLineBar[]): KlineTurningMarker[] {
+  if (bars.length === 0) return []
 
   const closes = bars.map(bar => bar.close)
   const volumes = bars.map(bar => bar.volume)
@@ -157,14 +223,7 @@ export function buildKlineTurningStudy(bars: KLineBar[]): KlineTurningStudy {
   const vma20 = movingAverage(volumes, 20)
   const deepSetups = bars.map(() => false)
   const markers: KlineTurningMarker[] = []
-  let lastPostRise = -100_000
-  let lastDeep = -100_000
-  let lastReclaim = -100_000
-
-  const add = (marker: KlineTurningMarker) => {
-    markers.push(marker)
-    byIndex[marker.index]?.push(marker)
-  }
+  const add = (marker: KlineTurningMarker) => markers.push(marker)
 
   for (let index = TURNING_STUDY_WARMUP_BARS; index < bars.length; index += 1) {
     const bar = bars[index]
@@ -199,7 +258,7 @@ export function buildKlineTurningStudy(bars: KLineBar[]): KlineTurningStudy {
       && priorRise20 >= 0.15
       && previous.close > previousFast5
       && volumeRatio >= 2.50
-    if (postRiseHuge && index - lastPostRise > 10) {
+    if (postRiseHuge) {
       add({
         index,
         date: bar.date,
@@ -230,7 +289,6 @@ export function buildKlineTurningStudy(bars: KLineBar[]): KlineTurningStudy {
         shapes: [],
         evidence: [POST_RISE_WEAK_EVIDENCE],
       })
-      lastPostRise = index
     }
 
     const priorHigh60 = Math.max(...bars.slice(index - 60, index).map(item => item.high))
@@ -245,7 +303,7 @@ export function buildKlineTurningStudy(bars: KLineBar[]): KlineTurningStudy {
       && bar.close <= average20
     const deepHuge = deepBase && volumeRatio >= 2.50
     deepSetups[index] = deepHuge
-    if (deepHuge && index - lastDeep > 20) {
+    if (deepHuge) {
       add({
         index,
         date: bar.date,
@@ -291,7 +349,6 @@ export function buildKlineTurningStudy(bars: KLineBar[]): KlineTurningStudy {
         shapes: [],
         evidence: [DEEP_LOWER_SHADOW_EVIDENCE],
       })
-      lastDeep = index
     }
 
     const recentDeepHuge = deepSetups.slice(Math.max(0, index - 5), index).some(Boolean)
@@ -300,7 +357,7 @@ export function buildKlineTurningStudy(bars: KLineBar[]): KlineTurningStudy {
       && bar.close > fast5
       && bar.close > bar.open
       && location >= 0.65
-    if (reclaimMa5 && index - lastReclaim > 10) {
+    if (reclaimMa5) {
       add({
         index,
         date: bar.date,
@@ -316,8 +373,57 @@ export function buildKlineTurningStudy(bars: KLineBar[]): KlineTurningStudy {
         shapes: [],
         evidence: [DEEP_RECLAIM_EVIDENCE],
       })
-      lastReclaim = index
     }
+  }
+
+  return markers
+}
+
+/**
+ * Builds close-confirmed observation markers from the current K-line period.
+ * These are historical-observation markers, not buy/sell instructions.
+ */
+export function buildKlineTurningStudy(bars: KLineBar[]): KlineTurningStudy {
+  const byIndex = bars.map((): KlineTurningMarker[] => [])
+  const candidates = buildKlineTurningCandidates(bars)
+  const markers: KlineTurningMarker[] = []
+  let lastPostRise = -100_000
+  let lastDeep = -100_000
+  let lastReclaim = -100_000
+  const selectedPostRise = new Set<number>()
+  const selectedDeep = new Set<number>()
+
+  const add = (marker: KlineTurningMarker) => {
+    markers.push(marker)
+    byIndex[marker.index]?.push(marker)
+  }
+  for (const marker of candidates) {
+    if (marker.kind === 'post-rise-huge-volume') {
+      if (marker.index - lastPostRise <= 10) continue
+      add(marker)
+      selectedPostRise.add(marker.index)
+      lastPostRise = marker.index
+      continue
+    }
+    if (marker.kind === 'post-rise-huge-volume-weak') {
+      if (selectedPostRise.has(marker.index)) add(marker)
+      continue
+    }
+    if (marker.kind === 'deep-decline-huge-volume') {
+      if (marker.index - lastDeep <= 20) continue
+      add(marker)
+      selectedDeep.add(marker.index)
+      lastDeep = marker.index
+      continue
+    }
+    if (marker.kind === 'deep-decline-huge-volume-strong'
+      || marker.kind === 'deep-decline-huge-volume-lower-shadow') {
+      if (selectedDeep.has(marker.index)) add(marker)
+      continue
+    }
+    if (marker.index - lastReclaim <= 10) continue
+    add(marker)
+    lastReclaim = marker.index
   }
 
   return { markers, byIndex }

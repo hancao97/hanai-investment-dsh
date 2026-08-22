@@ -1,0 +1,1355 @@
+{
+  "metadata": {
+    "generated_at": "2026-08-22T14:03:18.808Z",
+    "purpose": "period-specific historical outcome frequencies for frozen K-line observation markers",
+    "provider": "BaoStock",
+    "adjustment": "front-adjusted (adjustflag=2)",
+    "source_frequency": "daily",
+    "requested_start": "2014-01-01",
+    "requested_end": "2026-08-20",
+    "outcome_clock": "signal confirmed at period close; outcome starts at next period open and ends at the close of the configured future period",
+    "period_horizon_mapping": {
+      "daily": "10/20 trading days",
+      "weekly": "2/4 weeks (approximately 10/20 trading days)",
+      "monthly": "1/2 months (nearest completed-bar approximation to 10/20 trading days)"
+    },
+    "population": "post-rise markers use the disjoint 2024-2026 annual point-in-time and adverse cohorts; deep-decline markers additionally include the fixed 2015 development and 2021 validation cohorts",
+    "event_deduplication": "each marker condition is independently deduplicated per symbol and source segment; 10-period cooldown for post-rise/reclaim markers and 20-period cooldown for deep-decline markers",
+    "product_rule_source": "packages/client-workbench/src/kline-ma.ts",
+    "script_sha256": "afd1b27bc82a5bb550596d18ce307fceff9df4a3331d3e2b99879e83a0775685",
+    "baseline_sha256": "d0b2733117e857fadcb6860bc596f0dcd01dfa44dcd1024b3f06ad81f3775c91",
+    "limitations": [
+      "Weekly and monthly bars are aggregated from front-adjusted daily OHLCV and may differ slightly from a vendor native period series.",
+      "Monthly samples are structurally smaller because the product requires 121 completed bars before showing markers.",
+      "The daily row is a reproducibility cross-check; existing product daily evidence remains tied to its previously frozen studies.",
+      "Historical conditional frequencies are descriptive and cannot guarantee future direction or magnitude."
+    ]
+  },
+  "source_validation": {
+    "symbols": 249,
+    "rows": 694003,
+    "manifest_mismatches": []
+  },
+  "study": {
+    "daily": {
+      "label": "日 K",
+      "aggregation": "source daily bars",
+      "events": {
+        "post-rise-huge-volume": {
+          "label": "巨量分歧",
+          "segments": {
+            "development": {
+              "horizon": 10,
+              "horizon_unit": "交易日",
+              "events": 136,
+              "symbols": 36,
+              "up_rate_pct": 50,
+              "weak_rate_pct": 50,
+              "up_rate_wilson_95_pct": [
+                41.71,
+                58.29
+              ],
+              "mean_return_pct": 0.26,
+              "median_return_pct": 0.08
+            },
+            "validation": {
+              "horizon": 10,
+              "horizon_unit": "交易日",
+              "events": 56,
+              "symbols": 26,
+              "up_rate_pct": 35.71,
+              "weak_rate_pct": 64.29,
+              "up_rate_wilson_95_pct": [
+                24.46,
+                48.81
+              ],
+              "mean_return_pct": -1.77,
+              "median_return_pct": -3.24
+            },
+            "recent_point_in_time": {
+              "horizon": 10,
+              "horizon_unit": "交易日",
+              "events": 74,
+              "symbols": 58,
+              "up_rate_pct": 28.38,
+              "weak_rate_pct": 71.62,
+              "up_rate_wilson_95_pct": [
+                19.37,
+                39.52
+              ],
+              "mean_return_pct": -1.46,
+              "median_return_pct": -4.15
+            },
+            "adverse_confirmation": {
+              "horizon": 10,
+              "horizon_unit": "交易日",
+              "events": 282,
+              "symbols": 119,
+              "up_rate_pct": 33.69,
+              "weak_rate_pct": 66.31,
+              "up_rate_wilson_95_pct": [
+                28.42,
+                39.39
+              ],
+              "mean_return_pct": -1.57,
+              "median_return_pct": -4.06
+            },
+            "product_evidence": {
+              "horizon": 10,
+              "horizon_unit": "交易日",
+              "events": 356,
+              "symbols": 177,
+              "up_rate_pct": 32.58,
+              "weak_rate_pct": 67.42,
+              "up_rate_wilson_95_pct": [
+                27.92,
+                37.62
+              ],
+              "mean_return_pct": -1.54,
+              "median_return_pct": -4.06
+            }
+          }
+        },
+        "post-rise-huge-volume-weak": {
+          "label": "巨量弱收",
+          "segments": {
+            "development": {
+              "horizon": 10,
+              "horizon_unit": "交易日",
+              "events": 78,
+              "symbols": 35,
+              "up_rate_pct": 37.18,
+              "weak_rate_pct": 62.82,
+              "up_rate_wilson_95_pct": [
+                27.29,
+                48.27
+              ],
+              "mean_return_pct": -0.51,
+              "median_return_pct": -2.11
+            },
+            "validation": {
+              "horizon": 10,
+              "horizon_unit": "交易日",
+              "events": 33,
+              "symbols": 18,
+              "up_rate_pct": 42.42,
+              "weak_rate_pct": 57.58,
+              "up_rate_wilson_95_pct": [
+                27.24,
+                59.19
+              ],
+              "mean_return_pct": -0.79,
+              "median_return_pct": -2.24
+            },
+            "recent_point_in_time": {
+              "horizon": 10,
+              "horizon_unit": "交易日",
+              "events": 44,
+              "symbols": 38,
+              "up_rate_pct": 34.09,
+              "weak_rate_pct": 65.91,
+              "up_rate_wilson_95_pct": [
+                21.88,
+                48.86
+              ],
+              "mean_return_pct": -2.15,
+              "median_return_pct": -2.74
+            },
+            "adverse_confirmation": {
+              "horizon": 10,
+              "horizon_unit": "交易日",
+              "events": 178,
+              "symbols": 97,
+              "up_rate_pct": 34.27,
+              "weak_rate_pct": 65.73,
+              "up_rate_wilson_95_pct": [
+                27.7,
+                41.51
+              ],
+              "mean_return_pct": -1.12,
+              "median_return_pct": -3.6
+            },
+            "product_evidence": {
+              "horizon": 10,
+              "horizon_unit": "交易日",
+              "events": 222,
+              "symbols": 135,
+              "up_rate_pct": 34.23,
+              "weak_rate_pct": 65.77,
+              "up_rate_wilson_95_pct": [
+                28.31,
+                40.7
+              ],
+              "mean_return_pct": -1.32,
+              "median_return_pct": -3.45
+            }
+          }
+        },
+        "deep-decline-huge-volume": {
+          "label": "深跌放量",
+          "segments": {
+            "development": {
+              "horizon": 20,
+              "horizon_unit": "交易日",
+              "events": 54,
+              "symbols": 30,
+              "up_rate_pct": 68.52,
+              "weak_rate_pct": 31.48,
+              "up_rate_wilson_95_pct": [
+                55.26,
+                79.32
+              ],
+              "mean_return_pct": 5.24,
+              "median_return_pct": 4.27
+            },
+            "validation": {
+              "horizon": 20,
+              "horizon_unit": "交易日",
+              "events": 20,
+              "symbols": 15,
+              "up_rate_pct": 60,
+              "weak_rate_pct": 40,
+              "up_rate_wilson_95_pct": [
+                38.66,
+                78.12
+              ],
+              "mean_return_pct": 6.3,
+              "median_return_pct": 5.11
+            },
+            "recent_point_in_time": {
+              "horizon": 20,
+              "horizon_unit": "交易日",
+              "events": 17,
+              "symbols": 15,
+              "up_rate_pct": 64.71,
+              "weak_rate_pct": 35.29,
+              "up_rate_wilson_95_pct": [
+                41.3,
+                82.69
+              ],
+              "mean_return_pct": 3.82,
+              "median_return_pct": 3.01
+            },
+            "adverse_confirmation": {
+              "horizon": 20,
+              "horizon_unit": "交易日",
+              "events": 34,
+              "symbols": 26,
+              "up_rate_pct": 58.82,
+              "weak_rate_pct": 41.18,
+              "up_rate_wilson_95_pct": [
+                42.22,
+                73.63
+              ],
+              "mean_return_pct": 4.91,
+              "median_return_pct": 4.27
+            },
+            "product_evidence": {
+              "horizon": 20,
+              "horizon_unit": "交易日",
+              "events": 125,
+              "symbols": 76,
+              "up_rate_pct": 64,
+              "weak_rate_pct": 36,
+              "up_rate_wilson_95_pct": [
+                55.28,
+                71.88
+              ],
+              "mean_return_pct": 5.13,
+              "median_return_pct": 4.02
+            }
+          }
+        },
+        "deep-decline-huge-volume-strong": {
+          "label": "深跌强收",
+          "segments": {
+            "development": {
+              "horizon": 20,
+              "horizon_unit": "交易日",
+              "events": 15,
+              "symbols": 15,
+              "up_rate_pct": 80,
+              "weak_rate_pct": 20,
+              "up_rate_wilson_95_pct": [
+                54.81,
+                92.95
+              ],
+              "mean_return_pct": 7.74,
+              "median_return_pct": 3.13
+            },
+            "validation": {
+              "horizon": 20,
+              "horizon_unit": "交易日",
+              "events": 2,
+              "symbols": 2,
+              "up_rate_pct": 50,
+              "weak_rate_pct": 50,
+              "up_rate_wilson_95_pct": [
+                9.45,
+                90.55
+              ],
+              "mean_return_pct": 7.06,
+              "median_return_pct": 7.06
+            },
+            "recent_point_in_time": {
+              "horizon": 20,
+              "horizon_unit": "交易日",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "adverse_confirmation": {
+              "horizon": 20,
+              "horizon_unit": "交易日",
+              "events": 8,
+              "symbols": 8,
+              "up_rate_pct": 50,
+              "weak_rate_pct": 50,
+              "up_rate_wilson_95_pct": [
+                21.52,
+                78.48
+              ],
+              "mean_return_pct": 10.99,
+              "median_return_pct": 1.92
+            },
+            "product_evidence": {
+              "horizon": 20,
+              "horizon_unit": "交易日",
+              "events": 25,
+              "symbols": 23,
+              "up_rate_pct": 68,
+              "weak_rate_pct": 32,
+              "up_rate_wilson_95_pct": [
+                48.41,
+                82.79
+              ],
+              "mean_return_pct": 8.73,
+              "median_return_pct": 3.13
+            }
+          }
+        },
+        "deep-decline-huge-volume-lower-shadow": {
+          "label": "深跌长影",
+          "segments": {
+            "development": {
+              "horizon": 20,
+              "horizon_unit": "交易日",
+              "events": 10,
+              "symbols": 10,
+              "up_rate_pct": 80,
+              "weak_rate_pct": 20,
+              "up_rate_wilson_95_pct": [
+                49.02,
+                94.33
+              ],
+              "mean_return_pct": 1.68,
+              "median_return_pct": 2.36
+            },
+            "validation": {
+              "horizon": 20,
+              "horizon_unit": "交易日",
+              "events": 2,
+              "symbols": 2,
+              "up_rate_pct": 50,
+              "weak_rate_pct": 50,
+              "up_rate_wilson_95_pct": [
+                9.45,
+                90.55
+              ],
+              "mean_return_pct": 0.66,
+              "median_return_pct": 0.66
+            },
+            "recent_point_in_time": {
+              "horizon": 20,
+              "horizon_unit": "交易日",
+              "events": 1,
+              "symbols": 1,
+              "up_rate_pct": 100,
+              "weak_rate_pct": 0,
+              "up_rate_wilson_95_pct": [
+                20.65,
+                100
+              ],
+              "mean_return_pct": 5.71,
+              "median_return_pct": 5.71
+            },
+            "adverse_confirmation": {
+              "horizon": 20,
+              "horizon_unit": "交易日",
+              "events": 5,
+              "symbols": 5,
+              "up_rate_pct": 40,
+              "weak_rate_pct": 60,
+              "up_rate_wilson_95_pct": [
+                11.76,
+                76.93
+              ],
+              "mean_return_pct": -4.87,
+              "median_return_pct": -12.69
+            },
+            "product_evidence": {
+              "horizon": 20,
+              "horizon_unit": "交易日",
+              "events": 18,
+              "symbols": 17,
+              "up_rate_pct": 66.67,
+              "weak_rate_pct": 33.33,
+              "up_rate_wilson_95_pct": [
+                43.75,
+                83.72
+              ],
+              "mean_return_pct": -0.03,
+              "median_return_pct": 2.36
+            }
+          }
+        },
+        "deep-decline-reclaim-ma5": {
+          "label": "放量回稳",
+          "segments": {
+            "development": {
+              "horizon": 10,
+              "horizon_unit": "交易日",
+              "events": 28,
+              "symbols": 18,
+              "up_rate_pct": 67.86,
+              "weak_rate_pct": 32.14,
+              "up_rate_wilson_95_pct": [
+                49.34,
+                82.07
+              ],
+              "mean_return_pct": 3.87,
+              "median_return_pct": 5.14
+            },
+            "validation": {
+              "horizon": 10,
+              "horizon_unit": "交易日",
+              "events": 8,
+              "symbols": 7,
+              "up_rate_pct": 62.5,
+              "weak_rate_pct": 37.5,
+              "up_rate_wilson_95_pct": [
+                30.57,
+                86.32
+              ],
+              "mean_return_pct": 6.36,
+              "median_return_pct": 1.88
+            },
+            "recent_point_in_time": {
+              "horizon": 10,
+              "horizon_unit": "交易日",
+              "events": 7,
+              "symbols": 7,
+              "up_rate_pct": 57.14,
+              "weak_rate_pct": 42.86,
+              "up_rate_wilson_95_pct": [
+                25.05,
+                84.18
+              ],
+              "mean_return_pct": 2.56,
+              "median_return_pct": 3.87
+            },
+            "adverse_confirmation": {
+              "horizon": 10,
+              "horizon_unit": "交易日",
+              "events": 22,
+              "symbols": 20,
+              "up_rate_pct": 59.09,
+              "weak_rate_pct": 40.91,
+              "up_rate_wilson_95_pct": [
+                38.73,
+                76.74
+              ],
+              "mean_return_pct": 0.13,
+              "median_return_pct": 1.89
+            },
+            "product_evidence": {
+              "horizon": 10,
+              "horizon_unit": "交易日",
+              "events": 65,
+              "symbols": 47,
+              "up_rate_pct": 63.08,
+              "weak_rate_pct": 36.92,
+              "up_rate_wilson_95_pct": [
+                50.92,
+                73.77
+              ],
+              "mean_return_pct": 2.77,
+              "median_return_pct": 3.42
+            }
+          }
+        }
+      }
+    },
+    "weekly": {
+      "label": "周 K",
+      "aggregation": "weekly OHLCV aggregated from source daily bars",
+      "events": {
+        "post-rise-huge-volume": {
+          "label": "巨量分歧",
+          "segments": {
+            "development": {
+              "horizon": 2,
+              "horizon_unit": "周",
+              "events": 61,
+              "symbols": 34,
+              "up_rate_pct": 36.07,
+              "weak_rate_pct": 63.93,
+              "up_rate_wilson_95_pct": [
+                25.17,
+                48.61
+              ],
+              "mean_return_pct": -1.92,
+              "median_return_pct": -2.11
+            },
+            "validation": {
+              "horizon": 2,
+              "horizon_unit": "周",
+              "events": 27,
+              "symbols": 21,
+              "up_rate_pct": 25.93,
+              "weak_rate_pct": 74.07,
+              "up_rate_wilson_95_pct": [
+                13.17,
+                44.68
+              ],
+              "mean_return_pct": -3.38,
+              "median_return_pct": -5.36
+            },
+            "recent_point_in_time": {
+              "horizon": 2,
+              "horizon_unit": "周",
+              "events": 33,
+              "symbols": 32,
+              "up_rate_pct": 30.3,
+              "weak_rate_pct": 69.7,
+              "up_rate_wilson_95_pct": [
+                17.38,
+                47.34
+              ],
+              "mean_return_pct": -1.41,
+              "median_return_pct": -3.47
+            },
+            "adverse_confirmation": {
+              "horizon": 2,
+              "horizon_unit": "周",
+              "events": 127,
+              "symbols": 85,
+              "up_rate_pct": 44.09,
+              "weak_rate_pct": 55.91,
+              "up_rate_wilson_95_pct": [
+                35.76,
+                52.78
+              ],
+              "mean_return_pct": -0.03,
+              "median_return_pct": -2.05
+            },
+            "product_evidence": {
+              "horizon": 2,
+              "horizon_unit": "周",
+              "events": 160,
+              "symbols": 117,
+              "up_rate_pct": 41.25,
+              "weak_rate_pct": 58.75,
+              "up_rate_wilson_95_pct": [
+                33.91,
+                49
+              ],
+              "mean_return_pct": -0.32,
+              "median_return_pct": -2.53
+            }
+          }
+        },
+        "post-rise-huge-volume-weak": {
+          "label": "巨量弱收",
+          "segments": {
+            "development": {
+              "horizon": 2,
+              "horizon_unit": "周",
+              "events": 33,
+              "symbols": 25,
+              "up_rate_pct": 33.33,
+              "weak_rate_pct": 66.67,
+              "up_rate_wilson_95_pct": [
+                19.75,
+                50.39
+              ],
+              "mean_return_pct": 0.58,
+              "median_return_pct": -3.45
+            },
+            "validation": {
+              "horizon": 2,
+              "horizon_unit": "周",
+              "events": 16,
+              "symbols": 12,
+              "up_rate_pct": 37.5,
+              "weak_rate_pct": 62.5,
+              "up_rate_wilson_95_pct": [
+                18.48,
+                61.36
+              ],
+              "mean_return_pct": 2.12,
+              "median_return_pct": -0.98
+            },
+            "recent_point_in_time": {
+              "horizon": 2,
+              "horizon_unit": "周",
+              "events": 19,
+              "symbols": 19,
+              "up_rate_pct": 42.11,
+              "weak_rate_pct": 57.89,
+              "up_rate_wilson_95_pct": [
+                23.14,
+                63.72
+              ],
+              "mean_return_pct": 1.53,
+              "median_return_pct": -1.78
+            },
+            "adverse_confirmation": {
+              "horizon": 2,
+              "horizon_unit": "周",
+              "events": 81,
+              "symbols": 61,
+              "up_rate_pct": 55.56,
+              "weak_rate_pct": 44.44,
+              "up_rate_wilson_95_pct": [
+                44.73,
+                65.88
+              ],
+              "mean_return_pct": 0.68,
+              "median_return_pct": 0.77
+            },
+            "product_evidence": {
+              "horizon": 2,
+              "horizon_unit": "周",
+              "events": 100,
+              "symbols": 80,
+              "up_rate_pct": 53,
+              "weak_rate_pct": 47,
+              "up_rate_wilson_95_pct": [
+                43.29,
+                62.49
+              ],
+              "mean_return_pct": 0.84,
+              "median_return_pct": 0.53
+            }
+          }
+        },
+        "deep-decline-huge-volume": {
+          "label": "深跌放量",
+          "segments": {
+            "development": {
+              "horizon": 4,
+              "horizon_unit": "周",
+              "events": 37,
+              "symbols": 23,
+              "up_rate_pct": 48.65,
+              "weak_rate_pct": 51.35,
+              "up_rate_wilson_95_pct": [
+                33.45,
+                64.11
+              ],
+              "mean_return_pct": 1.14,
+              "median_return_pct": 0
+            },
+            "validation": {
+              "horizon": 4,
+              "horizon_unit": "周",
+              "events": 7,
+              "symbols": 6,
+              "up_rate_pct": 14.29,
+              "weak_rate_pct": 85.71,
+              "up_rate_wilson_95_pct": [
+                2.57,
+                51.31
+              ],
+              "mean_return_pct": -4.21,
+              "median_return_pct": -5.89
+            },
+            "recent_point_in_time": {
+              "horizon": 4,
+              "horizon_unit": "周",
+              "events": 10,
+              "symbols": 10,
+              "up_rate_pct": 80,
+              "weak_rate_pct": 20,
+              "up_rate_wilson_95_pct": [
+                49.02,
+                94.33
+              ],
+              "mean_return_pct": 5.46,
+              "median_return_pct": 4.54
+            },
+            "adverse_confirmation": {
+              "horizon": 4,
+              "horizon_unit": "周",
+              "events": 28,
+              "symbols": 23,
+              "up_rate_pct": 42.86,
+              "weak_rate_pct": 57.14,
+              "up_rate_wilson_95_pct": [
+                26.51,
+                60.93
+              ],
+              "mean_return_pct": -3.13,
+              "median_return_pct": -2.82
+            },
+            "product_evidence": {
+              "horizon": 4,
+              "horizon_unit": "周",
+              "events": 82,
+              "symbols": 58,
+              "up_rate_pct": 47.56,
+              "weak_rate_pct": 52.44,
+              "up_rate_wilson_95_pct": [
+                37.1,
+                58.24
+              ],
+              "mean_return_pct": -0.25,
+              "median_return_pct": -0.8
+            }
+          }
+        },
+        "deep-decline-huge-volume-strong": {
+          "label": "深跌强收",
+          "segments": {
+            "development": {
+              "horizon": 4,
+              "horizon_unit": "周",
+              "events": 14,
+              "symbols": 12,
+              "up_rate_pct": 57.14,
+              "weak_rate_pct": 42.86,
+              "up_rate_wilson_95_pct": [
+                32.59,
+                78.62
+              ],
+              "mean_return_pct": 1.78,
+              "median_return_pct": 0.7
+            },
+            "validation": {
+              "horizon": 4,
+              "horizon_unit": "周",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "recent_point_in_time": {
+              "horizon": 4,
+              "horizon_unit": "周",
+              "events": 4,
+              "symbols": 4,
+              "up_rate_pct": 50,
+              "weak_rate_pct": 50,
+              "up_rate_wilson_95_pct": [
+                15,
+                85
+              ],
+              "mean_return_pct": -1.23,
+              "median_return_pct": -1.21
+            },
+            "adverse_confirmation": {
+              "horizon": 4,
+              "horizon_unit": "周",
+              "events": 10,
+              "symbols": 9,
+              "up_rate_pct": 40,
+              "weak_rate_pct": 60,
+              "up_rate_wilson_95_pct": [
+                16.82,
+                68.73
+              ],
+              "mean_return_pct": -4.33,
+              "median_return_pct": -2.51
+            },
+            "product_evidence": {
+              "horizon": 4,
+              "horizon_unit": "周",
+              "events": 28,
+              "symbols": 23,
+              "up_rate_pct": 50,
+              "weak_rate_pct": 50,
+              "up_rate_wilson_95_pct": [
+                32.63,
+                67.37
+              ],
+              "mean_return_pct": -0.84,
+              "median_return_pct": -0.03
+            }
+          }
+        },
+        "deep-decline-huge-volume-lower-shadow": {
+          "label": "深跌长影",
+          "segments": {
+            "development": {
+              "horizon": 4,
+              "horizon_unit": "周",
+              "events": 7,
+              "symbols": 7,
+              "up_rate_pct": 42.86,
+              "weak_rate_pct": 57.14,
+              "up_rate_wilson_95_pct": [
+                15.82,
+                74.95
+              ],
+              "mean_return_pct": -0.45,
+              "median_return_pct": 0
+            },
+            "validation": {
+              "horizon": 4,
+              "horizon_unit": "周",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "recent_point_in_time": {
+              "horizon": 4,
+              "horizon_unit": "周",
+              "events": 1,
+              "symbols": 1,
+              "up_rate_pct": 100,
+              "weak_rate_pct": 0,
+              "up_rate_wilson_95_pct": [
+                20.65,
+                100
+              ],
+              "mean_return_pct": 15.15,
+              "median_return_pct": 15.15
+            },
+            "adverse_confirmation": {
+              "horizon": 4,
+              "horizon_unit": "周",
+              "events": 1,
+              "symbols": 1,
+              "up_rate_pct": 0,
+              "weak_rate_pct": 100,
+              "up_rate_wilson_95_pct": [
+                0,
+                79.35
+              ],
+              "mean_return_pct": -15.92,
+              "median_return_pct": -15.92
+            },
+            "product_evidence": {
+              "horizon": 4,
+              "horizon_unit": "周",
+              "events": 9,
+              "symbols": 9,
+              "up_rate_pct": 44.44,
+              "weak_rate_pct": 55.56,
+              "up_rate_wilson_95_pct": [
+                18.88,
+                73.33
+              ],
+              "mean_return_pct": -0.43,
+              "median_return_pct": 0
+            }
+          }
+        },
+        "deep-decline-reclaim-ma5": {
+          "label": "放量回稳",
+          "segments": {
+            "development": {
+              "horizon": 2,
+              "horizon_unit": "周",
+              "events": 19,
+              "symbols": 11,
+              "up_rate_pct": 42.11,
+              "weak_rate_pct": 57.89,
+              "up_rate_wilson_95_pct": [
+                23.14,
+                63.72
+              ],
+              "mean_return_pct": 1.45,
+              "median_return_pct": -0.65
+            },
+            "validation": {
+              "horizon": 2,
+              "horizon_unit": "周",
+              "events": 4,
+              "symbols": 4,
+              "up_rate_pct": 0,
+              "weak_rate_pct": 100,
+              "up_rate_wilson_95_pct": [
+                0,
+                48.99
+              ],
+              "mean_return_pct": -2.02,
+              "median_return_pct": -1.07
+            },
+            "recent_point_in_time": {
+              "horizon": 2,
+              "horizon_unit": "周",
+              "events": 5,
+              "symbols": 5,
+              "up_rate_pct": 60,
+              "weak_rate_pct": 40,
+              "up_rate_wilson_95_pct": [
+                23.07,
+                88.24
+              ],
+              "mean_return_pct": 6.26,
+              "median_return_pct": 1.12
+            },
+            "adverse_confirmation": {
+              "horizon": 2,
+              "horizon_unit": "周",
+              "events": 7,
+              "symbols": 7,
+              "up_rate_pct": 28.57,
+              "weak_rate_pct": 71.43,
+              "up_rate_wilson_95_pct": [
+                8.22,
+                64.11
+              ],
+              "mean_return_pct": -2.32,
+              "median_return_pct": -0.63
+            },
+            "product_evidence": {
+              "horizon": 2,
+              "horizon_unit": "周",
+              "events": 35,
+              "symbols": 27,
+              "up_rate_pct": 37.14,
+              "weak_rate_pct": 62.86,
+              "up_rate_wilson_95_pct": [
+                23.17,
+                53.66
+              ],
+              "mean_return_pct": 0.99,
+              "median_return_pct": -0.63
+            }
+          }
+        }
+      }
+    },
+    "monthly": {
+      "label": "月 K",
+      "aggregation": "monthly OHLCV aggregated from source daily bars",
+      "events": {
+        "post-rise-huge-volume": {
+          "label": "巨量分歧",
+          "segments": {
+            "development": {
+              "horizon": 1,
+              "horizon_unit": "月",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "validation": {
+              "horizon": 1,
+              "horizon_unit": "月",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "recent_point_in_time": {
+              "horizon": 1,
+              "horizon_unit": "月",
+              "events": 12,
+              "symbols": 12,
+              "up_rate_pct": 50,
+              "weak_rate_pct": 50,
+              "up_rate_wilson_95_pct": [
+                25.38,
+                74.62
+              ],
+              "mean_return_pct": 4.17,
+              "median_return_pct": 0.23
+            },
+            "adverse_confirmation": {
+              "horizon": 1,
+              "horizon_unit": "月",
+              "events": 41,
+              "symbols": 39,
+              "up_rate_pct": 48.78,
+              "weak_rate_pct": 51.22,
+              "up_rate_wilson_95_pct": [
+                34.25,
+                63.52
+              ],
+              "mean_return_pct": 1.05,
+              "median_return_pct": -0.9
+            },
+            "product_evidence": {
+              "horizon": 1,
+              "horizon_unit": "月",
+              "events": 53,
+              "symbols": 51,
+              "up_rate_pct": 49.06,
+              "weak_rate_pct": 50.94,
+              "up_rate_wilson_95_pct": [
+                36.12,
+                62.12
+              ],
+              "mean_return_pct": 1.76,
+              "median_return_pct": -0.5
+            }
+          }
+        },
+        "post-rise-huge-volume-weak": {
+          "label": "巨量弱收",
+          "segments": {
+            "development": {
+              "horizon": 1,
+              "horizon_unit": "月",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "validation": {
+              "horizon": 1,
+              "horizon_unit": "月",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "recent_point_in_time": {
+              "horizon": 1,
+              "horizon_unit": "月",
+              "events": 7,
+              "symbols": 7,
+              "up_rate_pct": 57.14,
+              "weak_rate_pct": 42.86,
+              "up_rate_wilson_95_pct": [
+                25.05,
+                84.18
+              ],
+              "mean_return_pct": 1.6,
+              "median_return_pct": 0.97
+            },
+            "adverse_confirmation": {
+              "horizon": 1,
+              "horizon_unit": "月",
+              "events": 27,
+              "symbols": 26,
+              "up_rate_pct": 40.74,
+              "weak_rate_pct": 59.26,
+              "up_rate_wilson_95_pct": [
+                24.51,
+                59.27
+              ],
+              "mean_return_pct": -0.79,
+              "median_return_pct": -1.8
+            },
+            "product_evidence": {
+              "horizon": 1,
+              "horizon_unit": "月",
+              "events": 34,
+              "symbols": 33,
+              "up_rate_pct": 44.12,
+              "weak_rate_pct": 55.88,
+              "up_rate_wilson_95_pct": [
+                28.88,
+                60.55
+              ],
+              "mean_return_pct": -0.3,
+              "median_return_pct": -1.35
+            }
+          }
+        },
+        "deep-decline-huge-volume": {
+          "label": "深跌放量",
+          "segments": {
+            "development": {
+              "horizon": 2,
+              "horizon_unit": "月",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "validation": {
+              "horizon": 2,
+              "horizon_unit": "月",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "recent_point_in_time": {
+              "horizon": 2,
+              "horizon_unit": "月",
+              "events": 4,
+              "symbols": 4,
+              "up_rate_pct": 25,
+              "weak_rate_pct": 75,
+              "up_rate_wilson_95_pct": [
+                4.56,
+                69.94
+              ],
+              "mean_return_pct": -5.19,
+              "median_return_pct": -6.74
+            },
+            "adverse_confirmation": {
+              "horizon": 2,
+              "horizon_unit": "月",
+              "events": 12,
+              "symbols": 12,
+              "up_rate_pct": 50,
+              "weak_rate_pct": 50,
+              "up_rate_wilson_95_pct": [
+                25.38,
+                74.62
+              ],
+              "mean_return_pct": 1.83,
+              "median_return_pct": -0.92
+            },
+            "product_evidence": {
+              "horizon": 2,
+              "horizon_unit": "月",
+              "events": 16,
+              "symbols": 16,
+              "up_rate_pct": 43.75,
+              "weak_rate_pct": 56.25,
+              "up_rate_wilson_95_pct": [
+                23.1,
+                66.82
+              ],
+              "mean_return_pct": 0.08,
+              "median_return_pct": -2.78
+            }
+          }
+        },
+        "deep-decline-huge-volume-strong": {
+          "label": "深跌强收",
+          "segments": {
+            "development": {
+              "horizon": 2,
+              "horizon_unit": "月",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "validation": {
+              "horizon": 2,
+              "horizon_unit": "月",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "recent_point_in_time": {
+              "horizon": 2,
+              "horizon_unit": "月",
+              "events": 1,
+              "symbols": 1,
+              "up_rate_pct": 100,
+              "weak_rate_pct": 0,
+              "up_rate_wilson_95_pct": [
+                20.65,
+                100
+              ],
+              "mean_return_pct": 5.7,
+              "median_return_pct": 5.7
+            },
+            "adverse_confirmation": {
+              "horizon": 2,
+              "horizon_unit": "月",
+              "events": 2,
+              "symbols": 2,
+              "up_rate_pct": 50,
+              "weak_rate_pct": 50,
+              "up_rate_wilson_95_pct": [
+                9.45,
+                90.55
+              ],
+              "mean_return_pct": 2.51,
+              "median_return_pct": 2.51
+            },
+            "product_evidence": {
+              "horizon": 2,
+              "horizon_unit": "月",
+              "events": 3,
+              "symbols": 3,
+              "up_rate_pct": 66.67,
+              "weak_rate_pct": 33.33,
+              "up_rate_wilson_95_pct": [
+                20.77,
+                93.85
+              ],
+              "mean_return_pct": 3.57,
+              "median_return_pct": 5.7
+            }
+          }
+        },
+        "deep-decline-huge-volume-lower-shadow": {
+          "label": "深跌长影",
+          "segments": {
+            "development": {
+              "horizon": 2,
+              "horizon_unit": "月",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "validation": {
+              "horizon": 2,
+              "horizon_unit": "月",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "recent_point_in_time": {
+              "horizon": 2,
+              "horizon_unit": "月",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "adverse_confirmation": {
+              "horizon": 2,
+              "horizon_unit": "月",
+              "events": 1,
+              "symbols": 1,
+              "up_rate_pct": 0,
+              "weak_rate_pct": 100,
+              "up_rate_wilson_95_pct": [
+                0,
+                79.35
+              ],
+              "mean_return_pct": -2.89,
+              "median_return_pct": -2.89
+            },
+            "product_evidence": {
+              "horizon": 2,
+              "horizon_unit": "月",
+              "events": 1,
+              "symbols": 1,
+              "up_rate_pct": 0,
+              "weak_rate_pct": 100,
+              "up_rate_wilson_95_pct": [
+                0,
+                79.35
+              ],
+              "mean_return_pct": -2.89,
+              "median_return_pct": -2.89
+            }
+          }
+        },
+        "deep-decline-reclaim-ma5": {
+          "label": "放量回稳",
+          "segments": {
+            "development": {
+              "horizon": 1,
+              "horizon_unit": "月",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "validation": {
+              "horizon": 1,
+              "horizon_unit": "月",
+              "events": 0,
+              "symbols": 0,
+              "up_rate_pct": null,
+              "weak_rate_pct": null,
+              "up_rate_wilson_95_pct": null,
+              "mean_return_pct": null,
+              "median_return_pct": null
+            },
+            "recent_point_in_time": {
+              "horizon": 1,
+              "horizon_unit": "月",
+              "events": 4,
+              "symbols": 4,
+              "up_rate_pct": 25,
+              "weak_rate_pct": 75,
+              "up_rate_wilson_95_pct": [
+                4.56,
+                69.94
+              ],
+              "mean_return_pct": -2.04,
+              "median_return_pct": -9.92
+            },
+            "adverse_confirmation": {
+              "horizon": 1,
+              "horizon_unit": "月",
+              "events": 4,
+              "symbols": 4,
+              "up_rate_pct": 25,
+              "weak_rate_pct": 75,
+              "up_rate_wilson_95_pct": [
+                4.56,
+                69.94
+              ],
+              "mean_return_pct": -10.46,
+              "median_return_pct": -10.7
+            },
+            "product_evidence": {
+              "horizon": 1,
+              "horizon_unit": "月",
+              "events": 8,
+              "symbols": 8,
+              "up_rate_pct": 25,
+              "weak_rate_pct": 75,
+              "up_rate_wilson_95_pct": [
+                7.15,
+                59.07
+              ],
+              "mean_return_pct": -6.25,
+              "median_return_pct": -9.92
+            }
+          }
+        }
+      }
+    }
+  }
+}

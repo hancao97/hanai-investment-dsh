@@ -255,14 +255,14 @@ describe('legacy-compatible chart options', () => {
     expect(tooltip).toContain('巨量弱收')
     expect(tooltip).toContain('MA5 高于 MA10')
     expect(tooltip).toContain('overflow-wrap:anywhere')
-    expect(tooltip).toContain('日线历史 · 未来 10 日')
+    expect(tooltip).toContain('日线历史 · 未来 10 交易日')
     expect(tooltip).toContain('更常见：走弱')
     expect(tooltip).toContain('上涨 32.6%')
     expect(tooltip).toContain('走弱 67.4%')
     expect(tooltip).toContain('走弱 64.9%')
     expect(tooltip).toContain('356 例')
     expect(tooltip).toContain('222 例')
-    expect(tooltip).toContain('日线样本截至 2026-08-20')
+    expect(tooltip).toContain('日 K 独立样本截至 2026-08-20')
     expect(tooltip).toContain('历史条件频率，不是预测')
     expect(tooltip).not.toContain('胜率')
 
@@ -270,9 +270,24 @@ describe('legacy-compatible chart options', () => {
     const weeklyTooltip = weekly.tooltip?.formatter?.([{ seriesName: 'K 线', dataIndex: 139 }]) ?? ''
     expect(weeklyTooltip).toContain('周 K')
     expect(weeklyTooltip).toContain('巨量分歧')
-    expect(weeklyTooltip).toContain('该周期暂无独立回测，未外推日线概率')
-    expect(weeklyTooltip).not.toMatch(/67\.4%|64\.9%/)
+    expect(weeklyTooltip).toContain('周 K 历史 · 未来 2 周')
+    expect(weeklyTooltip).toContain('上涨 41.3%')
+    expect(weeklyTooltip).toContain('走弱 58.8%')
+    expect(weeklyTooltip).toContain('160 例')
+    expect(weeklyTooltip).toContain('上涨 53.0%')
+    expect(weeklyTooltip).toContain('100 例')
+    expect(weeklyTooltip).toContain('周 K 独立样本截至 2026-08-20')
+    expect(weeklyTooltip).not.toContain('暂无独立回测')
     expect(weekly.series?.find(item => item.name === 'K 线')?.markPoint).toBeDefined()
+
+    const monthly = inspect(buildKlineOption(bars, DARK_CHART_PALETTE, null, 'short', 'monthly'))
+    const monthlyTooltip = monthly.tooltip?.formatter?.([{ seriesName: 'K 线', dataIndex: 139 }]) ?? ''
+    expect(monthlyTooltip).toContain('月 K 历史 · 未来 1 月')
+    expect(monthlyTooltip).toContain('方向接近均衡')
+    expect(monthlyTooltip).toContain('上涨 49.1%')
+    expect(monthlyTooltip).toContain('走弱 50.9%')
+    expect(monthlyTooltip).toContain('53 例')
+    expect(monthlyTooltip).toContain('月 K 独立样本截至 2026-08-20')
   })
 
   it('keeps valuation price and fair-value series on a true time axis and derives all four bands from fair value', () => {
