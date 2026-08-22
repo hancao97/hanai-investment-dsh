@@ -228,7 +228,7 @@ describe('legacy-compatible chart options', () => {
     ])
   })
 
-  it('draws independent stacked markers and explains them in the single tooltip without win rates', () => {
+  it('draws independent stacked markers and shows daily historical direction frequencies in one tooltip', () => {
     const bars: KLineBar[] = Array.from({ length: 140 }, (_, index) => {
       const close = 10 * 1.01 ** index
       return {
@@ -255,12 +255,23 @@ describe('legacy-compatible chart options', () => {
     expect(tooltip).toContain('巨量弱收')
     expect(tooltip).toContain('MA5 高于 MA10')
     expect(tooltip).toContain('overflow-wrap:anywhere')
-    expect(tooltip).not.toMatch(/胜率|样本量|67\.4%|64\.9%/)
+    expect(tooltip).toContain('日线历史 · 未来 10 日')
+    expect(tooltip).toContain('更常见：走弱')
+    expect(tooltip).toContain('上涨 32.6%')
+    expect(tooltip).toContain('走弱 67.4%')
+    expect(tooltip).toContain('走弱 64.9%')
+    expect(tooltip).toContain('356 例')
+    expect(tooltip).toContain('222 例')
+    expect(tooltip).toContain('日线样本截至 2026-08-20')
+    expect(tooltip).toContain('历史条件频率，不是预测')
+    expect(tooltip).not.toContain('胜率')
 
     const weekly = inspect(buildKlineOption(bars, DARK_CHART_PALETTE, null, 'short', 'weekly'))
     const weeklyTooltip = weekly.tooltip?.formatter?.([{ seriesName: 'K 线', dataIndex: 139 }]) ?? ''
     expect(weeklyTooltip).toContain('周 K')
     expect(weeklyTooltip).toContain('巨量分歧')
+    expect(weeklyTooltip).toContain('该周期暂无独立回测，未外推日线概率')
+    expect(weeklyTooltip).not.toMatch(/67\.4%|64\.9%/)
     expect(weekly.series?.find(item => item.name === 'K 线')?.markPoint).toBeDefined()
   })
 

@@ -1092,15 +1092,7 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
             <div className={styles['klineMaLegend']}>
               <span><i className={styles['maFast']} />MA{klineMaMode === 'short' ? '5' : '20'}</span>
               <span><i className={styles['maSlow']} />MA{klineMaMode === 'short' ? '10' : '60'}</span>
-              <span className={styles['klineSignalLegend']} aria-label="量价观察标记：分歧、弱收、深跌、强收、长影、回稳">
-                <b className={styles['signalRisk']} title="巨量分歧">分</b>
-                <b className={styles['signalRisk']} title="巨量弱收">弱</b>
-                <b className={styles['signalDeep']} title="深跌放量">深</b>
-                <b className={styles['signalUp']} title="深跌强收">强</b>
-                <b className={styles['signalUp']} title="深跌长影">影</b>
-                <b className={styles['signalUp']} title="放量回稳">稳</b>
-              </span>
-              <small>基于当前 K 周期收盘价</small>
+              <small>均线基于当前 K 周期 · 标记点悬浮查看历史后续</small>
             </div>
           </div>}
           <div className={styles['priceChart']}>{chartOption === null ? <Empty compact title="图表数据加载中" detail="当前周期暂无可用数据。" /> : <EChart

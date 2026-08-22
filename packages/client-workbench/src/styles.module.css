@@ -461,11 +461,6 @@
 .klineMaLegend i { display: inline-block; width: 13px; height: 2px; border-radius: 999px; }
 .maFast { background: var(--gold); }
 .maSlow { background: #5b8def; }
-.klineMaLegend .klineSignalLegend { gap: 3px; margin-left: 3px; }
-.klineSignalLegend b { display: inline-grid; width: 17px; height: 17px; place-items: center; border: 1px solid currentColor; border-radius: 5px; font: 700 8px/1 ui-sans-serif, sans-serif; }
-.klineSignalLegend .signalRisk { color: var(--gold-strong); background: var(--gold-soft); }
-.klineSignalLegend .signalDeep { color: var(--up); background: var(--panel); }
-.klineSignalLegend .signalUp { color: #fff; border-color: var(--up); background: var(--up); }
 .klineMaLegend small { color: var(--faint); font-family: inherit; white-space: nowrap; }
 .priceChart { height: 380px; padding: 8px; position: relative; }
 .historyLoading { position: absolute; top: 12px; left: 14px; z-index: 3; display: inline-flex; min-height: 24px; align-items: center; gap: 7px; padding: 0 9px; border: 1px solid var(--control-border); border-radius: 999px; color: var(--muted); font-size: 9px; background: var(--panel); box-shadow: var(--control-shadow); pointer-events: none; }

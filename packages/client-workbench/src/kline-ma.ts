@@ -60,7 +60,7 @@ export interface KlineSnapshot {
 
 export interface KlineSnapshotStudies {
   ma?: KlineMaStudy
-  /** Pass null when the current surface does not expose daily research markers. */
+  /** Pass null when the current surface does not expose observation markers. */
   turning?: KlineTurningStudy | null
 }
 
