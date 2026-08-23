@@ -1,4 +1,4 @@
-name: Publish turning-point audit to GitHub Pages
+name: Publish Hanai research reports to GitHub Pages
 
 on:
   push:
@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - docs/turning-point-capability-audit-2026-08-23.html
+      - docs/a-share-cycle-outlook-2026-08-23.html
+      - docs/research-data/a-share-cycle-outlook-2026-08-23.json
+      - docs/research-data/a-share-cycle-expert-runs-2026-08-23.json
       - .github/workflows/pages.yml
   workflow_dispatch:
 
@@ -31,11 +34,14 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Prepare self-contained report
+      - name: Prepare self-contained reports
         run: |
-          mkdir -p _site
+          mkdir -p _site/research-data
           cp docs/turning-point-capability-audit-2026-08-23.html _site/index.html
           cp docs/turning-point-capability-audit-2026-08-23.html _site/turning-point-capability-audit-2026-08-23.html
+          cp docs/a-share-cycle-outlook-2026-08-23.html _site/a-share-cycle-outlook-2026-08-23.html
+          cp docs/research-data/a-share-cycle-outlook-2026-08-23.json _site/research-data/a-share-cycle-outlook-2026-08-23.json
+          cp docs/research-data/a-share-cycle-expert-runs-2026-08-23.json _site/research-data/a-share-cycle-expert-runs-2026-08-23.json
           touch _site/.nojekyll
 
       - name: Upload Pages artifact

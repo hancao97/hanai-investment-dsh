@@ -15,6 +15,15 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 
 品牌中的两条趋势线在证据点形成金叉：价格给出市场报价，研究帮助看见价值。每一份研判，都应能回到证据、方法与上下文。
 
+## 在线投研报告
+
+| 报告 | 在线页面 | 仓库内自包含 HTML | 内容 |
+| --- | --- | --- | --- |
+| 变盘点能力审计 | [GitHub Pages 首页](https://hancao97.github.io/hanai-investment-dsh/) | [turning-point-capability-audit-2026-08-23.html](docs/turning-point-capability-audit-2026-08-23.html) | 当前 10 类生产标记、22 个有效周期格、matched 增量、候选与缠论生命周期 |
+| A 股未来一年周期展望 | [五种 AI 方法论会商在线报告](https://hancao97.github.io/hanai-investment-dsh/a-share-cycle-outlook-2026-08-23.html) | [a-share-cycle-outlook-2026-08-23.html](docs/a-share-cycle-outlook-2026-08-23.html) | 2026-08-23 至 2027-08-23 互斥情景状态机、待验证主题、最新财报、五角色交叉质询与严格门禁 |
+
+周期展望实际调用仓库内五个专家 Skill，但它们是同源的 **AI 方法论角色**；段永平、混江龙、查理·芒格、沃伦·巴菲特、孙宇晨本人均未参与、审核或背书。两轮结构化会商之后，系统再用2026年最新财报执行 Round 3，五份[原始输出、冻结事实包、提示词与 Skill 哈希](docs/research-data/a-share-cycle-expert-runs-2026-08-23.json)公开留痕；具体模型与reasoning配置未在产物中冻结。报告不提供未经校准的概率，最终动作由修正事实后的 Round 3 与严格门禁决定。
+
 ## 界面预览
 
 黑夜模式保留原客户端的信息密度、页面位置与 A 股涨红跌绿语义；市场热力图由 ECharts `treemap` 绘制，面积对应板块成交额。
@@ -66,7 +75,7 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 
 变盘点是根据历史条件频率筛选出的**量价观察提示**，不等同于买点、卖点或收益承诺。原有六类在日 K、周 K、月 K 展示各周期独立证据；全市场新增的 `低位破低反包`、金针观察/确认和 `高位巨量长上影`只有日线证据，因此不外推到周/月 K。
 
-> **完整变盘点能力审计**：查看 [GitHub Pages 在线报告](https://hancao97.github.io/hanai-investment-dsh/) 或 [仓库内自包含 HTML](docs/turning-point-capability-audit-2026-08-23.html)。报告逐一对账当前 10 类生产标记、22 个有效周期格、16 个冻结候选、matched 增量、置信区间及拟影子验证方向。
+> **完整变盘点能力审计**：查看 [GitHub Pages 在线报告](https://hancao97.github.io/hanai-investment-dsh/turning-point-capability-audit-2026-08-23.html) 或 [仓库内自包含 HTML](docs/turning-point-capability-audit-2026-08-23.html)。报告逐一对账当前 10 类生产标记、22 个有效周期格、16 个冻结候选、matched 增量、置信区间及拟影子验证方向。
 
 ### 变盘点如何计算
 

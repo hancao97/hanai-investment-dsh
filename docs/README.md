@@ -2,12 +2,17 @@
 
 本文档目录记录 **Hanai Worth · 值见**（当前兼容包名 `hanai-investment-dsh`）的实现架构和关键决策。核心 Host、领域层、React 工作台、自绘 DSH Session 聊天、隔离数据根和独立 Profile 已完成；文档中的“后续”条目表示仍需继续演进的能力。
 
-变盘点能力审计的 GitHub Pages 在线版：<https://hancao97.github.io/hanai-investment-dsh/>
+GitHub Pages 研究站点：<https://hancao97.github.io/hanai-investment-dsh/>
+
+- [变盘点能力审计](https://hancao97.github.io/hanai-investment-dsh/turning-point-capability-audit-2026-08-23.html)
+- [A 股未来一年周期展望与五种 AI 方法论会商](https://hancao97.github.io/hanai-investment-dsh/a-share-cycle-outlook-2026-08-23.html)
 
 ## 文档索引
 
 | 文档 | 内容 | 状态 |
 | --- | --- | --- |
+| [a-share-cycle-outlook-2026-08-23.html](a-share-cycle-outlook-2026-08-23.html) | 2026-08-23 至 2027-08-23 的互斥情景状态机、五种 AI 方法论会商、最新财报、主题证据、六股严格门禁与月度开关 | **当前周期投研报告** |
+| [a-share-cycle-expert-runs-2026-08-23.json](research-data/a-share-cycle-expert-runs-2026-08-23.json) | Round 3 五个专家 Skill 的冻结事实包、完整提示词、原始输出、解析结果、提示词 / Skill / AGENTS 哈希与运行状态 | **可审计执行证据** |
 | [turning-point-research-index.md](turning-point-research-index.md) | 变盘点、扫描与回测材料的统一分类、数据血缘、cutoff、产物映射与复现命令 | **研究总入口** |
 | [turning-point-capability-audit-2026-08-23.html](turning-point-capability-audit-2026-08-23.html) | 当前 10 类生产标记、22 个有效周期格、候选 case 与统计比例的自包含审计报告 | 当前汇总报告 |
 | [full-market-turning-point-study-2026-08-22.md](full-market-turning-point-study-2026-08-22.md) | 5,809 只 A 股、981 万行日 K 上的金针探底、底部巨量、极度缩量、低位反包、巨量长上影等 16 个观察/确认规则 | 已完成：2 类建议观察，0 类达到高胜率上线门槛 |
