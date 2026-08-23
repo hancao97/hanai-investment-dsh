@@ -9,9 +9,9 @@
 [![Tests](https://img.shields.io/badge/tests-passing-2EA44F)](packages)
 [![License](https://img.shields.io/badge/license-MIT-111827)](LICENSE)
 
-**Hanai Worth · 值见** 是以 DeepSeek Harness 为 Agent 内核的本地优先 A 股研究工作台。它把市场全景、自选估值、个股行情与 K 线观察、大师方法论研判、报告归档和持续追问放进一条完整研究链路，帮助用户从“发现一家公司”走到“形成并持续验证自己的判断”。
+**Hanai Worth · 值见** 是以 DeepSeek Harness 为 Agent 内核的本地优先 A 股研究工作台。它把市场全景、自选估值、个股行情与 K 线观察、大师方法论研判、专家开放对谈、报告归档和持续追问放进一条完整研究链路，帮助用户从“发现一家公司”走到“形成并持续验证自己的判断”。
 
-DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件和会话持久化；Hanai Worth 负责证券与估值数据、自选分组、研究资料、不可变报告快照和全部产品界面。产品保留“今日市场、自选与发现、大师研判、专家中心、设置与诊断”五个一级页面，以及个股和研判详情页。
+DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件和会话持久化；Hanai Worth 负责证券与估值数据、自选分组、研究资料、不可变报告快照和全部产品界面。产品包含“今日市场、自选与发现、大师研判、专家对谈、专家中心、设置与诊断”六个一级页面，以及个股、研判和对谈详情页。
 
 品牌中的两条趋势线在证据点形成金叉：价格给出市场报价，研究帮助看见价值。每一份研判，都应能回到证据、方法与上下文。
 
@@ -35,13 +35,14 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 
 > 截图中的百分比是截至 2026-08-20 的历史条件频率，不是对中国平安下一次走势的预测，也不构成投资建议。
 
-## 从行情到研判的完整链路
+## 从行情到研究的完整链路
 
 1. **看市场**：六大指数、市场宽度、行业/概念热力图和涨幅、跌幅、成交额、换手率榜单共同呈现当日结构。
 2. **建自选**：搜索股票，按分组添加、移动和维护标的；刷新当前分组并比较行情、估值与加入以来表现。
 3. **读个股**：结合前复权 K 线、均线、量价观察标记、行情快照、基本面、合理估值和价值曲线建立上下文。
-4. **发起研判**：选择一位大师，由 Agent 独立检索和核验公开资料，形成可归档的完整 Markdown 报告。
-5. **继续验证**：在原 DSH Session 中追问、查看工具过程或显式修订报告；已完成或失败的研判可确认后删除。
+4. **开放对谈**：不选股票直接选择一位专家，围绕行业周期、商业模式、近期事件或决策问题持续讨论。
+5. **发起研判**：选择股票和一位大师，由 Agent 独立检索和核验公开资料，形成可归档的完整 Markdown 报告。
+6. **继续验证**：开放对谈和研判追问都复用各自原有的 DSH Session；研判还可查看工具过程或显式修订报告。
 
 ## 产品能力
 
@@ -123,6 +124,16 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 
 截至 2026-08-20 的数据已经参与规则研究，只能作为回顾性证据。从 2026-08-21 起应按冻结 V0 规则持续记录前瞻影子事件，积累足够样本后再做一次不改参数的检验。完整覆盖、分层、聚类区间、匹配对照、否证结果和已知偏差见[全市场 A 股日 K 变盘点研究](docs/full-market-turning-point-study-2026-08-22.md)，机器可读结果见[冻结 JSON](docs/research-data/full-market-turning-point-study-2026-08-22.json)，复现脚本见[full-market-turning-point-study.py](scripts/research/full-market-turning-point-study.py)。完整研究索引见[设计文档](docs/README.md)。
 
+### 专家开放对谈
+
+- **不必先选股票**：可直接讨论行业周期、商业模式、市场情绪、决策困境或近期事件，不生成 `REPORT.md`。
+- **持久开放会话**：每次对谈绑定独立专家快照与 DSH Session，支持正常追问、检索、工具调用、队列、steer、取消、审批和历史恢复。
+- **专用对谈工作台**：左侧保留对谈历史，右侧消息区占满剩余高度；支持深链接和刷新恢复，思考与工具过程默认折叠，输入区固定在当前会话底部。
+- **五位对谈专家**：段永平、混江龙、查理·芒格、沃伦·巴菲特均支持研判与开放对谈；孙宇晨视角仅进入开放对谈。
+- **孙宇晨视角边界**：参考用户指定的[开源能力包](https://github.com/alchaincyf/nuwa-skill/tree/main/examples/sun-yuchen-perspective)，用于分析行业周期、注意力迁移和叙事竞争；创建对谈时明确提示 AI 模拟边界，首次回答完成身份披露，详情页不重复占用消息空间；具体时效事实必须先检索核验。
+- **周期可证伪**：“永远缺某种资源”只作为假设，从需求、供给、库存与利用率、资本开支、价格利润和拥挤度检查，并给出反证与失效条件。
+- **单一事实源**：Hanai SQLite 只保存标题、专家和 opaque `dshSessionId`；消息、工具与 Turn 历史仍只在 DSH。
+
 ### 大师研判与持续对话
 
 - **单专家独立研判**：支持段永平、查理·芒格、沃伦·巴菲特和混江龙四套方法论；每次研判绑定独立工作区和持久 DSH Session。
@@ -136,7 +147,7 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 
 - **统一交互系统**：按钮、输入框、选择器、焦点、禁用和危险操作使用一致的语义色与明暗主题 token，并保留 A 股红涨绿跌业务色。
 - **亮色/黑夜模式**：两套主题只替换语义色彩，不改变页面结构、图表数据或业务含义。
-- **全局搜索与深链接**：可按代码、名称或拼音搜索股票；`#/dashboard`、`#/watch`、`#/judgements`、`#/personas`、`#/settings` 及详情页支持刷新、前进、后退和直接打开。
+- **全局搜索与深链接**：可按代码、名称或拼音搜索股票；`#/dashboard`、`#/watch`、`#/judgements`、`#/expert-chats`、`#/personas`、`#/settings` 及详情页支持刷新、前进、后退和直接打开。
 - **设置与诊断**：在工作台内管理 DSH Credentials、默认模型和主题，查看 Agent、数据源、缓存、本地存储与版本状态，并可打开数据目录或清理行情/估值缓存。
 - **完全自有界面**：使用 React 18、DSH Slot/Runtime、ECharts 和 CSS Modules；不显示或复用 DSH 原生聊天 UI。
 
@@ -162,7 +173,7 @@ flowchart LR
 关键边界：
 
 - DSH 是聊天与 Agent 的唯一事实源；Hanai 不建立第二套 `messages` 或 `turns` 表。
-- Hanai SQLite 只保存自选、证券主数据、研判索引、报告版本和 opaque `dshSessionId`。
+- Hanai SQLite 只保存自选、证券主数据、研判/专家对谈索引、报告版本和 opaque `dshSessionId`。
 - 报告是 Hanai 封存的业务快照；工作区 `REPORT.md` 只是 Agent 可写的生成副本。
 - 浏览器不接触文件系统或 SQLite；全部业务写入经由同源 `/hanai` RPC。
 
@@ -221,7 +232,8 @@ Hanai 业务数据默认写入：
 ├── db/hanai.sqlite
 ├── cache/
 ├── judgements/<id>/workspace/
-└── judgements/<id>/reports/<version>/
+├── judgements/<id>/reports/<version>/
+└── expert-chats/<id>/workspace/
 ```
 
 新版不会检测、读取、导入、修改或删除旧版数据目录。首次启动会建立一套空数据库，自选和研判需要重新创建。
@@ -270,8 +282,8 @@ pnpm run check
 - SQLite migration、事务、权限和数据隔离；
 - 报告校验、修复、原子封存、哈希与版本；
 - 研判删除约束、Session 归档与本地文件清理；
-- DSH Session 报告/普通聊天生命周期；
-- 自绘聊天的 Markdown、紧凑过程、pending、queue/steer 和交互；
+- DSH Session 报告、开放对谈与普通追问生命周期；
+- 自绘聊天的 Markdown、紧凑过程、pending、queue/steer、双语境文案和固定高度布局；
 - 前复权历史加载、日/周/月最新 K 的 15 秒刷新与同日期合并、MA5/10 与 MA20/60、十类变盘点、动态/历史状态、显示开关及 tooltip；
 - 自选合理估值的异步批量加载、缓存、失败隔离和距现价计算；
 - DSH Client ModuleLoader 单文件协议；
@@ -286,11 +298,11 @@ pnpm run check
 ```text
 packages/
 ├── contracts/          JSON-safe Host/Client 合约
-├── domain/             SQLite、报告、行情、估值、证券与自选领域逻辑
+├── domain/             SQLite、报告、专家对谈、行情、估值、证券与自选领域逻辑
 ├── host/               Cordis Host、/hanai RPC、DSH Session 编排
 ├── client-workbench/   全屏 React 产品工作台
 ├── client-chat/        Hanai 自绘 DSH Session 对话
-└── masters/            四位大师的 Skill 与参考资料
+└── masters/            五位专家的 Skill、能力分流与参考资料
 tooling/
 └── dsh-client-bundle/  树外 DSH Client closure 构建适配器
 scripts/

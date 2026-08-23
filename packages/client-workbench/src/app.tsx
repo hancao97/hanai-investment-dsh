@@ -10,6 +10,7 @@ import type { ModelProviderGroup } from '@deepseek-ai/dsh-client-connection/clie
 import type {
   BootstrapData,
   DashboardData,
+  ExpertChat,
   Judgement,
   JudgementDetail,
   MasterPersona,
@@ -43,11 +44,12 @@ import { describeDataStatus } from './data-status.ts'
 import { classForChange, dateTime, money, number, percent, quantity, ratio } from './format.ts'
 import styles from './styles.module.css'
 
-type TopPage = 'dashboard' | 'watch' | 'judgements' | 'personas' | 'settings'
+type TopPage = 'dashboard' | 'watch' | 'judgements' | 'expert-chats' | 'personas' | 'settings'
 type AppRoute =
   | { page: TopPage }
   | { page: 'stock'; secId: string }
   | { page: 'judgement-detail'; judgementId: string }
+  | { page: 'expert-chat-detail'; chatId: string }
 type Notice = { id: number; kind: 'success' | 'error'; text: string }
 type JudgementLaunchRequest = { key: number; stock: SearchResult | null; masterId: string | null }
 
@@ -57,6 +59,7 @@ const NAV: ReadonlyArray<{ page: TopPage; path: string; icon: string; label: str
   { page: 'dashboard', path: '/dashboard', icon: '◈', label: '今日市场' },
   { page: 'watch', path: '/watch', icon: '☆', label: '自选与发现' },
   { page: 'judgements', path: '/judgements', icon: '研', label: '大师研判' },
+  { page: 'expert-chats', path: '/expert-chats', icon: '聊', label: '专家对谈' },
   { page: 'personas', path: '/personas', icon: '◉', label: '专家中心' },
   { page: 'settings', path: '/settings', icon: '⚙', label: '设置与诊断' },
 ]
@@ -136,6 +139,9 @@ export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
   const setJudgements = useCallback((judgements: Judgement[]) => {
     setBootstrap(current => current === null ? current : { ...current, judgements })
   }, [])
+  const setExpertChats = useCallback((expertChats: ExpertChat[]) => {
+    setBootstrap(current => current === null ? current : { ...current, expertChats })
+  }, [])
   const clearLaunchRequest = useCallback(() => setLaunchRequest(null), [])
 
   if (loading) return <Splash title="正在启动 Hanai Worth" detail="连接本地价值研究工作台…" />
@@ -145,7 +151,12 @@ export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
 
   const openStock = (stock: Pick<SecurityMaster, 'secId'>) => navigate(`/stock/${encodeURIComponent(stock.secId)}`)
   const openJudgement = (id: string) => navigate(`/judgements/${encodeURIComponent(id)}`)
-  const activePage = route.page === 'judgement-detail' ? 'judgements' : route.page === 'stock' ? null : route.page
+  const openExpertChat = (id: string) => navigate(`/expert-chats/${encodeURIComponent(id)}`)
+  const activePage = route.page === 'judgement-detail'
+    ? 'judgements'
+    : route.page === 'expert-chat-detail'
+      ? 'expert-chats'
+      : route.page === 'stock' ? null : route.page
 
   return (
     <div className={styles['app']} data-theme={bootstrap.theme} data-hanai-root>
@@ -221,6 +232,18 @@ export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
           )}
           {route.page === 'judgement-detail' && (
             <JudgementDetailPage client={client} id={route.judgementId} onBack={() => navigate('/judgements')} onRetry={(stock, masterId) => { setLaunchRequest({ key: Date.now(), stock, masterId }); navigate('/judgements') }} notify={notify} />
+          )}
+          {(route.page === 'expert-chats' || route.page === 'expert-chat-detail') && (
+            <ExpertChatsPage
+              client={client}
+              masters={bootstrap.masters}
+              chats={bootstrap.expertChats}
+              selectedId={route.page === 'expert-chat-detail' ? route.chatId : null}
+              onChats={setExpertChats}
+              onOpen={openExpertChat}
+              onHome={() => navigate('/expert-chats')}
+              notify={notify}
+            />
           )}
           {route.page === 'personas' && <PersonasPage masters={bootstrap.masters} />}
           {route.page === 'settings' && (
@@ -1201,6 +1224,7 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
 }
 
 function JudgementsPage({ client, masters, judgements, launchRequest, onLaunchHandled, onJudgements, onOpen, notify }: { client: HanaiClient; masters: MasterPersona[]; judgements: Judgement[]; launchRequest: JudgementLaunchRequest | null; onLaunchHandled: () => void; onJudgements: (judgements: Judgement[]) => void; onOpen: (id: string) => void; notify: Notify }) {
+  const judgementMasters = useMemo(() => masters.filter(master => master.chatOnly !== true), [masters])
   const [runs, setRuns] = useState(judgements)
   const [stockFilter, setStockFilter] = useState('')
   const [masterFilter, setMasterFilter] = useState('')
@@ -1250,7 +1274,7 @@ function JudgementsPage({ client, masters, judgements, launchRequest, onLaunchHa
   }
   return <Page>
     <PageHeader title="大师研判" description="由一位专家独立检索并核验公开资料，形成完整投资研判报告" action={<button className={styles['buttonPrimary']} onClick={() => { setPrefill(null); setPrefillMasterId(null); setLauncherOpen(true) }}>＋ 新建研判</button>} />
-    <div className={`${styles['card']} ${styles['judgementToolbar']}`}><input value={stockFilter} onChange={event => setStockFilter(event.target.value)} placeholder="筛选股票名或代码" /><select value={masterFilter} onChange={event => setMasterFilter(event.target.value)}><option value="">全部分析人</option>{masters.map(master => <option key={master.id} value={master.id}>{master.name}</option>)}</select><span>{filtered.length} 份研判归档</span></div>
+    <div className={`${styles['card']} ${styles['judgementToolbar']}`}><input value={stockFilter} onChange={event => setStockFilter(event.target.value)} placeholder="筛选股票名或代码" /><select value={masterFilter} onChange={event => setMasterFilter(event.target.value)}><option value="">全部分析人</option>{judgementMasters.map(master => <option key={master.id} value={master.id}>{master.name}</option>)}</select><span>{filtered.length} 份研判归档</span></div>
     {filtered.length > 0 ? <div className={styles['judgementGrid']}>{filtered.map(run => <article key={run.id} className={`${styles['card']} ${styles['judgementCard']}`}>
       <button className={styles['judgementCardOpen']} onClick={() => onOpen(run.id)} aria-label={`打开 ${run.stockName} ${run.masterName} 的研判`}>
         <div className={styles['judgementTop']}><strong>{run.stockName}</strong><span>{run.code}</span><Status status={run.reportStatus} /></div>
@@ -1261,7 +1285,7 @@ function JudgementsPage({ client, masters, judgements, launchRequest, onLaunchHa
       </button>
       <button className={styles['judgementDelete']} disabled={isReportInFlight(run.reportStatus)} title={isReportInFlight(run.reportStatus) ? '进行中的研判暂不能删除' : '删除该研判报告'} aria-label={`删除${run.reportStatus === 'ready' ? '已完成' : run.reportStatus === 'failed' ? '未完成' : '进行中'}研判：${run.stockName} · ${run.masterName}`} onClick={() => setDeleteTarget(run)}>删除</button>
     </article>)}</div> : <Empty title={runs.length > 0 ? '没有符合筛选条件的报告' : '还没有大师研判'} detail={runs.length > 0 ? '调整股票或分析人筛选条件。' : '选择一只股票和一位专家，创建第一份研判。'} action={runs.length === 0 ? <button className={styles['buttonPrimary']} onClick={() => setLauncherOpen(true)}>创建第一份研判</button> : undefined} />}
-    {launcherOpen && <JudgementLauncher client={client} masters={masters} prefill={prefill} initialMasterId={prefillMasterId} onClose={() => setLauncherOpen(false)} onCreated={async judgement => { setLauncherOpen(false); await load(); notify('大师已接收研判任务'); onOpen(judgement.id) }} notify={notify} />}
+    {launcherOpen && <JudgementLauncher client={client} masters={judgementMasters} prefill={prefill} initialMasterId={prefillMasterId} onClose={() => setLauncherOpen(false)} onCreated={async judgement => { setLauncherOpen(false); await load(); notify('大师已接收研判任务'); onOpen(judgement.id) }} notify={notify} />}
     {deleteTarget !== null && <Modal title="删除研判报告" subtitle="此操作不可撤销" onClose={() => { if (!deleting) setDeleteTarget(null) }}>
       <section className={styles['deleteConfirm']}><span aria-hidden="true">!</span><div><b>确认删除 {deleteTarget.stockName} 的这份研判？</b><p>将永久删除该研判的全部报告版本和本地工作文件，并归档与 {deleteTarget.masterName} 的对应会话。</p><dl><div><dt>股票</dt><dd>{deleteTarget.stockName} {deleteTarget.code}</dd></div><div><dt>分析人</dt><dd>{deleteTarget.masterName}</dd></div><div><dt>创建时间</dt><dd>{dateTime(deleteTarget.createdAt)}</dd></div></dl></div></section>
       <footer className={styles['modalFoot']}><span>删除后无法从 Hanai Worth 恢复</span><div className={styles['confirmActions']}><button className={styles['button']} disabled={deleting} onClick={() => setDeleteTarget(null)}>取消</button><button className={styles['buttonDanger']} disabled={deleting} onClick={() => void remove()}>{deleting ? '正在删除…' : '确认删除'}</button></div></footer>
@@ -1376,15 +1400,144 @@ function JudgementDetailPage({ client, id, onBack, onRetry, notify }: { client: 
   </Page>
 }
 
+function ExpertChatsPage({ client, masters, chats, selectedId, onChats, onOpen, onHome, notify }: { client: HanaiClient; masters: MasterPersona[]; chats: ExpertChat[]; selectedId: string | null; onChats: (chats: ExpertChat[]) => void; onOpen: (id: string) => void; onHome: () => void; notify: Notify }) {
+  const [items, setItems] = useState(chats)
+  const [launcherOpen, setLauncherOpen] = useState(false)
+  const [prefillMasterId, setPrefillMasterId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<ExpertChat | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  useEffect(() => setItems(chats), [chats])
+  const load = useCallback(async () => {
+    try {
+      const next = await client.call('expert-chat.list', {})
+      setItems(next)
+      onChats(next)
+    } catch (error) {
+      notify(messageOf(error), 'error')
+    }
+  }, [client, notify, onChats])
+  useEffect(() => {
+    const timer = window.setInterval(() => void load(), 5000)
+    return () => window.clearInterval(timer)
+  }, [load])
+  const selected = selectedId === null ? null : items.find(chat => chat.id === selectedId) ?? null
+  const selectedMaster = selected === null ? null : masters.find(master => master.id === selected.masterId) ?? null
+  const openLauncher = (masterId: string | null = null) => {
+    setPrefillMasterId(masterId)
+    setLauncherOpen(true)
+  }
+  const remove = async () => {
+    if (deleteTarget === null || deleting) return
+    setDeleting(true)
+    try {
+      const next = await client.call('expert-chat.remove', { id: deleteTarget.id })
+      setItems(next)
+      onChats(next)
+      if (selectedId === deleteTarget.id) onHome()
+      setDeleteTarget(null)
+      notify('专家对谈已删除')
+    } catch (error) {
+      notify(messageOf(error), 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }
+  return <Page>
+    <PageHeader title="专家对谈" description="不绑定股票或报告，带着任何问题与一位专家持续开放讨论" action={<button className={styles['buttonPrimary']} onClick={() => openLauncher()}>＋ 新建对谈</button>} />
+    <div className={styles['expertChatLayout']}>
+      <aside className={`${styles['card']} ${styles['expertChatHistory']}`}>
+        <header><div><span className={styles['sectionEyebrow']}>CONVERSATIONS</span><h2>对谈记录</h2></div><button className={styles['iconButton']} onClick={() => openLauncher()} aria-label="新建专家对谈">＋</button></header>
+        <div className={styles['expertChatHistoryList']}>
+          {items.length === 0 ? <p className={styles['expertChatHistoryEmpty']}>还没有对谈记录</p> : items.map(chat => {
+            const master = masters.find(candidate => candidate.id === chat.masterId)
+            return <div key={chat.id} className={selectedId === chat.id ? styles['expertChatHistoryActive'] : styles['expertChatHistoryItem']}>
+              <button onClick={() => onOpen(chat.id)} aria-label={`打开与${chat.masterName}的对谈：${chat.title}`}>
+                <span className={styles['expertChatMiniAvatar']} style={{ color: master?.color, borderColor: master?.color }}>{master?.shortName ?? chat.masterName.slice(0, 1)}</span>
+                <span><b>{chat.title}</b><small>{chat.masterName} · {dateTime(chat.updatedAt)}</small></span>
+              </button>
+              <button className={styles['expertChatRemove']} onClick={() => setDeleteTarget(chat)} aria-label={`删除对谈：${chat.title}`}>×</button>
+            </div>
+          })}
+        </div>
+      </aside>
+
+      {selectedId !== null && selected === null ? <section className={`${styles['card']} ${styles['expertChatWelcome']}`}><Empty title="没有找到这次对谈" detail="它可能已被删除。返回对谈首页后可以新建会话。" action={<button className={styles['button']} onClick={onHome}>返回对谈首页</button>} /></section> : selected === null ? <section className={`${styles['card']} ${styles['expertChatWelcome']}`}>
+        <div className={styles['expertChatHero']}><span>开放对谈</span><h2>从一个好问题开始，不必先选股票</h2><p>讨论行业周期、商业模式、市场情绪、决策困境或近期事件。专家会保留自己的方法论，也会在事实可能变化时主动检索核验。</p></div>
+        <div className={styles['expertChatExpertGrid']}>{masters.map(master => <button key={master.id} onClick={() => openLauncher(master.id)} aria-label={`开始与${master.name}开放对谈`}>
+          <span className={styles['personaAvatar']} style={{ color: master.color, borderColor: master.color }}>{master.shortName}</span>
+          <span><b>{master.name}</b><small>{master.roleTag}</small></span>
+          {master.chatOnly === true && <em>开放对谈</em>}
+        </button>)}</div>
+      </section> : <section className={`${styles['card']} ${styles['expertChatSurface']}`}>
+        <header className={styles['expertChatHead']}>
+          <span className={styles['personaAvatar']} style={{ color: selectedMaster?.color, borderColor: selectedMaster?.color }}>{selectedMaster?.shortName ?? selected.masterName.slice(0, 1)}</span>
+          <div><span className={styles['sectionEyebrow']}>OPEN CONVERSATION</span><h2>{selected.title}</h2><small>{selected.masterName} · {selected.model ?? '默认模型'} · {turnStatusText(selected.turnStatus)}</small></div>
+          <button className={`${styles['button']} ${styles['buttonGhost']}`} onClick={onHome}>全部对谈</button>
+        </header>
+        {selected.errorMessage !== null && <div className={styles['expertChatError']}><b>上一轮未完成</b><span>{selected.errorMessage}</span></div>}
+        <div className={styles['expertChatPanel']}>{selected.dshSessionId === null
+          ? <Empty title="对谈会话尚未建立" detail="创建过程未完成；可以删除本记录后重新发起。" />
+          : <ChatPanel key={`${selected.id}:${selected.dshSessionId}`} clientContext={client.ctx} sessionId={selected.dshSessionId} title={`与${selected.masterName}开放对谈`} variant="open-chat" compact hideHeader />}
+        </div>
+      </section>}
+    </div>
+    {launcherOpen && <ExpertChatLauncher client={client} masters={masters} initialMasterId={prefillMasterId} onClose={() => setLauncherOpen(false)} onCreated={(chat) => {
+      const next = [chat, ...items.filter(item => item.id !== chat.id)]
+      setItems(next)
+      onChats(next)
+      setLauncherOpen(false)
+      notify('开放对谈已创建')
+      onOpen(chat.id)
+    }} notify={notify} />}
+    {deleteTarget !== null && <Modal title="删除专家对谈" subtitle="此操作不可撤销" onClose={() => { if (!deleting) setDeleteTarget(null) }}>
+      <section className={styles['deleteConfirm']}><span aria-hidden="true">!</span><div><b>确认删除“{deleteTarget.title}”？</b><p>将删除本地专家快照并归档对应 DSH Session。对谈消息不会保留在 Hanai 列表中。</p><dl><div><dt>专家</dt><dd>{deleteTarget.masterName}</dd></div><div><dt>创建时间</dt><dd>{dateTime(deleteTarget.createdAt)}</dd></div></dl></div></section>
+      <footer className={styles['modalFoot']}><span>专家正在回答时不能删除</span><div className={styles['confirmActions']}><button className={styles['button']} disabled={deleting} onClick={() => setDeleteTarget(null)}>取消</button><button className={styles['buttonDanger']} disabled={deleting} onClick={() => void remove()}>{deleting ? '正在删除…' : '确认删除'}</button></div></footer>
+    </Modal>}
+  </Page>
+}
+
+function ExpertChatLauncher({ client, masters, initialMasterId, onClose, onCreated, notify }: { client: HanaiClient; masters: MasterPersona[]; initialMasterId: string | null; onClose: () => void; onCreated: (chat: ExpertChat) => void; notify: Notify }) {
+  const [masterId, setMasterId] = useState(initialMasterId ?? masters[0]?.id ?? '')
+  const [openingMessage, setOpeningMessage] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const selected = masters.find(master => master.id === masterId)
+  const submit = async () => {
+    if (masterId === '') { notify('请选择一位专家', 'error'); return }
+    setSubmitting(true)
+    try {
+      const message = openingMessage.trim()
+      onCreated(await client.call('expert-chat.create', {
+        masterId,
+        ...(message === '' ? {} : { openingMessage: message }),
+      }))
+    } catch (error) {
+      notify(messageOf(error), 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+  return <Modal title="新建专家对谈" subtitle="选择一位专家；问题可以跨公司、行业和市场持续展开" onClose={onClose} wide>
+    <section className={styles['launcherSection']}><label>对谈专家</label><div className={styles['launcherMasters']}>{masters.map(master => <button key={master.id} className={masterId === master.id ? styles['masterSelected'] : ''} aria-pressed={masterId === master.id} onClick={() => setMasterId(master.id)}><span style={{ color: master.color, borderColor: master.color }}>{master.shortName}</span><span><b>{master.name}</b><small>{master.roleTag || master.tags.slice(0, 2).join(' · ')}</small></span><em>{masterId === master.id ? '●' : '○'}</em></button>)}</div></section>
+    <section className={styles['launcherSection']}><label htmlFor="expert-chat-opening">开场问题（可选）</label>
+      {selected?.chatStarters !== undefined && <div className={styles['chatStarterList']}>{selected.chatStarters.map(starter => <button key={starter} onClick={() => setOpeningMessage(starter)}>{starter}</button>)}</div>}
+      <textarea id="expert-chat-opening" value={openingMessage} maxLength={4000} onChange={event => setOpeningMessage(event.target.value)} placeholder="例如：为什么这一轮 AI 基础设施里，存储可能比算力更容易出现供需缺口？" />
+      <div className={styles['launcherHint']}><span>留空也可以，进入会话后再提问</span><span>{[...openingMessage].length}/4000</span></div>
+      {selected?.personaDisclaimer !== undefined && <div className={styles['personaDisclaimer']}><span>AI</span><p>{selected.personaDisclaimer}</p></div>}
+    </section>
+    <footer className={styles['launcherActions']}><button className={`${styles['button']} ${styles['buttonGhost']}`} onClick={onClose}>取消</button><button className={styles['buttonPrimary']} disabled={submitting || masterId === ''} onClick={() => void submit()}>{submitting ? '正在创建对谈…' : openingMessage.trim() === '' ? '创建空白对谈' : '开始对谈'}</button></footer>
+  </Modal>
+}
+
 function PersonasPage({ masters }: { masters: MasterPersona[] }) {
   return <Page>
     <PageHeader title="专家中心" description="了解每位专家的分析框架、适用场景与核心方法" />
     <div className={styles['personaGrid']}>{masters.map(master => <article key={master.id} className={`${styles['card']} ${styles['personaCard']}`} aria-label={`${master.name}专家信息`}>
       <header className={styles['personaHead']}>
         <span className={styles['personaAvatar']} style={{ color: master.color, borderColor: master.color }}>{master.shortName}</span>
-        <div className={styles['personaIdentity']}><b>{master.name}</b>{master.roleTag && <em className={styles['personaRole']} style={{ color: master.color, borderColor: master.color }}>{master.roleTag}</em>}</div>
+        <div className={styles['personaIdentity']}><b>{master.name}</b><div>{master.roleTag && <em className={styles['personaRole']} style={{ color: master.color, borderColor: master.color }}>{master.roleTag}</em>}<small className={styles['personaCapability']}>{master.chatOnly === true ? '仅开放对谈' : '研判 · 开放对谈'}</small></div></div>
       </header>
       <section className={styles['personaBody']}><label>专家介绍</label><p className={styles['personaDescription']}>{master.description || '暂无介绍'}</p></section>
+      {master.personaDisclaimer !== undefined && <div className={styles['personaCardDisclaimer']}>{master.personaDisclaimer}</div>}
       {master.tags.length > 0 && <footer className={styles['personaMethods']}><label>核心方法</label><div>{master.tags.map(tag => <span key={tag}>{tag}</span>)}</div></footer>}
     </article>)}</div>
   </Page>
@@ -1479,8 +1632,9 @@ function SettingsPage({ client, bootstrap, onTheme, onReload, notify }: { client
           <SettingsMetric label="行情缓存" value={formatBytes(bootstrap.diagnostics.storage.marketCacheBytes)} />
           <SettingsMetric label="估值缓存" value={formatBytes(bootstrap.diagnostics.storage.valuationCacheBytes)} />
           <SettingsMetric label="研判归档" value={`${bootstrap.diagnostics.judgementCount} 份 · ${formatBytes(bootstrap.diagnostics.storage.judgementsBytes)}`} />
+          <SettingsMetric label="专家对谈" value={`${bootstrap.diagnostics.expertChatCount} 次 · ${formatBytes(bootstrap.diagnostics.storage.expertChatsBytes)}`} />
         </div>
-        <div className={styles['storageFooter']}><p className={styles['settingsNote']}>清理缓存不会删除自选、专家与研判报告。</p><div className={styles['settingsActions']}><button className={styles['button']} disabled={busy} onClick={() => { setBusy(true); void client.call('storage.openDataRoot', {}).then(result => notify(`已打开 ${result.dataRoot}`)).catch(error => notify(messageOf(error), 'error')).finally(() => setBusy(false)) }}>打开数据目录</button><button className={styles['button']} disabled={busy} onClick={() => void clearCache('market')}>清理行情缓存</button><button className={styles['button']} disabled={busy} onClick={() => void clearCache('valuation')}>清理估值缓存</button></div></div>
+        <div className={styles['storageFooter']}><p className={styles['settingsNote']}>清理缓存不会删除自选、专家、对谈或研判报告。</p><div className={styles['settingsActions']}><button className={styles['button']} disabled={busy} onClick={() => { setBusy(true); void client.call('storage.openDataRoot', {}).then(result => notify(`已打开 ${result.dataRoot}`)).catch(error => notify(messageOf(error), 'error')).finally(() => setBusy(false)) }}>打开数据目录</button><button className={styles['button']} disabled={busy} onClick={() => void clearCache('market')}>清理行情缓存</button><button className={styles['button']} disabled={busy} onClick={() => void clearCache('valuation')}>清理估值缓存</button></div></div>
       </article>
 
       <article className={`${styles['card']} ${styles['settingsCard']} ${styles['settingsTheme']}`}><PanelHead title="界面主题" hint="只改变颜色，不改变页面布局" /><div className={styles['themeChoices']}><button className={bootstrap.theme === 'light' ? styles['themeSelected'] : ''} onClick={() => void setTheme('light')}><i className={styles['lightSwatch']} /><span><b>亮色模式</b><small>浅色背景与深色文字</small></span><em>{bootstrap.theme === 'light' ? '✓' : ''}</em></button><button className={bootstrap.theme === 'dark' ? styles['themeSelected'] : ''} onClick={() => void setTheme('dark')}><i className={styles['darkSwatch']} /><span><b>黑夜模式</b><small>原客户端深色研究终端</small></span><em>{bootstrap.theme === 'dark' ? '✓' : ''}</em></button></div></article>
@@ -1791,6 +1945,8 @@ function routeTitle(route: AppRoute): string {
     case 'watch': return '自选与发现'
     case 'judgements':
     case 'judgement-detail': return '大师研判'
+    case 'expert-chats':
+    case 'expert-chat-detail': return '专家对谈'
     case 'personas': return '专家中心'
     case 'settings': return '设置与诊断'
     case 'stock': return '个股研究'
@@ -1804,11 +1960,24 @@ function routeFromHash(hash: string): AppRoute {
   if (stock?.[1]) return { page: 'stock', secId: decodeURIComponent(stock[1]) }
   const judgement = /^\/judgements\/([^/]+)$/.exec(path)
   if (judgement?.[1]) return { page: 'judgement-detail', judgementId: decodeURIComponent(judgement[1]) }
+  const expertChat = /^\/expert-chats\/([^/]+)$/.exec(path)
+  if (expertChat?.[1]) return { page: 'expert-chat-detail', chatId: decodeURIComponent(expertChat[1]) }
   if (path === '/watch') return { page: 'watch' }
   if (path === '/judgements') return { page: 'judgements' }
+  if (path === '/expert-chats') return { page: 'expert-chats' }
   if (path === '/personas') return { page: 'personas' }
   if (path === '/settings') return { page: 'settings' }
   return { page: 'dashboard' }
+}
+
+function turnStatusText(status: ExpertChat['turnStatus']): string {
+  switch (status) {
+    case 'idle': return '可以继续对谈'
+    case 'queued': return '问题已排队'
+    case 'running': return '专家正在回答'
+    case 'cancelling': return '正在停止'
+    case 'failed': return '上一轮未完成'
+  }
 }
 
 function toSearchResult(stock: Pick<StockQuote, 'secId' | 'code' | 'name' | 'price' | 'changePct'>): SearchResult {

@@ -223,6 +223,12 @@ export interface MasterPersona {
   tags: string[]
   defaultPrompt: string
   version: string
+  /** Open-chat-only experts stay visible in the expert center but never enter stock-report launchers. */
+  chatOnly?: boolean
+  /** Persistent UI disclosure for a perspective simulation of a real person. */
+  personaDisclaimer?: string
+  /** Optional conversation starters shown before the first open-chat message. */
+  chatStarters?: string[]
 }
 
 export type ReportStatus =
@@ -272,6 +278,24 @@ export interface ReportVersion {
 export interface JudgementDetail {
   judgement: Judgement
   reports: ReportVersion[]
+}
+
+/** Business metadata for an expert conversation. DSH remains the sole owner of all messages and turns. */
+export interface ExpertChat {
+  id: string
+  title: string
+  masterId: string
+  masterName: string
+  masterVersion: string
+  dshSessionId: string | null
+  turnStatus: TurnStatus
+  modelProvider: string | null
+  model: string | null
+  reasoningEffort: string | null
+  createdAt: string
+  updatedAt: string
+  errorCode: string | null
+  errorMessage: string | null
 }
 
 export interface StockDetail {
@@ -340,6 +364,7 @@ export interface Diagnostics {
   securityCount: number
   masterCount: number
   judgementCount: number
+  expertChatCount: number
   latestMarketSuccess: string | null
   latestValuationSuccess: string | null
   storage: {
@@ -348,6 +373,7 @@ export interface Diagnostics {
     marketCacheBytes: number
     valuationCacheBytes: number
     judgementsBytes: number
+    expertChatsBytes: number
   }
   version: string
 }
@@ -363,6 +389,7 @@ export interface BootstrapData {
   masters: MasterPersona[]
   groups: WatchGroup[]
   judgements: Judgement[]
+  expertChats: ExpertChat[]
   diagnostics: Diagnostics
 }
 
@@ -382,6 +409,12 @@ export interface CreateJudgementInput {
   secId: string
   masterId: string
   prompt?: string
+  model?: ModelSelectionInput
+}
+
+export interface CreateExpertChatInput {
+  masterId: string
+  openingMessage?: string
   model?: ModelSelectionInput
 }
 
@@ -416,6 +449,10 @@ export interface HanaiEndpointMap {
   'judgement.get': { request: { id: string }; response: JudgementDetail }
   'judgement.revise': { request: { id: string; instruction: string }; response: Judgement }
   'judgement.remove': { request: { id: string }; response: Judgement[] }
+  'expert-chat.list': { request: Record<string, never>; response: ExpertChat[] }
+  'expert-chat.create': { request: CreateExpertChatInput; response: ExpertChat }
+  'expert-chat.get': { request: { id: string }; response: ExpertChat }
+  'expert-chat.remove': { request: { id: string }; response: ExpertChat[] }
   'model.default.get': {
     request: Record<string, never>
     response: DefaultModelSelection

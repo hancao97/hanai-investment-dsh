@@ -50,6 +50,24 @@ describe('DshChatPanel', () => {
     expect(screen.getByText('现金流检查完成')).not.toBeNull()
   })
 
+  it('uses expert conversation wording for stock-independent open chats', () => {
+    const assistant = assistantBlocksNode([
+      { kind: 'reasoning', text: '检查供需、库存和资本开支' },
+      { kind: 'text', text: '先把“永远缺”当成可证伪假设。' },
+    ], 'running')
+    const harness = makeHarness([assistant], true)
+
+    render(<DshChatPanel sessions={harness.sessions} sessionId="session-1" variant="open-chat" />)
+
+    expect(screen.getByRole('region', { name: '专家对谈记录' })).not.toBeNull()
+    expect(screen.getByLabelText('继续与专家对谈')).not.toBeNull()
+    const process = screen.getByLabelText('思考过程') as HTMLDetailsElement
+    expect(process.open).toBe(false)
+    expect(screen.getByText('专家 · 思考中')).not.toBeNull()
+    expect(screen.getByText('专家正在思考')).not.toBeNull()
+    expect(screen.queryByText('大师')).toBeNull()
+  })
+
   it('renders assistant GFM and folds one turn of reasoning and tools into a compact process group', () => {
     const assistant = assistantBlocksNode([
       { kind: 'reasoning', text: '检查现金流质量和估值假设' },

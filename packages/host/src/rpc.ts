@@ -42,6 +42,18 @@ const schemas = {
   'judgement.get': z.object({ id: identifier }).strict(),
   'judgement.revise': z.object({ id: identifier, instruction: z.string().trim().min(1).max(4000) }).strict(),
   'judgement.remove': z.object({ id: identifier }).strict(),
+  'expert-chat.list': empty,
+  'expert-chat.create': z.object({
+    masterId: identifier,
+    openingMessage: z.string().trim().min(1).max(4000).optional(),
+    model: z.object({
+      provider: z.string().trim().min(1).max(100),
+      model: z.string().trim().min(1).max(200),
+      reasoningEffort: z.string().trim().min(1).max(50).optional(),
+    }).strict().optional(),
+  }).strict(),
+  'expert-chat.get': z.object({ id: identifier }).strict(),
+  'expert-chat.remove': z.object({ id: identifier }).strict(),
   'model.default.get': empty,
   'model.default.set': z.object({
     provider: z.string().trim().min(1).max(100),

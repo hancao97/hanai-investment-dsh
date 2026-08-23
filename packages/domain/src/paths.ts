@@ -10,6 +10,7 @@ export interface HanaiPaths {
   marketCacheDir: string
   valuationCacheDir: string
   judgementsDir: string
+  expertChatsDir: string
   exportsDir: string
   tmpDir: string
 }
@@ -28,6 +29,7 @@ export function resolveHanaiPaths(configured?: string): HanaiPaths {
     marketCacheDir: join(root, 'cache', 'market'),
     valuationCacheDir: join(root, 'cache', 'valuation'),
     judgementsDir: join(root, 'judgements'),
+    expertChatsDir: join(root, 'expert-chats'),
     exportsDir: join(root, 'exports'),
     tmpDir: join(root, 'tmp'),
   }
@@ -41,6 +43,7 @@ export function ensureHanaiLayout(paths: HanaiPaths): void {
     paths.marketCacheDir,
     paths.valuationCacheDir,
     paths.judgementsDir,
+    paths.expertChatsDir,
     paths.exportsDir,
     paths.tmpDir,
   ]

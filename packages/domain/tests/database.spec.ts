@@ -102,6 +102,40 @@ describe('HanaiDatabase', () => {
     db.close()
   })
 
+  it('stores only expert-chat metadata and an opaque DSH session binding', () => {
+    const { db } = database()
+    const created = db.createExpertChat({
+      id: 'chat-1',
+      title: '存储供需周期',
+      masterId: 'sun-yuchen-perspective',
+      masterName: '孙宇晨',
+      masterVersion: 'v1',
+      modelProvider: 'deepseek',
+      model: 'deepseek-chat',
+    })
+    expect(created).toMatchObject({
+      id: 'chat-1',
+      title: '存储供需周期',
+      dshSessionId: null,
+      turnStatus: 'idle',
+    })
+    expect(db.expertChatCount()).toBe(1)
+
+    const bound = db.updateExpertChat(created.id, {
+      dshSessionId: 'hanai-chat-1',
+      turnStatus: 'queued',
+    })
+    expect(bound.dshSessionId).toBe('hanai-chat-1')
+    expect(db.getExpertChatBySession('hanai-chat-1')?.id).toBe(created.id)
+    expect(db.listExpertChats()).toEqual([expect.objectContaining({ id: created.id })])
+    expect(() => db.sqlite.prepare('SELECT * FROM messages').all()).toThrow()
+
+    db.removeExpertChat(created.id)
+    expect(db.listExpertChats()).toEqual([])
+    expect(() => db.removeExpertChat(created.id)).toThrow('不存在')
+    db.close()
+  })
+
   it('never replaces securities with a partial snapshot', () => {
     const { db } = database()
     expect(() => db.replaceSecuritySnapshot([])).toThrow('不完整')

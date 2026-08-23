@@ -1,14 +1,14 @@
 # Hanai Worth · 值见 DSH 总体架构设计
 
 - 状态：核心架构已实现
-- 更新日期：2026-08-22
+- 更新日期：2026-08-23
 - DSH 分析基线：`deepseek-harness@b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`
 
 ## 1. 结论
 
-Hanai Worth · 值见当前以兼容包名 `hanai-investment-dsh` 实现为一个树外 DeepSeek Harness Bundle。它复用 DSH 的模型、凭据、Agent、Session、会话历史、流式事件和 Web Client 插件机制；Hanai Worth 自己拥有股票、行情、估值、自选、大师研判、报告版本和聊天呈现等业务能力。
+Hanai Worth · 值见当前以兼容包名 `hanai-investment-dsh` 实现为一个树外 DeepSeek Harness Bundle。它复用 DSH 的模型、凭据、Agent、Session、会话历史、流式事件和 Web Client 插件机制；Hanai Worth 自己拥有股票、行情、估值、自选、大师研判、专家开放对谈、报告版本和聊天呈现等业务能力。
 
-新 UI 全部使用 React 重写，但产品基线仍是旧版客户端：一级导航固定为“今日市场、自选与发现、大师研判、专家中心、设置与诊断”，个股和研判详情仍是从这些页面进入的详情路由。`hanai-investment` Profile 启动后在 `shell.overlay` 中自动挂载全屏常驻的 Hanai 工作台；Workbench 自己同步 Hash 路由，因此无需 DSH 新增通用 Router Slot。Hanai 自己渲染消息时间线和 composer，所有轮次仍发送给绑定的 DSH Session。
+新 UI 全部使用 React 重写，并保留旧版五页基线；2026-08-23 新增一级“专家对谈”，当前导航为“今日市场、自选与发现、大师研判、专家对谈、专家中心、设置与诊断”。个股、研判和对谈详情都是可直接访问的详情路由。`hanai-investment` Profile 启动后在 `shell.overlay` 中自动挂载全屏常驻的 Hanai 工作台；Workbench 自己同步 Hash 路由，因此无需 DSH 新增通用 Router Slot。Hanai 自己渲染消息时间线和 composer，所有轮次仍发送给绑定的 DSH Session。
 
 该结构不向 Hanai 用户展示 DSH 原生聊天页面，但仍复用 DSH 的 Session 持久化、Agent、队列、取消、恢复和事件流。Hanai 只重写呈现和交互层，不实现第二套 Agent 运行时或聊天存储。
 
@@ -17,11 +17,12 @@ Hanai Worth · 值见当前以兼容包名 `hanai-investment-dsh` 实现为一�
 ### 2.1 目标
 
 - 以可安装的 DSH Bundle 发布，不 fork DSH。
-- 按旧版五个一级页面的名称、顺序、布局和交互，保留行情、自选、搜索、股票详情、估值、大师研判、专家与诊断能力。
+- 保留旧版五个一级页面的名称、相对顺序、布局和交互，并新增不绑定股票或报告的“专家对谈”。
 - 使用 ECharts 复原板块 `treemap`、分时/日周月 K 线、五维雷达和价值曲线的数据及交互语义。
 - 使用 DeepSeek 模型生成大师研判报告。
 - 页面可以设置、删除和验证 DeepSeek API Key，但不读取或保存明文副本。
 - 每份报告与一个持久 DSH Session 绑定，报告完成后可以和原大师持续对话。
+- 每次开放对谈与一个独立持久 DSH Session 和专家快照绑定，但不创建或封存 `REPORT.md`。
 - 正式报告通过校验、哈希和原子封存保持不可变；版本机制是内部实现边界，不作为新增的一级产品能力。
 - 通过 `location.hash` 提供旧路由语义对应的 deep-link、刷新恢复以及浏览器前进/后退。
 - 提供普通亮色和黑夜模式；主题切换只替换语义 token，不改变 DOM、尺寸、顺序、图表数据或业务色。
@@ -34,7 +35,7 @@ Hanai Worth · 值见当前以兼容包名 `hanai-investment-dsh` 实现为一�
 - 不把 Hanai 消息复制到第二套 Conversation/Message 表；DSH Session 日志是聊天事实源。
 - 不支持在已有对话中原地切换大师；切换大师创建新 Session 或 Fork。
 - 不引入 shadcn、Tailwind 或第二套全局主题。
-- 不增加旧版没有的一级页面、导航、筛选、状态、人物展示法、图表语义或业务动作。
+- 除 ADR-0004 接受的“专家对谈”外，不随意增加一级页面或改变既有行情、研判、人物与图表语义。
 - 不检测、读取或导入旧版 `~/.hanai-investment`。
 
 ## 3. 系统结构
@@ -71,9 +72,10 @@ flowchart LR
 | 模型及普通 DSH 设置 | DSH Settings | `$DSH_HOME/settings.yaml` |
 | 会话事件、消息和工具历史 | DSH Session Persistence | `$DSH_HOME/sessions` |
 | 聊天附件 | DSH Attachment Service | `$DSH_HOME/attachments` |
-| 自选、证券主数据、研判索引 | Hanai | `~/.hanai-investment-dsh/db/hanai.sqlite` |
+| 自选、证券主数据、研判与对谈业务索引 | Hanai | `~/.hanai-investment-dsh/db/hanai.sqlite` |
 | 研判工作区 | Hanai | `~/.hanai-investment-dsh/judgements/<id>/workspace` |
 | 正式报告快照 | Hanai | `~/.hanai-investment-dsh/judgements/<id>/reports` |
+| 专家对谈工作区 | Hanai | `~/.hanai-investment-dsh/expert-chats/<id>/workspace` |
 | 行情和估值缓存 | Hanai | `~/.hanai-investment-dsh/cache` |
 
 详细规则见 [ADR-0002](adr/0002-data-root-isolation.md)。
@@ -89,7 +91,7 @@ worth-dsh/
 │   ├── host/                   # Cordis Service、Connection RPC、Agent 编排和持久化
 │   ├── client-workbench/       # 侧栏入口、全屏 Hanai 工作台和业务页面
 │   ├── client-chat/            # 报告详情、消息时间线和 composer
-│   └── masters/                # 四位大师 Skill、参考资料及版本元数据
+│   └── masters/                # 五位专家 Skill、参考资料、能力分流及版本元数据
 ├── tooling/
 │   └── dsh-client-bundle/      # 锁定 DSH 基线的最小 Client Bundle 构建适配器
 ├── package.json
@@ -147,6 +149,7 @@ DSH AppFrame
 | 今日市场 | `#/dashboard` | 六大指数 → 市场宽度 → 左侧板块热力图、右侧榜单 |
 | 自选与发现 | `#/watch` | 分组工具栏 → 原字段/排序语义的自选表格 |
 | 大师研判 | `#/judgements` | 股票/分析人筛选 → 三列研判卡片；详情为 `#/judgements/:id` |
+| 专家对谈 | `#/expert-chats` | 对谈记录 → 专家选择或开放聊天；详情为 `#/expert-chats/:id` |
 | 专家中心 | `#/personas` | 普通页头 → 两列专家信息卡 |
 | 设置与诊断 | `#/settings` | Agent、数据源、本地存储、关于声明；DSH 凭据嵌入此页 |
 | 个股详情 | `#/stock/:secId` | 行情与基本面左列、估值与价值曲线右列；不是一级导航 |
@@ -183,6 +186,14 @@ DSH 继续负责：
 - 用户/助手/工具事件的完整事实记录。
 
 Hanai 不创建 `messages` 或 `turns` 表。聊天页从 DSH 历史和实时事件构建视图，浏览器中只保存未发送草稿等纯 UI 状态。DSH 原生 `ui-conversation` 可以继续随 Web Profile 装载，但 Hanai 产品入口不导航到它，也不依赖它的内部 React 组件。
+
+### 6.2.1 专家开放对谈
+
+开放对谈拥有独立的 `expert_chats` 业务索引与 `expert-chats/<id>/workspace`，不复用 `judgements` 的证券字段、报告状态机或封存目录。每次创建会复制一份不可变专家 Skill，并写入开放对谈专用 `AGENTS.md`；空白对谈不发送合成用户 prompt，带开场问题时只发送用户原文。
+
+段永平、混江龙、查理·芒格和沃伦·巴菲特支持研判与开放对谈；孙宇晨视角标记为 `chatOnly`，客户端不显示在研判创建器，Host 也拒绝绕过创建。孙宇晨页面持续展示真人模拟声明，Skill 和工作区共同要求时效事实先核验、行业周期给出反证，并禁止把操纵、欺骗或规避监管转化为执行建议。
+
+对谈消息、工具与 Turn 历史和研判续聊一样只由 DSH 保存。Hanai SQLite 的标题只是业务导航元数据，不是消息摘要或可独立恢复的会话副本。完整决策见 [ADR-0004](adr/0004-open-expert-conversations.md)。
 
 ### 6.3 组件与样式
 
@@ -337,6 +348,7 @@ watch_groups
 watch_items
 judgements
 report_versions
+expert_chats
 ```
 
 `judgements` 的核心字段：
@@ -362,6 +374,18 @@ sha256 / size_bytes
 model_provider / model_id
 sealed_at
 manifest_version
+```
+
+`expert_chats` 只保存业务导航元数据：
+
+```text
+id / title
+master_id / master_version
+dsh_session_id nullable
+turn_status
+model_provider / model / reasoning_effort
+created_at / updated_at
+error_code / error_message
 ```
 
 路径只保存相对 `dataRoot` 的值，禁止把某台机器的绝对路径写入持久化记录。
@@ -440,10 +464,11 @@ Provider 传输层使用 Node/DSH Host 能力重写，不能继续依赖 Electro
 | --- | --- | --- |
 | 树外 Bundle / Client Bundle | 已实现 | 根包 sibling roles、单文件 `lib/client.js`、ModuleLoader 协议测试 |
 | Domain / SQLite / 数据隔离 | 已实现 | 路径权限、migration、Provider 与报告封存测试 |
-| 旧版五页壳层与 Hash 路由 | 已实现 | 固定导航名称/顺序，`#/dashboard` 等路由可刷新并支持前进/后退 |
+| 六页壳层与 Hash 路由 | 已实现 | 保留旧版五页并新增 `#/expert-chats`；全部详情路由可刷新并支持前进/后退 |
 | 市场、自选、个股、估值 | 已实现 | 旧版布局、字段与真实 Provider 降级链；所有来源必须显示 fresh/stale/fallback |
 | ECharts 图表 | 已实现 | treemap、分时/K 线、雷达和价值曲线；图表语义由固定 fixture 约束 |
 | 大师研判与报告版本 | 已实现 | 独立工作区、能力包快照、同一 Session、原子封存与 SHA-256 |
+| 专家开放对谈 | 已实现 | 独立业务索引/工作区/Session，不绑定股票或 `REPORT.md`，孙宇晨仅开放对谈 |
 | Hanai 自绘聊天 | 已实现 | 历史、流式、工具树、queue/steer/cancel、审批、问题响应和生命周期冻结 |
 | 亮色/黑夜主题 | 已实现 | 只切换 Workbench 语义 token，SQLite 持久化，布局与图表语义不变 |
 | 独立 Profile | 已实现 | 临时 `DSH_HOME` 上真实安装、配置校验和随机端口启动 |
@@ -455,8 +480,8 @@ Provider 传输层使用 Node/DSH Host 能力重写，不能继续依赖 Electro
 
 1. 用户可以安装 Bundle 并启动 `hanai-investment` Profile，且官方 `dsh web` 不受影响。
 2. 页面可以配置 DeepSeek Key，明文不进入 Hanai 数据目录。
-3. 五个一级页面的名称、顺序、结构与旧版一致；个股和研判详情保留原路由语义。
-4. 四位大师均可创建研判，并且每次研判有独立工作区和 DSH Session。
+3. 保留旧版五个一级页面并新增“专家对谈”；个股、研判和对谈详情保留 Hash 深链语义。
+4. 四位大师均可创建研判；五位专家均可创建开放对谈；每次任务有独立工作区和 DSH Session。
 5. 报告校验后形成带 SHA-256 的不可变快照。
 6. 报告和消息时间线出现在 Hanai 自有研判详情页中，不要求显示 DSH 原生聊天。
 7. 用户可以通过 Hanai composer 在同一 Session 继续追问，重启后仍可恢复。

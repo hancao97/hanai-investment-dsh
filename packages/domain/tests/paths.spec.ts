@@ -48,6 +48,7 @@ describe('Hanai data layout isolation', () => {
     'marketCacheDir',
     'valuationCacheDir',
     'judgementsDir',
+    'expertChatsDir',
     'exportsDir',
     'tmpDir',
   ] satisfies Array<Exclude<keyof HanaiPaths, 'root' | 'databasePath'>>)(
@@ -80,6 +81,7 @@ describe('Hanai data layout isolation', () => {
       paths.marketCacheDir,
       paths.valuationCacheDir,
       paths.judgementsDir,
+      paths.expertChatsDir,
       paths.exportsDir,
       paths.tmpDir,
     ]

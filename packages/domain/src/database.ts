@@ -2,7 +2,7 @@ import { chmodSync, existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite'
 import type {
-  Judgement, ReportStatus, ReportVersion, SecurityMaster, ThemeId, TurnStatus, WatchGroup,
+  ExpertChat, Judgement, ReportStatus, ReportVersion, SecurityMaster, ThemeId, TurnStatus, WatchGroup,
 } from '../../contracts/src/index.ts'
 
 interface WatchGroupRow {
@@ -43,6 +43,23 @@ interface JudgementRow {
   error_message: string | null
 }
 
+interface ExpertChatRow {
+  id: string
+  title: string
+  master_id: string
+  master_name: string
+  master_version: string
+  dsh_session_id: string | null
+  turn_status: TurnStatus
+  model_provider: string | null
+  model: string | null
+  reasoning_effort: string | null
+  created_at: string
+  updated_at: string
+  error_code: string | null
+  error_message: string | null
+}
+
 export interface ReportRow {
   judgement_id: string
   version: number
@@ -76,6 +93,24 @@ export interface JudgementUpdate {
   errorCode?: string | null
   errorMessage?: string | null
   repairAttempts?: number
+}
+
+export interface CreateExpertChatRecord {
+  id: string
+  title: string
+  masterId: string
+  masterName: string
+  masterVersion: string
+  modelProvider?: string
+  model?: string
+  reasoningEffort?: string
+}
+
+export interface ExpertChatUpdate {
+  dshSessionId?: string | null
+  turnStatus?: TurnStatus
+  errorCode?: string | null
+  errorMessage?: string | null
 }
 
 export interface SecuritySnapshotRow extends SecurityMaster {
@@ -171,12 +206,33 @@ export class HanaiDatabase {
         model TEXT,
         PRIMARY KEY(judgement_id, version)
       );
+      CREATE TABLE IF NOT EXISTS expert_chats (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        master_id TEXT NOT NULL,
+        master_name TEXT NOT NULL,
+        master_version TEXT NOT NULL,
+        dsh_session_id TEXT UNIQUE,
+        turn_status TEXT NOT NULL,
+        model_provider TEXT,
+        model TEXT,
+        reasoning_effort TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        error_code TEXT,
+        error_message TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_expert_chats_updated ON expert_chats(updated_at DESC);
     `)
     const version = this.sqlite.prepare('SELECT MAX(version) AS value FROM schema_migrations').get() as
       | { value: number | null }
       | undefined
     if ((version?.value ?? 0) < 1) {
       this.sqlite.prepare('INSERT INTO schema_migrations(version, applied_at) VALUES(1, ?)')
+        .run(new Date().toISOString())
+    }
+    if ((version?.value ?? 0) < 2) {
+      this.sqlite.prepare('INSERT INTO schema_migrations(version, applied_at) VALUES(2, ?)')
         .run(new Date().toISOString())
     }
     this.ensureDefaultWatchGroup()
@@ -312,6 +368,11 @@ export class HanaiDatabase {
 
   judgementCount(): number {
     const row = this.sqlite.prepare('SELECT COUNT(*) AS count FROM judgements').get() as { count: number }
+    return row.count
+  }
+
+  expertChatCount(): number {
+    const row = this.sqlite.prepare('SELECT COUNT(*) AS count FROM expert_chats').get() as { count: number }
     return row.count
   }
 
@@ -500,6 +561,67 @@ export class HanaiDatabase {
     return this.getJudgement(id) as Judgement
   }
 
+  createExpertChat(input: CreateExpertChatRecord): ExpertChat {
+    const now = new Date().toISOString()
+    this.sqlite.prepare(`
+      INSERT INTO expert_chats(
+        id, title, master_id, master_name, master_version, turn_status,
+        model_provider, model, reasoning_effort, created_at, updated_at
+      ) VALUES(?, ?, ?, ?, ?, 'idle', ?, ?, ?, ?, ?)
+    `).run(
+      input.id,
+      input.title,
+      input.masterId,
+      input.masterName,
+      input.masterVersion,
+      input.modelProvider ?? null,
+      input.model ?? null,
+      input.reasoningEffort ?? null,
+      now,
+      now,
+    )
+    return this.getExpertChat(input.id) as ExpertChat
+  }
+
+  getExpertChat(id: string): ExpertChat | null {
+    const row = this.sqlite.prepare('SELECT * FROM expert_chats WHERE id = ?').get(id) as ExpertChatRow | undefined
+    return row === undefined ? null : expertChatFromRow(row)
+  }
+
+  getExpertChatBySession(sessionId: string): ExpertChat | null {
+    const row = this.sqlite.prepare('SELECT * FROM expert_chats WHERE dsh_session_id = ?').get(sessionId) as
+      | ExpertChatRow
+      | undefined
+    return row === undefined ? null : expertChatFromRow(row)
+  }
+
+  listExpertChats(): ExpertChat[] {
+    const rows = this.sqlite.prepare('SELECT * FROM expert_chats ORDER BY updated_at DESC').all() as unknown as ExpertChatRow[]
+    return rows.map(expertChatFromRow)
+  }
+
+  updateExpertChat(id: string, update: ExpertChatUpdate): ExpertChat {
+    const fields: string[] = []
+    const values: SQLInputValue[] = []
+    const add = (column: string, value: SQLInputValue): void => {
+      fields.push(`${column} = ?`)
+      values.push(value)
+    }
+    if ('dshSessionId' in update) add('dsh_session_id', update.dshSessionId ?? null)
+    if ('turnStatus' in update) add('turn_status', update.turnStatus)
+    if ('errorCode' in update) add('error_code', update.errorCode ?? null)
+    if ('errorMessage' in update) add('error_message', update.errorMessage ?? null)
+    add('updated_at', new Date().toISOString())
+    const result = this.sqlite.prepare(`UPDATE expert_chats SET ${fields.join(', ')} WHERE id = ?`).run(...values, id)
+    if (result.changes === 0) throw new Error('专家对谈不存在')
+    return this.getExpertChat(id) as ExpertChat
+  }
+
+  removeExpertChat(id: string): void {
+    const result = this.sqlite.prepare('DELETE FROM expert_chats WHERE id = ?').run(id)
+    if (result.changes === 0) throw new Error('专家对谈不存在')
+  }
+
   addReportVersion(record: Omit<ReportRow, 'relative_path'> & { relativePath: string }): void {
     this.sqlite.prepare(`
       INSERT INTO report_versions(
@@ -594,6 +716,25 @@ function judgementFromRow(row: JudgementRow): Judgement {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     completedAt: row.completed_at,
+    errorCode: row.error_code,
+    errorMessage: row.error_message,
+  }
+}
+
+function expertChatFromRow(row: ExpertChatRow): ExpertChat {
+  return {
+    id: row.id,
+    title: row.title,
+    masterId: row.master_id,
+    masterName: row.master_name,
+    masterVersion: row.master_version,
+    dshSessionId: row.dsh_session_id,
+    turnStatus: row.turn_status,
+    modelProvider: row.model_provider,
+    model: row.model,
+    reasoningEffort: row.reasoning_effort,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
     errorCode: row.error_code,
     errorMessage: row.error_message,
   }

@@ -3,6 +3,8 @@
 - 状态：已接受并实现
 - 日期：2026-08-15
 
+> 2026-08-23 修订：ADR-0004 在保留本 ADR 五页基线的前提下，接受新增第六个一级页面“专家对谈”及 `#/expert-chats/:id` 详情路由。
+
 ## 背景
 
 旧版 Hanai Investment 是 Electron + Vue 多页应用。DSH Web 使用 React 18、Cordis Client Plugin、Slot、共享 `ui-primitives`、CSS Modules 和 `--dsw-*` 主题令牌。当前 DSH 根布局只提供 `sidebar`、`conversation`、`details` 三个单占位 Slot 和 `shell.overlay` 列表 Slot，没有面向任意业务页面的通用 Router/Page Slot。
@@ -20,7 +22,7 @@
 首版保留 DSH 的 `ui-layout` 和 Slot 运行时：
 
 - 在 `shell.overlay` 注册启动后自动显示的全屏 Hanai Workbench；
-- Workbench 一级导航固定为旧版的“今日市场、自选与发现、大师研判、专家中心、设置与诊断”，顺序和页面结构不变；
+- Workbench 保留旧版“今日市场、自选与发现、大师研判、专家中心、设置与诊断”的相对顺序和页面结构，并按 ADR-0004 在研判与专家中心之间新增“专家对谈”；
 - 个股详情 `#/stock/:secId` 与研判详情 `#/judgements/:id` 仍是从一级页面进入的详情页，不增加“个股研究”等一级导航；
 - Workbench 将路由状态同步到 `location.hash`：`#/dashboard`、`#/watch`、`#/judgements`、`#/personas`、`#/settings` 可直接访问、刷新、前进和后退；
 - 生产配置不提供关闭 Workbench 或导航到 DSH 原生聊天的入口；启动失败显示 Hanai 自有故障页。
@@ -56,7 +58,7 @@ ECharts `5.6.0` 内联进单文件 Client Bundle，并通过按需 import、包�
 
 ### 6. 功能完整性
 
-Overlay 是容器选择，不是功能降级或重新设计授权。首版必须按旧版五页结构、字段、筛选、状态、图表和详情布局实现完整业务；唯一可见的业务增量是 `ready` 报告在同一 DSH Session 继续对话，以及原设置页内的 DSH API Key 管理。亮色/黑夜只是只换 token 的受控视觉增量。
+Overlay 是容器选择，不是功能降级或重新设计授权。首版按旧版五页结构、字段、筛选、状态、图表和详情布局实现完整业务；后续只有 ADR-0004 明确接受的“专家对谈”扩展该一级信息架构。`ready` 报告续聊、原设置页内的 DSH API Key 管理和专家对谈仍复用同一 DSH Session/Agent 基础设施。亮色/黑夜只是只换 token 的受控视觉增量。
 
 ## 后果
 
@@ -102,4 +104,4 @@ Overlay 是容器选择，不是功能降级或重新设计授权。首版必须
 
 ## 后续演进
 
-如果 DSH 提供稳定的 `shell.page` 和 navigation 扩展，Hanai Workbench 可以从 Overlay 迁移为正式页面。该变化不得影响现有 Hash 路由语义、五页信息架构、Host API、领域模型、Session 绑定或报告事件格式。
+如果 DSH 提供稳定的 `shell.page` 和 navigation 扩展，Hanai Workbench 可以从 Overlay 迁移为正式页面。该变化不得影响现有 Hash 路由语义、六页信息架构、Host API、领域模型、Session 绑定或报告事件格式。

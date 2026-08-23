@@ -21,6 +21,11 @@ describe('Hanai RPC request validation', () => {
     expect(parseHanaiRequest('security.valuation', { secId: '1.600519' })).toEqual({ secId: '1.600519' })
     expect(parseHanaiRequest('watch.valuations', { groupId: 'default' })).toEqual({ groupId: 'default' })
     expect(parseHanaiRequest('judgement.remove', { id: 'judgement-1' })).toEqual({ id: 'judgement-1' })
+    expect(parseHanaiRequest('expert-chat.create', {
+      masterId: 'sun-yuchen-perspective',
+      openingMessage: ' 存储为什么会短缺？ ',
+    })).toEqual({ masterId: 'sun-yuchen-perspective', openingMessage: '存储为什么会短缺？' })
+    expect(parseHanaiRequest('expert-chat.get', { id: 'chat-1' })).toEqual({ id: 'chat-1' })
     expect(parseHanaiRequest('cache.clear', { scope: 'valuation' })).toEqual({ scope: 'valuation' })
     expect(parseHanaiRequest('storage.openDataRoot', {})).toEqual({})
 
@@ -37,6 +42,13 @@ describe('Hanai RPC request validation', () => {
     })).toThrow()
     expect(() => parseHanaiRequest('watch.valuations', { groupId: '../default' })).toThrow()
     expect(() => parseHanaiRequest('judgement.remove', { id: '../judgement-1' })).toThrow()
+    expect(() => parseHanaiRequest('expert-chat.create', {
+      masterId: 'sun-yuchen-perspective', openingMessage: '   ',
+    })).toThrow()
+    expect(() => parseHanaiRequest('expert-chat.create', {
+      masterId: 'sun-yuchen-perspective', openingMessage: '问题', stockId: '1.600519',
+    })).toThrow()
+    expect(() => parseHanaiRequest('expert-chat.remove', { id: '../chat-1' })).toThrow()
   })
 
   it('validates the DSH default-model bridge strictly and normalizes text', () => {

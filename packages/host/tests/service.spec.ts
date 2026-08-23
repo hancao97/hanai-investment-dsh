@@ -2,6 +2,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -15,6 +16,7 @@ import type { DefaultModelSelection, ProviderMeta, StockDetail } from '../../con
 import { HanaiDatabase } from '../../domain/src/database.ts'
 import { ensureHanaiLayout, resolveHanaiPaths } from '../../domain/src/paths.ts'
 import { ReportStore } from '../../domain/src/reports.ts'
+import { ExpertChatStore } from '../../domain/src/expert-chats.ts'
 import {
   HanaiService,
   type DefaultModelFacade,
@@ -98,11 +100,12 @@ function fixture(minChars = 100) {
     searchSecurities: async () => [],
   }
   const reports = new ReportStore(paths, assets, minChars)
+  const expertChats = new ExpertChatStore(paths, assets)
   const openDirectory = vi.fn(async (_directory: string): Promise<void> => {})
   const service = new HanaiService({
-    paths, database, reports, sessions, defaultModel, market, version: 'test', openDirectory,
+    paths, database, reports, expertChats, sessions, defaultModel, market, version: 'test', openDirectory,
   })
-  return { database, defaultModel, market, openDirectory, paths, reports, service, sessions }
+  return { database, defaultModel, expertChats, market, openDirectory, paths, reports, service, sessions }
 }
 
 function completed(turn = 1): SessionEvent {
@@ -119,6 +122,69 @@ async function eventually(assertion: () => void): Promise<void> {
 }
 
 describe('HanaiService report lifecycle', () => {
+  it('creates a stock-independent expert chat, tracks DSH turns, and removes its workspace safely', async () => {
+    const { database, paths, service, sessions } = fixture()
+    const created = await service.call('expert-chat.create', {
+      masterId: 'sun-yuchen-perspective',
+      openingMessage: '“永远缺存储”要看哪些供需信号？',
+    }, new AbortController().signal)
+
+    expect(created).toMatchObject({
+      masterId: 'sun-yuchen-perspective',
+      masterName: '孙宇晨',
+      title: '“永远缺存储”要看哪些供需信号？',
+      turnStatus: 'queued',
+    })
+    expect(created.dshSessionId).toBe(`hanai-chat-${created.id}`)
+    expect(sessions.prompts).toEqual([{
+      sessionId: created.dshSessionId,
+      text: '“永远缺存储”要看哪些供需信号？',
+    }])
+    const workspace = join(paths.expertChatsDir, created.id, 'workspace')
+    expect(existsSync(join(workspace, '.agents', 'skills', 'sun-yuchen-perspective', 'SKILL.md'))).toBe(true)
+    expect(existsSync(join(workspace, 'REPORT.md'))).toBe(false)
+    expect(readFileSync(join(workspace, 'AGENTS.md'), 'utf8')).toContain('专家开放对谈工作区')
+
+    service.handleSessionEvent(created.dshSessionId!, {
+      type: 'turn/start', seq: 1, time: Date.now(), data: { turn: 1 },
+    })
+    expect(database.getExpertChat(created.id)?.turnStatus).toBe('running')
+    service.handleSessionEvent(created.dshSessionId!, completed())
+    expect(database.getExpertChat(created.id)).toMatchObject({
+      turnStatus: 'idle', errorCode: null, errorMessage: null,
+    })
+
+    await expect(service.call('expert-chat.remove', {
+      id: created.id,
+    }, new AbortController().signal)).resolves.toEqual([])
+    expect(sessions.archived).toEqual([created.dshSessionId])
+    expect(database.getExpertChat(created.id)).toBeNull()
+    expect(existsSync(join(paths.expertChatsDir, created.id))).toBe(false)
+    database.close()
+  })
+
+  it('creates a blank expert chat without injecting a synthetic user message', async () => {
+    const { database, service, sessions } = fixture()
+    const created = await service.call('expert-chat.create', {
+      masterId: 'munger-perspective',
+    }, new AbortController().signal)
+
+    expect(created).toMatchObject({ title: '与查理·芒格开放对谈', turnStatus: 'idle' })
+    expect(sessions.prompts).toEqual([])
+    database.close()
+  })
+
+  it('enforces chat-only expert capability at the Host boundary', async () => {
+    const { database, market, service } = fixture()
+    const stockLookup = vi.spyOn(market, 'getStockDetail')
+    await expect(service.call('judgement.create', {
+      secId: '1.600519', masterId: 'sun-yuchen-perspective',
+    }, new AbortController().signal)).rejects.toThrow('仅支持开放对谈')
+    expect(stockLookup).not.toHaveBeenCalled()
+    expect(database.listJudgements()).toEqual([])
+    database.close()
+  })
+
   it('deletes only a settled judgement, archives its session, and removes local report files', async () => {
     const { database, paths, service, sessions } = fixture()
     const created = await service.call('judgement.create', {
@@ -325,6 +391,44 @@ describe('HanaiService report lifecycle', () => {
       turnStatus: 'failed',
       errorCode: 'recovery-preparing-interrupted',
       errorMessage: expect.stringContaining('重新发起研判'),
+    })
+    database.close()
+  })
+
+  it('recovers interrupted expert chat turns without hiding a prior failure', async () => {
+    const { database, service } = fixture()
+    const interrupted = database.createExpertChat({
+      id: 'chat-interrupted',
+      title: '中断的开放对谈',
+      masterId: 'munger-perspective',
+      masterName: '查理·芒格',
+      masterVersion: 'v1',
+    })
+    database.updateExpertChat(interrupted.id, {
+      dshSessionId: 'session-interrupted',
+      turnStatus: 'running',
+    })
+    const failed = database.createExpertChat({
+      id: 'chat-failed',
+      title: '失败的开放对谈',
+      masterId: 'sun-yuchen-perspective',
+      masterName: '孙宇晨',
+      masterVersion: 'v1',
+    })
+    database.updateExpertChat(failed.id, {
+      dshSessionId: 'session-failed',
+      turnStatus: 'failed',
+      errorCode: 'chat-turn-error',
+      errorMessage: '保留这条错误',
+    })
+
+    await service.recover()
+
+    expect(database.getExpertChat(interrupted.id)).toMatchObject({
+      turnStatus: 'idle', errorCode: null, errorMessage: null,
+    })
+    expect(database.getExpertChat(failed.id)).toMatchObject({
+      turnStatus: 'failed', errorCode: 'chat-turn-error', errorMessage: '保留这条错误',
     })
     database.close()
   })

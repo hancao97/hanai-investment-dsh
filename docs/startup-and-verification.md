@@ -1,6 +1,6 @@
 # Hanai Worth · 值见 DSH 启动与验收报告
 
-> 验收日期：2026-08-22
+> 验收日期：2026-08-23
 
 ## 1. 结论
 
@@ -59,9 +59,9 @@ Base 和 Web App 是当前 DSH CLI 自带的 installation-owned Bundle，不应�
 2. 在“DeepSeek API Key”卡片写入 Key 并点击“安全保存”。输入框提交后会清空；页面和 RPC 都不会回显明文。
 3. 在“默认模型”选择 DSH 当前提供的模型并保存。
 4. 确认数据源、证券主数据和本地存储状态。
-5. 回到“大师研判”，选择股票和一位大师开始研判。
+5. 回到“大师研判”，选择股票和一位大师开始研判；或进入“专家对谈”，不选股票直接开始开放讨论。
 
-报告封存完成后，详情页默认仍展示正式报告；切换“继续对话”会复用生成该报告的同一个 `dshSessionId`，不会创建第二个本地消息库或丢失大师上下文。
+报告封存完成后，详情页默认仍展示正式报告；切换“继续对话”会复用生成该报告的同一个 `dshSessionId`。专家开放对谈使用独立业务索引，但消息、工具和 Turn 历史仍只由对应的 DSH Session 持有，不会创建第二个本地消息库。
 
 ## 5. 日常启动与停止
 
@@ -89,7 +89,7 @@ dsh web
 
 | 数据 | 所有者 | 默认位置 |
 | --- | --- | --- |
-| 自选、证券主数据、研判索引、报告、行情/估值缓存 | Hanai | `~/.hanai-investment-dsh` |
+| 自选、证券主数据、研判/专家对谈索引、报告、行情/估值缓存 | Hanai | `~/.hanai-investment-dsh` |
 | DeepSeek Key、默认模型、Session 消息、工具事件、附件 | DSH | 当前 `$DSH_HOME` |
 
 实测新数据根目录权限为 `0700`，SQLite 文件权限为 `0600`。旧版目录保留原状，新版没有数据导入入口。
@@ -109,12 +109,12 @@ pnpm run check
 | 门禁 | 结果 |
 | --- | --- |
 | `pnpm run typecheck` | 通过 |
-| `pnpm run test` | 27 个测试文件、171 项测试全部通过 |
+| `pnpm run test` | 27 个测试文件、187 项测试全部通过 |
 | `pnpm run build` | Host、Client 与 Profile tools 构建通过 |
-| `pnpm run pack:check` | 68 个发布文件通过 |
+| `pnpm run pack:check` | 71 个发布文件通过 |
 | `git diff --check` | 通过 |
 
-四个大师 Skill 均通过 `skill-creator` 的 `quick_validate.py`；51 个迁移文件由 SHA-256 清单校验，发布包包含全部 8 个脚本。已在 rc.2 Host/Web 上完成 Profile 启动、页面加载、Session 创建与 prompt/event 链路 smoke；临时无 Key 环境中的模型调用按预期停在凭据校验。
+五个专家 Skill 均通过结构校验，其中新增孙宇晨视角还通过 `skill-creator` 的 `quick_validate.py`；原始迁移资产中的 51 个文件继续由 SHA-256 清单校验，发布包包含全部 8 个脚本。已在 rc.2 Host/Web 上完成 Profile 启动、页面加载、Session 创建与 prompt/event 链路 smoke；临时无 Key 环境中的模型调用按预期停在凭据校验。
 
 另外已使用全新的临时 `DSH_HOME` 实际执行：
 
@@ -137,6 +137,8 @@ pnpm run profile:verify
 - 股票详情渐进加载：本机实测约 0.6 秒内先出现证券名称与页面结构，日 K、估值和其它分面随后独立收敛；周/月 K 仅在切换时加载；
 - 自选：分组管理、三态排序、加入/移动/移除和整行进入详情；
 - 研判：原列表、筛选、创建弹窗、执行过程、报告归档与同 Session 继续对话入口；
+- 专家对谈：股票无关入口、五位专家选择、孙宇晨开场问题与身份披露、空白 Session、历史列表、深链、删除约束和专家语境聊天文案；
+- 900 × 800 专家对谈详情：响应式上下分栏且无水平溢出；
 - 设置：Key write-only、默认模型真实读写、缓存、存储、数据源和主题；
 - Hash 路由：直接打开、刷新、后退和前进均保持页面语义；
 - 全局搜索：代码/名称/拼音搜索、打开股票与选择自选分组。
@@ -154,7 +156,7 @@ pnpm run profile:verify
 
 ## 9. 验收边界
 
-为避免消耗用户 API 额度，浏览器验收没有新建一次真实大师研判；报告状态机、报告校验/封存、Session 绑定、生成期只读、封存后 composer 解锁和多轮消息流由 Host/Client 集成测试覆盖。实际发起研判前，请确认 DeepSeek Key、模型与网络可用。
+为避免消耗用户 API 额度，浏览器验收没有发起真实模型 Turn；已在全新临时 Profile 中创建孙宇晨空白对谈并验证 DSH Session、页面深链和 composer。研判/对谈状态机、报告校验与封存、开场 prompt、生成期只读、普通多轮消息流由 Host/Client 集成测试覆盖。实际发起模型请求前，请确认 DeepSeek Key、模型与网络可用。
 
 ## 10. 常见问题
 

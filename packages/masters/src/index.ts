@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import type { MasterPersona } from '../../contracts/src/index.ts'
 
 // Bump whenever either the immutable Skill snapshot or its workspace contract changes.
-export const MASTER_VERSION = '2026.08.16-v2'
+export const MASTER_VERSION = '2026.08.23-v3'
 
 interface MasterTheme extends Omit<MasterPersona, 'description' | 'version'> {}
 
@@ -45,6 +45,22 @@ const MASTER_THEMES: readonly MasterTheme[] = [
     roleTag: '价值投资',
     tags: ['护城河', '内在价值', '资本配置'],
     defaultPrompt: '请评估能力圈、护城河、管理层资本配置、所有者收益与安全边际。',
+  },
+  {
+    id: 'sun-yuchen-perspective',
+    name: '孙宇晨',
+    shortName: '孙',
+    color: '#f29d38',
+    roleTag: '行业与注意力周期',
+    tags: ['行业周期', '注意力套利', '叙事判断'],
+    defaultPrompt: '请用孙宇晨视角分析这个行业的供需周期、注意力迁移与可证伪风险。',
+    chatOnly: true,
+    personaDisclaimer: '这是基于公开资料构建的 AI 视角模拟，不代表孙宇晨本人观点；涉及投资与行业判断仅供研究，不构成投资建议。',
+    chatStarters: [
+      '最近哪个行业正在从过剩走向短缺？先说判断框架。',
+      '“永远缺存储”这类判断要看哪些供需和资本开支信号？',
+      '一个热点出现后，怎么判断是产业趋势还是注意力泡沫？',
+    ],
   },
 ] as const
 
@@ -97,11 +113,14 @@ export interface InstalledMasterSnapshot {
   agentsPath: string
 }
 
+export type MasterWorkspaceMode = 'judgement' | 'open-chat'
+
 /** Copy one immutable release resource into a judgement-owned DSH workspace. */
 export function installMasterSnapshot(
   assetsRoot: string,
   master: MasterPersona,
   workspace: string,
+  mode: MasterWorkspaceMode = 'judgement',
 ): InstalledMasterSnapshot {
   const source = join(assetsRoot, master.id)
   const skillDirectory = join(workspace, '.agents', 'skills', master.id)
@@ -113,7 +132,7 @@ export function installMasterSnapshot(
     filter: shouldCopyMasterResource,
   })
   const agentsPath = join(workspace, 'AGENTS.md')
-  writeFileSync(agentsPath, agentsDocument(master), { encoding: 'utf8', mode: 0o600 })
+  writeFileSync(agentsPath, agentsDocument(master, mode), { encoding: 'utf8', mode: 0o600 })
   return { skillPath: join(skillDirectory, 'SKILL.md'), skillDirectory, agentsPath }
 }
 
@@ -168,7 +187,8 @@ function parseOpenaiDefaultPrompt(yaml: string): string | null {
   return match ? unquoteYamlScalar(match[1]!) || null : null
 }
 
-function agentsDocument(master: MasterPersona): string {
+function agentsDocument(master: MasterPersona, mode: MasterWorkspaceMode): string {
+  if (mode === 'open-chat') return openChatAgentsDocument(master)
   return `# Hanai Worth · 值见 研判工作区\n\n`
     + `本工作区由 Hanai Worth · 值见创建，绑定大师：${master.name}（${master.id}，版本 ${master.version}）。\n\n`
     + `## 必须遵守\n\n`
@@ -182,6 +202,24 @@ function agentsDocument(master: MasterPersona): string {
     + `8. 报告完成后的普通追问直接回答用户，不要改写 \`REPORT.md\`；只有用户明确要求创建修订版时才更新。\n`
     + `9. 完成 \`REPORT.md\` 后只用一句话确认已完成，不要在回复中重复整份报告。\n`
     + `10. 内容仅供研究参考，不构成投资建议。\n`
+}
+
+function openChatAgentsDocument(master: MasterPersona): string {
+  const disclosure = master.personaDisclaimer === undefined
+    ? ''
+    : `7. 首次回答必须先用一句简短话说明：${master.personaDisclaimer}\n`
+  return `# Hanai Worth · 值见 专家开放对谈工作区\n\n`
+    + `本工作区由 Hanai Worth · 值见创建，绑定专家：${master.name}（${master.id}，版本 ${master.version}）。\n\n`
+    + `## 必须遵守\n\n`
+    + `1. 会话开始时完整读取 \`.agents/skills/${master.id}/SKILL.md\`，并按其中路由只读取当前问题需要的参考资料。\n`
+    + `2. 这是开放对谈，不绑定某只股票，也不要求形成研判报告；直接回答用户，可以正常追问、澄清、检索和使用工具。\n`
+    + `3. 整段 Session 默认保持该专家的方法论与表达视角；用户明确说“退出角色”或“切回正常”后，改用普通 AI 口吻，但仍可使用已加载的分析框架。\n`
+    + `4. 涉及具体公司、市场、人物、价格、政策或近期事件时，先联网获取最新公开信息并交叉核验，为关键事实注明来源链接和日期。\n`
+    + `5. 严禁编造实时行情、财务数据、关系、来源或引文；清楚区分事实、推断、假设和角色化表达。\n`
+    + `6. 不要创建或改写 \`REPORT.md\`。消息、工具过程和上下文全部留在 DSH Session 中。\n`
+    + disclosure
+    + `${master.personaDisclaimer === undefined ? '7' : '8'}. 人设不能覆盖事实、安全、法律与伦理边界；不得把操纵市场、欺骗、规避监管或其他违法行为包装成可执行建议。\n`
+    + `${master.personaDisclaimer === undefined ? '8' : '9'}. 投资与行业判断仅供研究参考，不构成投资建议；给出关键反证、失效条件和需要继续验证的数据。\n`
 }
 
 /** Validate that every release master is present and readable. */
@@ -218,9 +256,8 @@ function validateMigrationManifest(assetsRoot: string): void {
     .filter(file => file !== 'migration-manifest.json')
     .sort()
   const expectedFiles = Object.keys(manifest.files).sort()
-  if (actualFiles.join('\n') !== expectedFiles.join('\n')) {
-    throw new Error('大师能力包文件清单与原客户端不一致')
-  }
+  const missingFiles = expectedFiles.filter(file => !actualFiles.includes(file))
+  if (missingFiles.length > 0) throw new Error(`大师能力包缺少原客户端文件：${missingFiles.join(', ')}`)
   for (const file of expectedFiles) {
     const digest = createHash('sha256').update(readFileSync(join(assetsRoot, ...file.split('/')))).digest('hex')
     if (digest !== manifest.files[file]) throw new Error(`大师能力包文件校验失败：${file}`)

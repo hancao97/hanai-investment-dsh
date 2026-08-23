@@ -369,6 +369,7 @@
 .judgementToolbar input,
 .judgementToolbar select,
 .launcherSearch input,
+.launcherSection textarea,
 .groupManagerRow input {
   width: 100%;
   height: 32px;
@@ -388,6 +389,7 @@
 .judgementToolbar input:focus,
 .judgementToolbar select:focus,
 .launcherSearch input:focus,
+.launcherSection textarea:focus,
 .groupManagerRow input:focus { border-color: var(--control-border-hover); box-shadow: var(--control-focus); }
 
 .inlineSearchResults { position: absolute; top: 37px; right: 0; z-index: 8; width: 100%; overflow: hidden; box-shadow: var(--shadow); }
@@ -576,17 +578,71 @@
 .reportHead h2 { margin: 5px 0 0; font-size: 18px; }
 .tagReady { color: var(--down) !important; border-color: rgba(47, 172, 116, .35); background: var(--down-soft); }
 
+.expertChatLayout { display: grid; height: calc(100vh - 150px); min-height: 520px; grid-template-columns: 280px minmax(0, 1fr); gap: 14px; }
+.expertChatHistory { display: grid; min-width: 0; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
+.expertChatHistory > header { display: flex; min-height: 60px; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 13px; border-bottom: 1px solid var(--border); }
+.expertChatHistory h2 { margin: 4px 0 0; font-size: 14px; }
+.iconButton { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid var(--control-border) !important; border-radius: 7px; cursor: pointer; color: var(--gold-strong); font-size: 17px; background: var(--control-bg); box-shadow: var(--control-shadow); }
+.iconButton:hover { border-color: var(--control-border-hover) !important; background: var(--gold-soft); }
+.expertChatHistoryList { min-height: 0; overflow: auto; padding: 6px; scrollbar-width: thin; scrollbar-color: var(--control-border) transparent; }
+.expertChatHistoryItem,
+.expertChatHistoryActive { position: relative; border: 1px solid transparent; border-radius: 8px; }
+.expertChatHistoryActive { border-color: rgba(224, 179, 76, .26); background: var(--gold-soft); }
+.expertChatHistoryItem:hover { background: var(--hover); }
+.expertChatHistoryItem > button:first-child,
+.expertChatHistoryActive > button:first-child { display: grid; width: 100%; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 8px; padding: 10px 30px 10px 8px; cursor: pointer; text-align: left; background: transparent; }
+.expertChatMiniAvatar { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid; border-radius: 50%; font: 600 11px Georgia, serif; background: var(--panel-soft); }
+.expertChatHistoryItem > button:first-child > span:last-child,
+.expertChatHistoryActive > button:first-child > span:last-child { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.expertChatHistoryItem b,
+.expertChatHistoryActive b { overflow: hidden; color: var(--text); font-size: 10px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.expertChatHistoryItem small,
+.expertChatHistoryActive small { overflow: hidden; color: var(--faint); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.expertChatRemove { position: absolute; top: 50%; right: 5px; display: grid; width: 24px; height: 24px; place-items: center; transform: translateY(-50%); border-radius: 5px; cursor: pointer; color: var(--faint); background: transparent; }
+.expertChatRemove:hover { color: var(--up); background: var(--up-soft); }
+.expertChatHistoryEmpty { margin: 20px 10px; color: var(--faint); font-size: 10px; text-align: center; }
+.expertChatWelcome { min-width: 0; overflow: auto; padding: 34px; }
+.expertChatHero { max-width: 700px; margin: 0 auto 28px; text-align: center; }
+.expertChatHero > span { color: var(--gold); font-size: 9px; font-weight: 650; letter-spacing: .2em; }
+.expertChatHero h2 { margin: 10px 0 8px; font: 600 24px/1.35 Georgia, "Songti SC", serif; }
+.expertChatHero p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.8; }
+.expertChatExpertGrid { display: grid; max-width: 880px; grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 10px; margin: 0 auto; }
+.expertChatExpertGrid > button { position: relative; display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 12px; min-height: 82px; padding: 14px; border: 1px solid var(--border) !important; border-radius: 10px; cursor: pointer; text-align: left; background: var(--panel-soft); transition: border-color 120ms ease, transform 120ms ease, background 120ms ease; }
+.expertChatExpertGrid > button:hover { border-color: var(--border-strong) !important; transform: translateY(-1px); background: var(--hover); }
+.expertChatExpertGrid > button > span:nth-child(2) { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
+.expertChatExpertGrid b { color: var(--text); font-size: 13px; }
+.expertChatExpertGrid small { color: var(--muted); font-size: 9px; }
+.expertChatExpertGrid em { position: absolute; top: 8px; right: 8px; padding: 3px 6px; border-radius: 999px; color: var(--gold-strong); font-size: 8px; font-style: normal; background: var(--gold-soft); }
+.expertChatSurface { display: grid; min-width: 0; grid-template-rows: auto auto minmax(0, 1fr); overflow: hidden; }
+.expertChatHead { display: grid; min-height: 68px; grid-row: 1; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.expertChatHead h2 { overflow: hidden; margin: 4px 0 0; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.expertChatHead small { display: block; margin-top: 4px; color: var(--faint); font-size: 8px; }
+.personaDisclaimer { display: flex; align-items: flex-start; gap: 8px; margin: 10px 12px 0; padding: 8px 10px; border: 1px solid rgba(224, 179, 76, .25); border-radius: 7px; background: var(--gold-soft); }
+.personaDisclaimer > span { display: grid; min-width: 23px; height: 18px; place-items: center; border-radius: 4px; color: var(--on-primary); font-size: 8px; font-weight: 700; background: var(--gold); }
+.personaDisclaimer p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.55; }
+.expertChatError { display: flex; grid-row: 2; align-items: center; gap: 8px; margin: 8px 12px 0; padding: 7px 9px; border: 1px solid rgba(240, 74, 85, .26); border-radius: 7px; color: var(--up); font-size: 9px; background: var(--up-soft); }
+.expertChatError span { color: var(--muted); }
+.expertChatPanel { display: grid; min-height: 0; grid-row: 3; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+.expertChatPanel > :last-child { height: 100%; min-height: 0; }
+
+@supports (height: 100dvh) {
+  .expertChatLayout { height: calc(100dvh - 150px); }
+}
+
 .personaGrid { display: grid; grid-template-columns: repeat(2, minmax(320px, 1fr)); align-items: stretch; gap: 14px; }
 .personaCard { display: flex; min-width: 0; min-height: 210px; flex-direction: column; padding: 18px; transition: border-color 120ms ease, box-shadow 120ms ease; }
 .personaCard:hover { border-color: var(--border-strong); box-shadow: 0 12px 30px rgba(0, 0, 0, .08); }
 .personaHead { display: flex; align-items: center; gap: 13px; margin-bottom: 16px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
 .personaAvatar { display: grid; width: 44px; height: 44px; flex: 0 0 44px; place-items: center; border: 2px solid; border-radius: 50%; font-family: Georgia, "Songti SC", serif; font-size: 16px; font-weight: 700; background: var(--panel-soft); }
 .personaIdentity { display: flex; min-width: 0; align-items: flex-start; flex-direction: column; gap: 6px; }
+.personaIdentity > div { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .personaIdentity b { color: var(--text); font-size: 14px; font-weight: 650; }
 .personaRole { display: inline-flex; min-height: 20px; align-items: center; padding: 0 8px; border: 1px solid; border-radius: 999px; font-size: 9px; font-style: normal; background: var(--panel-soft); }
 .personaBody { min-width: 0; flex: 1; }
 .personaCard label { color: var(--faint); font-size: 9px; font-weight: 600; letter-spacing: .1em; }
 .personaDescription { margin: 8px 0 0; overflow-wrap: anywhere; color: var(--muted); font-size: 12px; line-height: 1.75; white-space: pre-wrap; }
+.personaCapability { display: inline-flex; min-height: 20px; align-items: center; padding: 0 8px; border: 1px solid var(--border); border-radius: 999px; color: var(--faint); font-size: 8px; }
+.personaCardDisclaimer { margin-top: 14px; padding: 9px 10px; border-left: 2px solid var(--gold); color: var(--faint); font-size: 9px; line-height: 1.65; background: var(--gold-soft); }
 .personaMethods { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
 .personaMethods > div { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 .personaMethods span { display: inline-flex; min-height: 22px; align-items: center; padding: 0 8px; border: 1px solid var(--border-strong); border-radius: 999px; color: var(--muted); font-size: 10px; background: var(--panel-soft); }
@@ -659,7 +715,7 @@
 .storagePaths .keyValue:last-child { border-right: 0; }
 .storagePaths .keyValue span { display: block; margin-bottom: 7px; }
 .storagePaths .keyValue b { display: block; text-align: left; }
-.storageMetrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-bottom: 1px solid var(--border); background: var(--panel-soft); }
+.storageMetrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border-bottom: 1px solid var(--border); background: var(--panel-soft); }
 .storageMetrics > div { min-width: 0; padding: 13px 16px; border-right: 1px solid var(--border); }
 .storageMetrics > div:last-child { border-right: 0; }
 .storageMetrics span { display: block; color: var(--faint); font-size: 9px; }
@@ -737,6 +793,12 @@
 .launcherMasters small { overflow: hidden; color: var(--faint); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .launcherMasters em { color: var(--gold); font-style: normal; }
 .launcherActions { display: flex; justify-content: flex-end; gap: 7px; padding: 13px 17px; }
+.launcherSection textarea { display: block; width: 100%; height: 112px; min-height: 88px; resize: vertical; padding: 10px 11px; font: inherit; line-height: 1.6; }
+.chatStarterList { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.chatStarterList button { padding: 6px 8px; border: 1px solid var(--border) !important; border-radius: 6px; cursor: pointer; color: var(--muted); font-size: 9px; text-align: left; background: var(--panel-soft); }
+.chatStarterList button:hover { border-color: var(--control-border-hover) !important; color: var(--text); background: var(--gold-soft); }
+.launcherHint { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; color: var(--faint); font-size: 8px; }
+.launcherSection > .personaDisclaimer { margin-right: 0; margin-left: 0; }
 
 .searchModal { width: min(640px, 100%); overflow: hidden; border: 1px solid var(--border-strong); border-radius: 10px; color: var(--text); background: var(--panel); box-shadow: var(--shadow); }
 .searchModal > header { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 8px; height: 52px; padding: 0 14px; border-bottom: 1px solid var(--border); }
@@ -797,6 +859,7 @@
   .klineMaBar { align-items: flex-start; flex-direction: column; }
   .klineMaLegend { justify-content: flex-start; }
   .judgementGrid { grid-template-columns: repeat(2, 1fr); }
+  .expertChatLayout { grid-template-columns: 240px minmax(0, 1fr); }
 }
 
 @media (max-width: 1100px) {
@@ -821,4 +884,8 @@
   .settingsFacts .keyValue:nth-child(-n + 2) { border-bottom: 1px solid var(--border); }
   .watchToolbar { flex-direction: column; }
   .inlineStockSearch { width: 100%; flex-basis: auto; }
+  .expertChatLayout { height: auto; grid-template-columns: 1fr; }
+  .expertChatHistory { max-height: 240px; }
+  .expertChatSurface { height: 620px; }
+  .expertChatExpertGrid { grid-template-columns: 1fr; }
 }

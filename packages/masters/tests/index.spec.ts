@@ -43,14 +43,20 @@ function sha256(file: string): string {
 }
 
 describe('legacy master Skill migration', () => {
-  it('keeps the complete 51-file source snapshot byte-for-byte intact', () => {
+  it('keeps the complete 51-file legacy snapshot byte-for-byte intact alongside new experts', () => {
     const manifest = JSON.parse(readFileSync(join(ASSETS_ROOT, 'migration-manifest.json'), 'utf8')) as MigrationManifest
     expect(manifest.schemaVersion).toBe(1)
     expect(manifest.source).toBe('hanai-investment/packages/agents')
     expect(Object.keys(manifest.files)).toHaveLength(51)
     expect(Object.keys(manifest.files).filter(file => file.includes('/scripts/'))).toHaveLength(8)
-    expect(relativeFiles(ASSETS_ROOT).filter(file => file !== 'migration-manifest.json'))
+    const bundled = relativeFiles(ASSETS_ROOT).filter(file => file !== 'migration-manifest.json')
+    expect(bundled.filter(file => Object.hasOwn(manifest.files, file)))
       .toEqual(Object.keys(manifest.files).sort())
+    expect(bundled.filter(file => !Object.hasOwn(manifest.files, file))).toEqual([
+      'sun-yuchen-perspective/SKILL.md',
+      'sun-yuchen-perspective/agents/openai.yaml',
+      'sun-yuchen-perspective/references/provenance.md',
+    ])
     for (const [file, digest] of Object.entries(manifest.files)) {
       expect(sha256(join(ASSETS_ROOT, ...file.split('/'))), file).toBe(digest)
     }
@@ -70,24 +76,32 @@ describe('legacy master Skill migration', () => {
       'hunjianglong-perspective',
       'munger-perspective',
       'warren-buffett-perspective',
+      'sun-yuchen-perspective',
     ])
-    expect(new Set(masters.map(master => master.version))).toEqual(new Set(['2026.08.16-v2']))
+    expect(new Set(masters.map(master => master.version))).toEqual(new Set(['2026.08.23-v3']))
     expect(masters.map(({ color, roleTag, tags }) => ({ color, roleTag, tags }))).toEqual([
       { color: '#d4a017', roleTag: '价值投资', tags: ['本分', '消费者导向', '长期价值'] },
       { color: '#c4573d', roleTag: '游资大佬', tags: ['题材周期', '情绪', '弱转强'] },
       { color: '#5b8def', roleTag: '价值投资', tags: ['多元思维', '逆向思考', '认知偏误'] },
       { color: '#34a870', roleTag: '价值投资', tags: ['护城河', '内在价值', '资本配置'] },
+      { color: '#f29d38', roleTag: '行业与注意力周期', tags: ['行业周期', '注意力套利', '叙事判断'] },
     ])
     for (const master of masters) {
       const markdown = readFileSync(join(ASSETS_ROOT, master.id, 'SKILL.md'), 'utf8')
       const frontmatter = parseSkillFrontmatter(markdown)
       expect(frontmatter.name).toBe(master.id)
       expect(master.description).toBe(frontmatter.description)
-      expect(master.description.length).toBeGreaterThan(200)
-      expect(markdown.length).toBeGreaterThan(2_000)
+      expect(master.description.length).toBeGreaterThan(master.id === 'sun-yuchen-perspective' ? 80 : 200)
+      expect(markdown.length).toBeGreaterThan(master.id === 'sun-yuchen-perspective' ? 1_500 : 2_000)
     }
     expect(masters[0]!.defaultPrompt).toContain('$duan-yongping-perspective')
     expect(masters[1]!.defaultPrompt).toContain('$hunjianglong-perspective')
+    expect(masters.at(-1)).toMatchObject({
+      id: 'sun-yuchen-perspective',
+      chatOnly: true,
+      personaDisclaimer: expect.stringContaining('AI 视角模拟'),
+      chatStarters: expect.arrayContaining([expect.stringContaining('永远缺存储')]),
+    })
   })
 
   it('installs every Skill file, including scripts, into each judgement snapshot', () => {
@@ -128,6 +142,22 @@ describe('legacy master Skill migration', () => {
     expect(instructions).toContain('明确要求创建修订版时才更新')
     expect(instructions).toContain('只用一句话确认已完成')
     expect(instructions).toContain('不要在回复中重复整份报告')
+  })
+
+  it('installs an open-chat workspace without the report contract and keeps simulation boundaries visible', () => {
+    const master = listMasters().find(candidate => candidate.id === 'sun-yuchen-perspective')!
+    const workspace = mkdtempSync(join(tmpdir(), 'hanai-open-chat-instructions-'))
+    temporaryRoots.push(workspace)
+    const installed = installMasterSnapshot(ASSETS_ROOT, master, workspace, 'open-chat')
+    const instructions = readFileSync(installed.agentsPath, 'utf8')
+
+    expect(instructions).toContain('# Hanai Worth · 值见 专家开放对谈工作区')
+    expect(instructions).toContain('不绑定某只股票，也不要求形成研判报告')
+    expect(instructions).toContain('可以正常追问、澄清、检索和使用工具')
+    expect(instructions).toContain('先联网获取最新公开信息并交叉核验')
+    expect(instructions).toContain('不代表孙宇晨本人观点')
+    expect(instructions).toContain('不得把操纵市场、欺骗、规避监管或其他违法行为包装成可执行建议')
+    expect(instructions).toContain('不要创建或改写 `REPORT.md`')
   })
 
   it('rejects a truncated or modified release asset', () => {

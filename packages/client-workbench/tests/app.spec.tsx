@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type {
   BootstrapData,
   DashboardData,
+  ExpertChat,
   Judgement,
   JudgementDetail,
   MasterPersona,
@@ -36,8 +37,8 @@ vi.mock('../src/echarts.tsx', () => ({
 }))
 
 vi.mock('../../client-chat/src/index.tsx', () => ({
-  ChatPanel: ({ title, readOnlyReason, sessionId, compact, hideHeader }: { title?: string; readOnlyReason?: string; sessionId: string; compact?: boolean; hideHeader?: boolean }) => (
-    <section aria-label={title ?? '对话'} data-compact={compact ? 'true' : 'false'} data-hide-header={hideHeader ? 'true' : 'false'}>{readOnlyReason ?? '可继续对话'} · {sessionId}</section>
+  ChatPanel: ({ title, readOnlyReason, sessionId, compact, hideHeader, variant }: { title?: string; readOnlyReason?: string; sessionId: string; compact?: boolean; hideHeader?: boolean; variant?: string }) => (
+    <section aria-label={title ?? '对话'} data-compact={compact ? 'true' : 'false'} data-hide-header={hideHeader ? 'true' : 'false'} data-variant={variant ?? 'judgement'}>{readOnlyReason ?? '可继续对话'} · {sessionId}</section>
   ),
 }))
 
@@ -72,6 +73,7 @@ const valuationFresh: ProviderMeta = {
 const masters: MasterPersona[] = [
   { id: 'buffett', name: '沃伦 · 巴菲特', shortName: '巴', description: '关注护城河、内在价值与资本配置。', color: '#43bc83', roleTag: '价值投资', tags: ['护城河', '内在价值'], defaultPrompt: '', version: '1.0.0' },
   { id: 'munger', name: '查理 · 芒格', shortName: '芒', description: '坚持多元思维与认知纪律。', color: '#6d98ef', roleTag: '多元思维', tags: ['逆向思考', '纪律'], defaultPrompt: '', version: '1.0.0' },
+  { id: 'sun-yuchen-perspective', name: '孙宇晨', shortName: '孙', description: '从行业周期、注意力与叙事竞争观察市场。', color: '#f29d38', roleTag: '行业与注意力周期', tags: ['行业周期', '注意力套利'], defaultPrompt: '', version: '1.0.0', chatOnly: true, personaDisclaimer: '这是基于公开资料构建的 AI 视角模拟，不代表孙宇晨本人观点。', chatStarters: ['“永远缺存储”要验证哪些信号？'] },
 ]
 
 const group: WatchGroup = {
@@ -131,21 +133,40 @@ const failedJudgement: Judgement = {
   errorMessage: '研判执行失败',
 }
 
+const expertChat: ExpertChat = {
+  id: 'chat-ready',
+  title: '存储行业的供需周期',
+  masterId: 'sun-yuchen-perspective',
+  masterName: '孙宇晨',
+  masterVersion: '1.0.0',
+  dshSessionId: 'session-chat-ready',
+  turnStatus: 'idle',
+  modelProvider: 'deepseek',
+  model: 'deepseek-chat',
+  reasoningEffort: null,
+  createdAt: '2026-08-15T10:00:00+08:00',
+  updatedAt: '2026-08-15T10:10:00+08:00',
+  errorCode: null,
+  errorMessage: null,
+}
+
 const bootstrap: BootstrapData = {
   theme: 'dark',
   masters,
   groups: [group],
   judgements: [readyJudgement, generatingJudgement],
+  expertChats: [expertChat],
   diagnostics: {
     dataRoot: '/tmp/hanai',
     databasePath: '/tmp/hanai/hanai.db',
     dshHomeOwnedByHost: true,
     securityCount: 1,
-    masterCount: 2,
+    masterCount: 3,
     judgementCount: 2,
+    expertChatCount: 1,
     latestMarketSuccess: fresh.fetchedAt,
     latestValuationSuccess: fresh.fetchedAt,
-    storage: { totalBytes: 4096, cacheBytes: 2048, marketCacheBytes: 1024, valuationCacheBytes: 1024, judgementsBytes: 512 },
+    storage: { totalBytes: 4096, cacheBytes: 2048, marketCacheBytes: 1024, valuationCacheBytes: 1024, judgementsBytes: 512, expertChatsBytes: 256 },
     version: '0.1.0',
   },
 }
@@ -242,7 +263,7 @@ describe('HanaiWorkbench old-client parity', () => {
     expect(css).not.toMatch(/ocean|jade|marketing/i)
   })
 
-  it('restores the five original navigation entries and hash history under the Hanai Worth brand', async () => {
+  it('keeps the original navigation and adds expert chat with hash history under the Hanai Worth brand', async () => {
     const { container } = renderAt('/dashboard')
     await screen.findByRole('heading', { name: '今日市场' })
 
@@ -250,7 +271,7 @@ describe('HanaiWorkbench old-client parity', () => {
     expect(document.title).toBe('今日市场 — Hanai Worth · 值见')
     const nav = screen.getByRole('navigation', { name: '主导航' })
     expect(within(nav).getAllByRole('button').map(button => button.querySelector('span:last-child')?.textContent)).toEqual([
-      '今日市场', '自选与发现', '大师研判', '专家中心', '设置与诊断',
+      '今日市场', '自选与发现', '大师研判', '专家对谈', '专家中心', '设置与诊断',
     ])
     expect(container.querySelector('[data-theme="dark"]')).not.toBeNull()
     expect(screen.queryByText('市场全景')).toBeNull()
@@ -814,6 +835,63 @@ describe('HanaiWorkbench old-client parity', () => {
     await waitFor(() => expect(client.call).toHaveBeenCalledWith('theme.set', { theme: 'light' }))
   })
 
+  it('creates a stock-independent expert conversation and keeps Sun Yuchen out of stock judgements', async () => {
+    const { client } = renderAt('/expert-chats')
+    await screen.findByRole('heading', { name: '专家对谈' })
+    expect(document.title).toBe('专家对谈 — Hanai Worth · 值见')
+    expect(screen.getByText('从一个好问题开始，不必先选股票')).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: '开始与孙宇晨开放对谈' }))
+    const dialog = await screen.findByRole('dialog', { name: '新建专家对谈' })
+    expect(within(dialog).getByRole('button', { name: /孙宇晨/, pressed: true })).not.toBeNull()
+    expect(within(dialog).getByText(/不代表孙宇晨本人观点/)).not.toBeNull()
+    fireEvent.click(within(dialog).getByRole('button', { name: '“永远缺存储”要验证哪些信号？' }))
+    expect((within(dialog).getByLabelText('开场问题（可选）') as HTMLTextAreaElement).value).toBe('“永远缺存储”要验证哪些信号？')
+    fireEvent.click(within(dialog).getByRole('button', { name: '开始对谈' }))
+
+    await waitFor(() => expect(client.call).toHaveBeenCalledWith('expert-chat.create', {
+      masterId: 'sun-yuchen-perspective',
+      openingMessage: '“永远缺存储”要验证哪些信号？',
+    }))
+    expect(await screen.findByLabelText('与孙宇晨开放对谈')).not.toBeNull()
+    expect(window.location.hash).toBe('#/expert-chats/chat-created')
+    cleanup()
+
+    renderAt('/judgements')
+    await screen.findByRole('heading', { name: '大师研判' })
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建研判' }))
+    const judgementDialog = await screen.findByRole('dialog', { name: '新建大师研判' })
+    expect(within(judgementDialog).queryByRole('button', { name: /孙宇晨/ })).toBeNull()
+    expect(within(judgementDialog).getByRole('button', { name: /沃伦 · 巴菲特/ })).not.toBeNull()
+  })
+
+  it('deep-links an open conversation without repeating the launcher disclosure', async () => {
+    renderAt('/expert-chats/chat-ready')
+    await screen.findByRole('heading', { name: '专家对谈' })
+    expect(screen.getByRole('heading', { name: '存储行业的供需周期' })).not.toBeNull()
+    expect(screen.queryByText(/不代表孙宇晨本人观点/)).toBeNull()
+    const chat = screen.getByLabelText('与孙宇晨开放对谈')
+    expect(chat.textContent).toContain('session-chat-ready')
+    expect(chat.getAttribute('data-compact')).toBe('true')
+    expect(chat.getAttribute('data-hide-header')).toBe('true')
+    expect(chat.getAttribute('data-variant')).toBe('open-chat')
+  })
+
+  it('pins optional expert-chat rows so the conversation fills the remaining surface', () => {
+    const css = readFileSync(join(process.cwd(), 'packages/client-workbench/src/styles.module.css'), 'utf8')
+    const headRule = /\.expertChatHead\s*\{([^}]+)\}/.exec(css)?.[1] ?? ''
+    const errorRule = /\.expertChatError\s*\{([^}]+)\}/.exec(css)?.[1] ?? ''
+    const panelRule = /\.expertChatPanel\s*\{([^}]+)\}/.exec(css)?.[1] ?? ''
+    const childRule = /\.expertChatPanel\s*>\s*:last-child\s*\{([^}]+)\}/.exec(css)?.[1] ?? ''
+
+    expect(headRule).toContain('grid-row: 1;')
+    expect(errorRule).toContain('grid-row: 2;')
+    expect(panelRule).toContain('display: grid;')
+    expect(panelRule).toContain('grid-row: 3;')
+    expect(panelRule).toContain('grid-template-rows: minmax(0, 1fr);')
+    expect(childRule).toContain('height: 100%;')
+  })
+
   it('renders the complete Host-provided expert description and methods without a UI summary or clamp', async () => {
     const fullDescription = '使用公开材料提炼本分、消费者导向、组织授权和长期价值投资框架，以中性思维顾问方式分析企业、投资、经营、合作或人生决策。基于 6 维调研和 79 个可追溯引用标识，含 6 个模型、10 条启发式。仅当用户明确点名段永平、要求分析其公开观点或思维方式时触发；默认不角色扮演。'
     const longFormMaster: MasterPersona = {
@@ -857,7 +935,7 @@ describe('HanaiWorkbench old-client parity', () => {
     for (const action of ['重新检测连接', '安全保存', '移除', '立即同步主数据', '打开数据目录', '清理行情缓存', '清理估值缓存', '亮色模式', '黑夜模式']) {
       expect(screen.getByRole('button', { name: new RegExp(`^${action}`) })).not.toBeNull()
     }
-    expect(screen.getByText('清理缓存不会删除自选、专家与研判报告。')).not.toBeNull()
+    expect(screen.getByText('清理缓存不会删除自选、专家、对谈或研判报告。')).not.toBeNull()
     expect(screen.getAllByText(bootstrap.diagnostics.dataRoot).length).toBeGreaterThan(0)
     expect(screen.getByText(/Hanai Worth · 值见/)).not.toBeNull()
     expect(screen.getByText(/价格有报价，价值靠研究/)).not.toBeNull()
@@ -994,6 +1072,10 @@ function makeClient(overrides: Record<string, CallOverride> = {}): HanaiClient {
       case 'judgement.list': return bootstrap.judgements
       case 'judgement.remove': return bootstrap.judgements.filter(item => item.id !== (request as { id: string }).id)
       case 'judgement.get': return detailFor((request as { id: string }).id)
+      case 'expert-chat.list': return bootstrap.expertChats
+      case 'expert-chat.get': return bootstrap.expertChats.find(item => item.id === (request as { id: string }).id)
+      case 'expert-chat.create': return { ...expertChat, id: 'chat-created', dshSessionId: 'session-chat-created' }
+      case 'expert-chat.remove': return bootstrap.expertChats.filter(item => item.id !== (request as { id: string }).id)
       case 'theme.set': return request
       case 'cache.clear': return { scope: (request as { scope: 'market' | 'valuation' }).scope, removedFiles: 0, freedBytes: 0 }
       case 'storage.openDataRoot': return { opened: true, dataRoot: bootstrap.diagnostics.dataRoot }

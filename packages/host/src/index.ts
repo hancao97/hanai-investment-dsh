@@ -6,6 +6,7 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { HanaiDatabase } from '../../domain/src/database.ts'
 import { resolveHanaiPaths, ensureHanaiLayout } from '../../domain/src/paths.ts'
 import { ReportStore } from '../../domain/src/reports.ts'
+import { ExpertChatStore } from '../../domain/src/expert-chats.ts'
 import { MarketDataService } from '../../domain/src/providers/index.ts'
 import {
   resolveMasterAssetsRoot,
@@ -39,6 +40,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   validateMasterAssets(assetsRoot)
   const database = new HanaiDatabase(paths.databasePath)
   const reports = new ReportStore(paths, assetsRoot, config.reportMinChars ?? 800)
+  const expertChats = new ExpertChatStore(paths, assetsRoot)
   const market = new MarketDataService({
     valuationCacheDir: paths.valuationCacheDir,
     eastmoney: { timeoutMs: config.requestTimeoutMs ?? 12_000 },
@@ -48,6 +50,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     paths,
     database,
     reports,
+    expertChats,
     sessions: new DshSessionGateway(ctx),
     defaultModel: ctx.agentDefaultModel,
     market,

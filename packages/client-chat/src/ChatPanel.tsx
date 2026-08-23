@@ -1,6 +1,8 @@
 import {
+  createContext,
   memo,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -44,11 +46,81 @@ const CODE_LABELS = {
   copiedLabel: '已复制',
 } as const
 
+export type ChatPanelVariant = 'judgement' | 'open-chat'
+
+interface ChatPanelCopy {
+  sectionLabel: string
+  recordLabel: string
+  participant: string
+  participantRunning: string
+  participantOutput: string
+  runningStatus: string
+  processLabel: string
+  processPreview: string
+  generatedImage: string
+  maxTokens: string
+  idleDetail: string
+  loading: string
+  missingDetail: string
+  approvalFallback: string
+  questionLead: string
+  composerLabel: string
+  composerPlaceholder: string
+}
+
+const JUDGEMENT_COPY: ChatPanelCopy = {
+  sectionLabel: '大师对话',
+  recordLabel: '大师对话记录',
+  participant: '大师',
+  participantRunning: '大师 · 研判中',
+  participantOutput: '大师 · 输出中',
+  runningStatus: '大师正在研判',
+  processLabel: '研判过程',
+  processPreview: '正在推演判断依据',
+  generatedImage: '大师生成的图片',
+  maxTokens: '本轮达到最大输出长度，可发送“继续”让大师接着回答。',
+  idleDetail: '完成大师研判后，会在这里关联可继续交流的 DSH Session。',
+  loading: '正在载入大师的完整对话…',
+  missingDetail: '找不到这份报告关联的 DSH Session，可能已被删除或尚未同步。',
+  approvalFallback: '大师希望调用',
+  questionLead: '大师需要你的补充',
+  composerLabel: '继续与大师对话',
+  composerPlaceholder: '追问大师的判断依据、风险或下一步观察点…',
+}
+
+const OPEN_CHAT_COPY: ChatPanelCopy = {
+  sectionLabel: '专家对谈',
+  recordLabel: '专家对谈记录',
+  participant: '专家',
+  participantRunning: '专家 · 思考中',
+  participantOutput: '专家 · 输出中',
+  runningStatus: '专家正在思考',
+  processLabel: '思考过程',
+  processPreview: '正在分析问题',
+  generatedImage: '专家生成的图片',
+  maxTokens: '本轮达到最大输出长度，可发送“继续”让专家接着回答。',
+  idleDetail: '创建专家对谈后，会在这里关联可持续交流的 DSH Session。',
+  loading: '正在载入专家的完整对谈…',
+  missingDetail: '找不到这次对谈关联的 DSH Session，可能已被删除或尚未同步。',
+  approvalFallback: '专家希望调用',
+  questionLead: '专家需要你的补充',
+  composerLabel: '继续与专家对谈',
+  composerPlaceholder: '继续追问判断依据、反证或下一步观察点…',
+}
+
+const ChatCopyContext = createContext<ChatPanelCopy>(JUDGEMENT_COPY)
+
+function useChatCopy(): ChatPanelCopy {
+  return useContext(ChatCopyContext)
+}
+
 /** Stable workbench-facing integration contract. */
 export interface ChatPanelProps {
   clientContext: ClientContext
   sessionId: string
   compact?: boolean
+  /** Select wording for report-bound judgement chat or stock-independent expert chat. */
+  variant?: ChatPanelVariant
   /** Remove the inner title bar when the host already renders equivalent context. */
   hideHeader?: boolean
   /** Temporarily hide the composer while preserving history and pending responses. */
@@ -64,6 +136,7 @@ export function ChatPanel({
   clientContext,
   sessionId,
   compact = false,
+  variant = 'judgement',
   hideHeader = false,
   readOnlyReason,
   title,
@@ -76,6 +149,7 @@ export function ChatPanel({
       sessions={clientContext.sessions}
       sessionId={sessionId}
       compact={compact}
+      variant={variant}
       hideHeader={hideHeader}
       {...readOnlyReason === undefined ? {} : { readOnlyReason }}
       {...title === undefined ? {} : { title }}
@@ -99,6 +173,8 @@ export interface DshChatPanelProps {
   headerActions?: ReactNode
   /** Use the denser, single-line embedded layout. */
   compact?: boolean
+  /** Select wording for report-bound judgement chat or stock-independent expert chat. */
+  variant?: ChatPanelVariant
   /** Remove the inner title bar when the host already renders equivalent context. */
   hideHeader?: boolean
   className?: string
@@ -123,10 +199,11 @@ export function DshChatPanel(props: DshChatPanelProps) {
 function DshChatPanelInstance({
   sessions,
   sessionId,
-  title = '继续与大师对话',
+  title,
   intro,
   headerActions,
   compact = false,
+  variant = 'judgement',
   hideHeader = false,
   className,
   autoOpen,
@@ -134,17 +211,19 @@ function DshChatPanelInstance({
   onClose,
 }: DshChatPanelProps) {
   const state = useDshChatSession({ sessions, sessionId, ...(autoOpen === undefined ? {} : { autoOpen }) })
+  const copy = variant === 'open-chat' ? OPEN_CHAT_COPY : JUDGEMENT_COPY
   const rootClassName = [css.panel, compact ? css.compact : '', className ?? '']
     .filter(Boolean)
     .join(' ')
 
   return (
-    <section className={rootClassName} aria-label="大师对话">
+    <ChatCopyContext.Provider value={copy}>
+    <section className={rootClassName} aria-label={copy.sectionLabel}>
       {!hideHeader && (
         <header className={css.header}>
           <div className={css.headingGroup}>
             <span className={css.eyebrow}>HANAI WORTH</span>
-            <h2 className={css.title}>{title}</h2>
+            <h2 className={css.title}>{title ?? copy.composerLabel}</h2>
           </div>
           <div className={css.headerActions}>
             {headerActions}
@@ -158,16 +237,16 @@ function DshChatPanelInstance({
       )}
 
       {state.phase === 'idle' && (
-        <EmptyState title="尚未创建对话" detail="完成大师研判后，会在这里关联可继续交流的 DSH Session。" />
+        <EmptyState title="尚未创建对话" detail={copy.idleDetail} />
       )}
       {state.phase === 'loading' && (
         <div className={css.loading} role="status">
           <span className={css.spinner} aria-hidden />
-          正在载入大师的完整对话…
+          {copy.loading}
         </div>
       )}
       {state.phase === 'missing' && (
-        <EmptyState title="对话已不可用" detail="找不到这份报告关联的 DSH Session，可能已被删除或尚未同步。" />
+        <EmptyState title="对话已不可用" detail={copy.missingDetail} />
       )}
       {state.phase === 'error' && (
         <EmptyState title="载入对话失败" detail={state.error?.message ?? '未知错误'} tone="error" />
@@ -183,6 +262,7 @@ function DshChatPanelInstance({
         />
       )}
     </section>
+    </ChatCopyContext.Provider>
   )
 }
 
@@ -220,6 +300,7 @@ const SessionView = memo(function SessionView({
   intro,
   readOnlyReason: externalReadOnlyReason,
 }: SessionViewProps) {
+  const copy = useChatCopy()
   const order = useSessionSelector(session, snapshot => snapshot.chat.order)
   const queue = useSessionSelector(session, snapshot => snapshot.queue)
   const pending = useSessionSelector(session, snapshot => snapshot.pending)
@@ -292,7 +373,7 @@ const SessionView = memo(function SessionView({
         ref={scrollRef}
         onScroll={handleScroll}
         role="region"
-        aria-label="大师对话记录"
+        aria-label={copy.recordLabel}
         tabIndex={0}
       >
         {hasMore && (
@@ -339,7 +420,7 @@ const SessionView = memo(function SessionView({
           {running && (
             <div className={css.runningStatus} role="status">
               <span className={css.pulse} aria-hidden />
-              大师正在研判
+              {copy.runningStatus}
             </div>
           )}
         </div>
@@ -417,6 +498,7 @@ const AssistantTurn = memo(function AssistantTurn({
   session: SessionFace
   onUpdated(): void
 }) {
+  const copy = useChatCopy()
   const nodes = useSessionSelector(
     session,
     snapshot => nodeKeys.map(nodeKey => snapshot.chat.nodes.get(nodeKey) as ChatNode | undefined),
@@ -467,7 +549,7 @@ const AssistantTurn = memo(function AssistantTurn({
             <details className={css.processItem} key={key}>
               <summary>
                 <span className={css.processKind}>思考</span>
-                <span className={css.processPreview}>{inlinePreview(block.text, 96) || '正在推演判断依据'}</span>
+                <span className={css.processPreview}>{inlinePreview(block.text, 96) || copy.processPreview}</span>
               </summary>
               <div className={css.processText}>{block.text}</div>
             </details>,
@@ -488,7 +570,7 @@ const AssistantTurn = memo(function AssistantTurn({
           }
           break
         case 'image':
-          answerItems.push(<div className={css.attachment} key={key}>大师生成的图片</div>)
+          answerItems.push(<div className={css.attachment} key={key}>{copy.generatedImage}</div>)
           break
         case 'other':
           answerItems.push(<pre className={css.code} key={key}>{formatJson(block.block)}</pre>)
@@ -508,12 +590,12 @@ const AssistantTurn = memo(function AssistantTurn({
 
   return (
     <article className={css.assistantTurn}>
-      <div className={css.messageLabel}>{running ? '大师 · 研判中' : '大师'}</div>
+      <div className={css.messageLabel}>{running ? copy.participantRunning : copy.participant}</div>
       <div className={css.assistantTurnBody}>
         {processItems.length > 0 && (
-          <details className={css.processGroup} open={running || undefined} aria-label="研判过程">
+          <details className={css.processGroup} aria-label={copy.processLabel}>
             <summary className={css.processSummary}>
-              <span className={css.processTitle}>研判过程</span>
+              <span className={css.processTitle}>{copy.processLabel}</span>
               <span className={css.processCount}>{running ? '进行中' : `${processItems.length} 个步骤`}</span>
             </summary>
             <div className={css.processList}>{processItems}</div>
@@ -534,6 +616,7 @@ const ChatNodeRow = memo(function ChatNodeRow({
   session: SessionFace
   onUpdated(): void
 }) {
+  const copy = useChatCopy()
   const node = useSessionSelector(session, snapshot => snapshot.chat.nodes.get(nodeKey)) as ChatNode | undefined
 
   useLayoutEffect(() => {
@@ -555,7 +638,7 @@ const ChatNodeRow = memo(function ChatNodeRow({
       )
     case 'assistant-step':
       return (
-        <MessageCard role="assistant" label={node.data.status === 'running' ? '大师 · 输出中' : '大师'}>
+        <MessageCard role="assistant" label={node.data.status === 'running' ? copy.participantOutput : copy.participant}>
           <AssistantBlocks blocks={node.data.blocks} running={node.data.status === 'running'} />
           {node.data.status === 'interrupted' && <span className={css.interrupted}>已停止</span>}
         </MessageCard>
@@ -584,7 +667,7 @@ const ChatNodeRow = memo(function ChatNodeRow({
     case 'turn-error':
       return <div className={`${css.systemCard} ${css.systemError}`} role="alert">本轮失败：{node.data.message}</div>
     case 'turn-max-tokens':
-      return <div className={css.systemCard}>本轮达到最大输出长度，可发送“继续”让大师接着回答。</div>
+      return <div className={css.systemCard}>{copy.maxTokens}</div>
     case 'unknown':
       return (
         <details className={css.systemCard}>
@@ -662,6 +745,7 @@ function ContentBlockView({ block }: { block: unknown }) {
 }
 
 function AssistantBlocks({ blocks, running }: { blocks: readonly AssistantBlock[]; running: boolean }) {
+  const copy = useChatCopy()
   if (blocks.length === 0 && running) return <span className={css.muted}>正在组织观点…</span>
   return (
     <>
@@ -674,7 +758,7 @@ function AssistantBlocks({ blocks, running }: { blocks: readonly AssistantBlock[
               <div className={css.text}>{block.text}</div>
             </details>
           )
-          case 'image': return <div className={css.attachment} key={index}>大师生成的图片</div>
+          case 'image': return <div className={css.attachment} key={index}>{copy.generatedImage}</div>
           case 'tool-call': return (
             <details className={css.inlineTool} key={index}>
               <summary>准备调用工具 · {block.name || 'unknown'}</summary>
@@ -877,6 +961,7 @@ function PendingInteractions({
 }
 
 function ApprovalCard({ wait, session }: { wait: ApprovalWait; session: SessionFace }) {
+  const copy = useChatCopy()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const call = useSessionSelector(session, snapshot => (
@@ -905,7 +990,7 @@ function ApprovalCard({ wait, session }: { wait: ApprovalWait; session: SessionF
   return (
     <article className={css.pendingCard}>
       <div className={css.sectionTitle}>工具授权</div>
-      <strong>{wait.payload.reason ?? `大师希望调用 ${wait.payload.toolName}`}</strong>
+      <strong>{wait.payload.reason ?? `${copy.approvalFallback} ${wait.payload.toolName}`}</strong>
       <span className={css.pendingDetail}>工具：{wait.payload.toolName}</span>
       {callArgs !== null && (
         <details className={css.inlineTool} open>
@@ -942,6 +1027,7 @@ interface QuestionDraft {
 }
 
 function QuestionCard({ wait }: { wait: QuestionWait }) {
+  const copy = useChatCopy()
   const questions = wait.payload.questions
   const [drafts, setDrafts] = useState<QuestionDraft[]>(() => questions.map(() => ({ selected: [], custom: '' })))
   const [busy, setBusy] = useState<'answer' | 'cancel' | null>(null)
@@ -1002,7 +1088,7 @@ function QuestionCard({ wait }: { wait: QuestionWait }) {
 
   return (
     <article className={css.pendingCard}>
-      <div className={css.sectionTitle}>大师需要你的补充</div>
+      <div className={css.sectionTitle}>{copy.questionLead}</div>
       {questions.map((question, index) => {
         const draft = drafts[index] as QuestionDraft
         const options = question.options ?? []
@@ -1062,6 +1148,7 @@ function Composer({
   running: boolean
   canSteer: boolean
 }) {
+  const copy = useChatCopy()
   const [draft, setDraft] = useState('')
   const [mode, setMode] = useState<'queue' | 'steer'>('queue')
   const [busy, setBusy] = useState(false)
@@ -1132,8 +1219,8 @@ function Composer({
         value={draft}
         disabled={busy}
         rows={3}
-        aria-label="继续与大师对话"
-        placeholder="追问大师的判断依据、风险或下一步观察点…"
+        aria-label={copy.composerLabel}
+        placeholder={copy.composerPlaceholder}
         onChange={event => { setDraft(event.target.value) }}
         onKeyDown={keyDown}
         onCompositionStart={() => {

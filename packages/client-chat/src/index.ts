@@ -1,5 +1,5 @@
 export { ChatPanel, DshChatPanel } from './ChatPanel.tsx'
-export type { ChatPanelProps, DshChatPanelProps } from './ChatPanel.tsx'
+export type { ChatPanelProps, ChatPanelVariant, DshChatPanelProps } from './ChatPanel.tsx'
 export {
   useDshChatSession,
   useSessionSelector,

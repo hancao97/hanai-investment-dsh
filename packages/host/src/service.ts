@@ -15,6 +15,7 @@ import type {
   DashboardData,
   DefaultModelSelection,
   Diagnostics,
+  ExpertChat,
   HanaiEndpoint,
   HanaiRequest,
   HanaiResponse,
@@ -36,6 +37,7 @@ import { getMasterPersona, listMasters } from '../../masters/src/index.ts'
 import { HanaiDatabase } from '../../domain/src/database.ts'
 import type { HanaiPaths } from '../../domain/src/paths.ts'
 import { ReportStore, ReportValidationError } from '../../domain/src/reports.ts'
+import { ExpertChatStore } from '../../domain/src/expert-chats.ts'
 
 const MARKET_SUCCESS_SETTING = 'market.latestSuccess'
 const VALUATION_SUCCESS_SETTING = 'valuation.latestSuccess'
@@ -74,6 +76,7 @@ export interface HanaiServiceOptions {
   paths: HanaiPaths
   database: HanaiDatabase
   reports: ReportStore
+  expertChats: ExpertChatStore
   sessions: SessionFacade
   defaultModel: DefaultModelFacade
   market: MarketFacade
@@ -87,6 +90,7 @@ export class HanaiService {
   private readonly paths: HanaiPaths
   private readonly database: HanaiDatabase
   private readonly reports: ReportStore
+  private readonly expertChats: ExpertChatStore
   private readonly sessions: SessionFacade
   private readonly defaultModel: DefaultModelFacade
   private readonly market: MarketFacade
@@ -98,6 +102,7 @@ export class HanaiService {
     this.paths = options.paths
     this.database = options.database
     this.reports = options.reports
+    this.expertChats = options.expertChats
     this.sessions = options.sessions
     this.defaultModel = options.defaultModel
     this.market = options.market
@@ -141,31 +146,61 @@ export class HanaiService {
       }
       this.enqueueReportJob(judgement.id)
     }
+    for (const chat of this.database.listExpertChats()) {
+      if (chat.dshSessionId === null) {
+        this.database.updateExpertChat(chat.id, {
+          turnStatus: 'failed',
+          errorCode: 'recovery-session-missing',
+          errorMessage: '上次启动在 DSH Session 完成绑定前中断，请删除后重新发起对谈。',
+        })
+        continue
+      }
+      if (await this.sessions.isRunning(chat.dshSessionId)) {
+        this.database.updateExpertChat(chat.id, { turnStatus: 'running', errorCode: null, errorMessage: null })
+      } else if (chat.turnStatus === 'queued' || chat.turnStatus === 'running' || chat.turnStatus === 'cancelling') {
+        this.database.updateExpertChat(chat.id, { turnStatus: 'idle', errorCode: null, errorMessage: null })
+      }
+    }
   }
 
   handleSessionEvent(sessionId: string, event: SessionEvent): void {
     const judgement = this.database.getJudgementBySession(sessionId)
-    if (judgement === null) return
+    if (judgement !== null) {
+      if (event.type === 'turn/start') {
+        this.database.updateJudgement(judgement.id, { turnStatus: 'running', errorCode: null, errorMessage: null })
+        return
+      }
+      if (event.type !== 'turn/end') return
+      if (isReportInFlight(judgement)) {
+        if (event.data.reason.kind === 'completed' || event.data.reason.kind === 'max-tokens') {
+          this.enqueueReportJob(judgement.id)
+        } else {
+          this.failReportAttempt(
+            judgement,
+            `turn-${event.data.reason.kind}`,
+            event.data.reason.kind === 'error'
+              ? `DSH 回合未完成：${event.data.reason.error.message}`
+              : `DSH 回合未完成：${event.data.reason.kind}`,
+          )
+        }
+        return
+      }
+      this.database.updateJudgement(judgement.id, {
+        turnStatus: event.data.reason.kind === 'error' ? 'failed' : 'idle',
+        ...(event.data.reason.kind === 'error'
+          ? { errorCode: 'chat-turn-error', errorMessage: event.data.reason.error.message }
+          : { errorCode: null, errorMessage: null }),
+      })
+      return
+    }
+    const chat = this.database.getExpertChatBySession(sessionId)
+    if (chat === null) return
     if (event.type === 'turn/start') {
-      this.database.updateJudgement(judgement.id, { turnStatus: 'running', errorCode: null, errorMessage: null })
+      this.database.updateExpertChat(chat.id, { turnStatus: 'running', errorCode: null, errorMessage: null })
       return
     }
     if (event.type !== 'turn/end') return
-    if (isReportInFlight(judgement)) {
-      if (event.data.reason.kind === 'completed' || event.data.reason.kind === 'max-tokens') {
-        this.enqueueReportJob(judgement.id)
-      } else {
-        this.failReportAttempt(
-          judgement,
-          `turn-${event.data.reason.kind}`,
-          event.data.reason.kind === 'error'
-            ? `DSH 回合未完成：${event.data.reason.error.message}`
-            : `DSH 回合未完成：${event.data.reason.kind}`,
-        )
-      }
-      return
-    }
-    this.database.updateJudgement(judgement.id, {
+    this.database.updateExpertChat(chat.id, {
       turnStatus: event.data.reason.kind === 'error' ? 'failed' : 'idle',
       ...(event.data.reason.kind === 'error'
         ? { errorCode: 'chat-turn-error', errorMessage: event.data.reason.error.message }
@@ -279,6 +314,12 @@ export class HanaiService {
       case 'judgement.remove': return this.removeJudgement(
         (request as HanaiRequest<'judgement.remove'>).id,
       )
+      case 'expert-chat.list': return this.database.listExpertChats()
+      case 'expert-chat.create': return this.createExpertChat(request as HanaiRequest<'expert-chat.create'>)
+      case 'expert-chat.get': return this.getExpertChat((request as HanaiRequest<'expert-chat.get'>).id)
+      case 'expert-chat.remove': return this.removeExpertChat(
+        (request as HanaiRequest<'expert-chat.remove'>).id,
+      )
       case 'model.default.get': return this.currentDefaultModel()
       case 'model.default.set': return this.saveDefaultModel(
         request as HanaiRequest<'model.default.set'>,
@@ -314,6 +355,7 @@ export class HanaiService {
       masters: listMasters(),
       groups: this.database.listWatchGroups(),
       judgements: this.database.listJudgements(),
+      expertChats: this.database.listExpertChats(),
       diagnostics: this.diagnostics(),
     }
   }
@@ -357,6 +399,7 @@ export class HanaiService {
     const marketCache = directoryStats(this.paths.marketCacheDir)
     const valuationCache = directoryStats(this.paths.valuationCacheDir)
     const judgements = directoryStats(this.paths.judgementsDir)
+    const expertChats = directoryStats(this.paths.expertChatsDir)
     return {
       dataRoot: this.paths.root,
       databasePath: this.paths.databasePath,
@@ -364,6 +407,7 @@ export class HanaiService {
       securityCount: this.database.securityCount(),
       masterCount: listMasters().length,
       judgementCount: this.database.judgementCount(),
+      expertChatCount: this.database.expertChatCount(),
       latestMarketSuccess: this.database.getSetting('market.latestSuccess'),
       latestValuationSuccess: this.database.getSetting('valuation.latestSuccess'),
       storage: {
@@ -372,6 +416,7 @@ export class HanaiService {
         marketCacheBytes: marketCache.bytes,
         valuationCacheBytes: valuationCache.bytes,
         judgementsBytes: judgements.bytes,
+        expertChatsBytes: expertChats.bytes,
       },
       version: this.version,
     }
@@ -498,12 +543,83 @@ export class HanaiService {
     return this.database.listWatchGroups()
   }
 
+  private async createExpertChat(input: HanaiRequest<'expert-chat.create'>): Promise<ExpertChat> {
+    const master = getMasterPersona(input.masterId)
+    if (master === null) throw new Error('专家不存在')
+    const id = randomUUID()
+    let chat = this.database.createExpertChat({
+      id,
+      title: expertChatTitle(master.name, input.openingMessage),
+      masterId: master.id,
+      masterName: master.name,
+      masterVersion: master.version,
+      ...(input.model === undefined ? {} : {
+        modelProvider: input.model.provider,
+        model: input.model.model,
+        ...(input.model.reasoningEffort === undefined ? {} : { reasoningEffort: input.model.reasoningEffort }),
+      }),
+    })
+    let createdSessionId: string | null = null
+    let sessionBound = false
+    try {
+      const workspace = this.expertChats.prepareWorkspace(id, master)
+      const sessionId = await this.sessions.create(`chat-${id}`, workspace.workspace, input.model)
+      createdSessionId = sessionId
+      chat = this.database.updateExpertChat(id, {
+        dshSessionId: sessionId,
+        turnStatus: input.openingMessage === undefined ? 'idle' : 'queued',
+        errorCode: null,
+        errorMessage: null,
+      })
+      sessionBound = true
+      if (input.openingMessage !== undefined) await this.sessions.prompt(sessionId, input.openingMessage)
+      return chat
+    } catch (error) {
+      let failure = error
+      if (createdSessionId !== null && !sessionBound) {
+        try {
+          await this.sessions.archive(createdSessionId)
+        } catch (cleanupError) {
+          failure = new Error(
+            `${messageOf(error)}；未绑定 Session 归档失败：${messageOf(cleanupError)}`,
+            { cause: error },
+          )
+        }
+      }
+      this.database.updateExpertChat(chat.id, {
+        turnStatus: 'failed',
+        errorCode: 'expert-chat-start-failed',
+        errorMessage: messageOf(failure),
+      })
+      throw failure
+    }
+  }
+
+  private getExpertChat(id: string): ExpertChat {
+    const chat = this.database.getExpertChat(id)
+    if (chat === null) throw new Error('专家对谈不存在')
+    return chat
+  }
+
+  private async removeExpertChat(id: string): Promise<HanaiResponse<'expert-chat.remove'>> {
+    const chat = this.database.getExpertChat(id)
+    if (chat === null) throw new Error('专家对谈不存在')
+    if (chat.dshSessionId !== null) {
+      if (await this.sessions.isRunning(chat.dshSessionId)) throw new Error('专家正在回答，暂时不能删除')
+      await this.sessions.archive(chat.dshSessionId)
+    }
+    this.expertChats.remove(id)
+    this.database.removeExpertChat(id)
+    return this.database.listExpertChats()
+  }
+
   private async createJudgement(
     input: HanaiRequest<'judgement.create'>,
     signal: AbortSignal,
   ): Promise<Judgement> {
     const master = getMasterPersona(input.masterId)
     if (master === null) throw new Error('大师不存在')
+    if (master.chatOnly === true) throw new Error('该专家仅支持开放对谈，不能发起个股研判')
     const detail = await this.market.getStockDetail(input.secId, this.database.getSecurity(input.secId))
     this.recordStockDetailSuccess(detail)
     signal.throwIfAborted()
@@ -678,6 +794,13 @@ export class HanaiService {
 
 function isReportInFlight(judgement: Judgement): boolean {
   return ['generating', 'verifying', 'repairing', 'revising'].includes(judgement.reportStatus)
+}
+
+function expertChatTitle(masterName: string, openingMessage?: string): string {
+  const normalized = openingMessage?.replace(/\s+/g, ' ').trim() ?? ''
+  if (normalized === '') return `与${masterName}开放对谈`
+  const characters = [...normalized]
+  return characters.length > 28 ? `${characters.slice(0, 28).join('')}…` : normalized
 }
 
 function initialReportPrompt(

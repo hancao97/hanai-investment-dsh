@@ -1,0 +1,7 @@
+interface:
+  display_name: "孙宇晨视角"
+  short_description: "分析行业周期、注意力迁移与叙事竞争"
+  brand_color: "#F29D38"
+  default_prompt: "Use $sun-yuchen-perspective to analyze this industry's supply cycle, attention shift, and falsifiable risks."
+policy:
+  allow_implicit_invocation: true

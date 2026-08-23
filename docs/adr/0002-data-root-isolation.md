@@ -46,6 +46,11 @@ DSH 继续使用当前 `$DSH_HOME`，未设置时为 `~/.dsh`。插件不得修�
 │           └── 0001/
 │               ├── report.md
 │               └── manifest.json
+├── expert-chats/
+│   └── <chat-id>/
+│       └── workspace/
+│           ├── AGENTS.md
+│           └── .agents/skills/<master-id>/...
 ├── exports/
 └── tmp/
 ```
@@ -56,7 +61,7 @@ DSH 继续使用当前 `$DSH_HOME`，未设置时为 `~/.dsh`。插件不得修�
 - 数据库只保存相对路径。
 - `workspace` 是 Agent 可写区；`reports` 是 Host 封存区。
 - UI 只读取封存报告。
-- 大师资源以插件包为源，每次研判复制版本快照到工作区；不建立全局 `personas` 派生目录。
+- 大师资源以插件包为源，每次研判或开放对谈复制版本快照到各自工作区；不建立全局 `personas` 派生目录。
 - 应用日志使用 DSH/Cordis logger，不另建长期明文日志目录。
 - `tmp` 中的内容没有备份语义，可以安全清理。
 
@@ -88,7 +93,7 @@ Hanai SQLite 只保存 opaque `dshSessionId` 作为关联键，不复制消息�
 
 ## 备份与恢复
 
-备份 `~/.hanai-investment-dsh` 可以恢复自选、研判索引和正式报告，但不能单独恢复持续对话。
+备份 `~/.hanai-investment-dsh` 可以恢复自选、研判/对谈索引和正式报告，但不能单独恢复研判续聊或专家开放对谈的消息历史。
 
 完整恢复还需要：
 
