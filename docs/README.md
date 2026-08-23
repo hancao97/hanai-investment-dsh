@@ -6,6 +6,7 @@
 
 | 文档 | 内容 | 状态 |
 | --- | --- | --- |
+| [full-market-turning-point-study-2026-08-22.md](full-market-turning-point-study-2026-08-22.md) | 5,809 只 A 股、981 万行日 K 上的金针探底、底部巨量、极度缩量、低位反包、巨量长上影等 16 个观察/确认规则 | 已完成：2 类建议观察，0 类达到高胜率上线门槛 |
 | [kline-period-turning-study-2026-08-22.md](kline-period-turning-study-2026-08-22.md) | 日 / 周 / 月 K 量价标记的独立后续方向频率、样本量与产品表达边界 | 已接入产品 |
 | [kline-turning-marker-product-decision-2026-08-22.md](kline-turning-marker-product-decision-2026-08-22.md) | 达到频率门槛的量价观察标记、精确触发规则、证据展示与统计边界 | 当前产品口径 |
 | [decline-quiet-doji-study-2026-08-22.md](decline-quiet-doji-study-2026-08-22.md) | 连续 3 跌 / 5 日 4 跌后的缩量十字星独立补测 | 已补测：不标记 |

@@ -85,7 +85,7 @@ describe('K-line moving averages', () => {
       glyph: '弱',
       priorRise20Pct: expect.any(Number),
       shapes: [],
-      evidence: [{ rate: 64.9, sampleSize: 222 }],
+      evidence: [{ rate: 65.8, sampleSize: 222 }],
     })
     const baseMarker = study.markers[0]
     expect(baseMarker).toBeDefined()
@@ -147,5 +147,126 @@ describe('K-line moving averages', () => {
       label: '放量回稳',
       evidence: [{ rate: 63.1, sampleSize: 65 }],
     })
+
+    const legacyKinds = new Set([
+      'post-rise-huge-volume',
+      'post-rise-huge-volume-weak',
+      'deep-decline-huge-volume',
+      'deep-decline-huge-volume-strong',
+      'deep-decline-huge-volume-lower-shadow',
+      'deep-decline-reclaim-ma5',
+    ])
+    const oldMarkersInsideExpandedDaily = buildKlineTurningStudy(source, 'daily').markers
+      .filter(marker => legacyKinds.has(marker.kind))
+    expect(oldMarkersInsideExpandedDaily).toEqual(study.markers)
+  })
+
+  it('adds the daily low bullish outside observation without changing weekly markers', () => {
+    const source = Array.from({ length: 140 }, (_, index): KLineBar => {
+      const close = 100 - index * 0.5
+      return {
+        date: `2026-${String(Math.floor(index / 28) + 1).padStart(2, '0')}-${String(index % 28 + 1).padStart(2, '0')}`,
+        open: index === 139 ? 29.5 : close + 0.1,
+        close: index === 139 ? 32 : close,
+        high: index === 139 ? 33 : close + 0.6,
+        low: index === 139 ? 29 : close - 0.6,
+        volume: index === 139 ? 150 : 100,
+        amount: null,
+      }
+    })
+
+    const daily = buildKlineTurningStudy(source, 'daily')
+    expect(daily.markers).toEqual([
+      expect.objectContaining({
+        index: 139,
+        kind: 'low-bullish-outside',
+        label: '低位破低反包',
+        glyph: '包',
+        evidence: [expect.objectContaining({
+          rate: 65.60,
+          sampleSize: 3_581,
+          matchedDirectionRate: 65.75,
+          matchedDirectionUpliftPp: 0.29,
+        })],
+      }),
+    ])
+    expect(buildKlineTurningStudy(source.slice(0, -1), 'daily').markers).toHaveLength(0)
+    expect(buildKlineTurningStudy(source, 'weekly').markers).toHaveLength(0)
+  })
+
+  it('adds the daily high-volume upper-shadow risk observation', () => {
+    const source = Array.from({ length: 140 }, (_, index): KLineBar => {
+      const close = 10 * 1.01 ** index
+      const previousClose = 10 * 1.01 ** (index - 1)
+      return {
+        date: `2026-${String(Math.floor(index / 28) + 1).padStart(2, '0')}-${String(index % 28 + 1).padStart(2, '0')}`,
+        open: index === 139 ? previousClose * 1.02 : close * 0.995,
+        close: index === 139 ? previousClose * 1.01 : close,
+        high: index === 139 ? previousClose * 1.16 : close * 1.005,
+        low: index === 139 ? previousClose * 0.995 : close * 0.995,
+        volume: index === 139 ? 300 : 100,
+        amount: null,
+      }
+    })
+
+    const marker = buildKlineTurningStudy(source, 'daily').markers
+      .find(item => item.kind === 'huge-upper-rejection')
+    expect(marker).toMatchObject({
+      index: 139,
+      label: '高位巨量长上影',
+      glyph: '拒',
+      tone: 'risk',
+      evidence: [{
+        label: '高位巨量长上影',
+        outcome: '下跌',
+        horizon: 5,
+        horizonUnit: '交易日',
+        rate: 56.58,
+        sampleSize: 5_721,
+        averageReturnPct: -0.15,
+        matchedDirectionRate: 55.46,
+        matchedDirectionUpliftPp: 0.99,
+        matchedConclusion: '风险观察，不是卖点',
+      }],
+    })
+  })
+
+  it('marks hammer observation and price confirmation on their actual close dates', () => {
+    const source = Array.from({ length: 138 }, (_, index): KLineBar => {
+      const close = 100 - index * 0.45
+      return {
+        date: `2026-${String(Math.floor(index / 28) + 1).padStart(2, '0')}-${String(index % 28 + 1).padStart(2, '0')}`,
+        open: index === 136 ? 39 : index === 137 ? 39.6 : close + 0.1,
+        close: index === 136 ? 39.5 : index === 137 ? 41 : close,
+        high: index === 136 ? 40 : index === 137 ? 41.5 : close + 0.5,
+        low: index === 136 ? 36 : index === 137 ? 39 : close - 0.5,
+        volume: 100,
+        amount: null,
+      }
+    })
+
+    const markers = buildKlineTurningStudy(source, 'daily').markers.filter(marker => (
+      marker.kind === 'hammer-spring-anchor' || marker.kind === 'hammer-spring-confirmed'
+    ))
+    expect(markers).toEqual([
+      expect.objectContaining({
+        index: 136,
+        kind: 'hammer-spring-anchor',
+        glyph: '针',
+        tone: 'research',
+        evidence: [expect.objectContaining({ rate: 50.85, sampleSize: 18_937 })],
+      }),
+      expect.objectContaining({
+        index: 137,
+        kind: 'hammer-spring-confirmed',
+        glyph: '确',
+        tone: 'research',
+        description: expect.stringContaining('确认标在本日，不回填到锚点'),
+        evidence: [expect.objectContaining({ rate: 51.81, sampleSize: 10_650 })],
+      }),
+    ])
+    expect(buildKlineTurningStudy(source.slice(0, -1), 'daily').markers
+      .filter(marker => marker.kind.startsWith('hammer-spring')))
+      .toEqual([expect.objectContaining({ kind: 'hammer-spring-anchor', index: 136 })])
   })
 })

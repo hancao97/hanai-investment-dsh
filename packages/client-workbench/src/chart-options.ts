@@ -410,14 +410,20 @@ function klineTooltip(
     : ` · 成交额 <b>${fmtAmount(bar.amount)}</b>`
   const markers = markersByIndex[index] ?? []
   const markerRows = markers.map(marker => {
-    const markerColor = marker.tone === 'risk' ? palette.gold : palette.up
+    const markerColor = marker.tone === 'risk'
+      ? palette.gold
+      : marker.tone === 'research' ? palette.averageBlue : palette.up
     const probability = klineMarkerProbability(marker, period, palette)
     return `<div style="margin-top:8px;padding-top:8px;border-top:1px solid ${palette.tooltipBorder}"><div style="display:flex;align-items:center;gap:6px;color:${markerColor}"><b style="display:inline-grid;width:20px;height:20px;place-items:center;border:1px solid ${markerColor};border-radius:5px;font-size:10px">${marker.glyph}</b><strong>${escapeHtml(marker.label)}</strong></div><div style="margin-top:5px;color:${palette.legendText};font-size:11px;line-height:1.55;white-space:normal;overflow-wrap:anywhere;word-break:break-word">${escapeHtml(marker.description)}</div>${probability}</div>`
   }).join('')
   const evidenceFoot = markers.length === 0
     ? ''
     : `<div style="margin-top:7px;color:${palette.axisLabel};font-size:9px">${KLINE_PERIOD_LABEL[period]} 独立样本截至 ${KLINE_TURNING_STUDY_CUTOFF} · 历史条件频率，不是预测</div>`
-  return `<div style="box-sizing:border-box;width:330px;max-width:calc(100vw - 32px);white-space:normal;overflow-wrap:anywhere"><div style="display:flex;align-items:center;justify-content:space-between;gap:16px"><b style="font-size:13px">${escapeHtml(bar.date)}</b><span style="color:${palette.axisLabel};font-size:10px">${KLINE_PERIOD_LABEL[period]} · 收盘确认</span></div><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:9px">${metrics}</div><div style="margin-top:8px;color:${palette.legendText};font-size:11px">涨跌 <b style="color:${changeColor}">${fmtPct(changePct)}</b> · 成交量 <b>${fmtHands(bar.volume)}</b>${amount}</div><div style="margin-top:5px;color:${palette.legendText};font-size:11px"><span style="color:${palette.gold}">●</span> MA${fastPeriod} <b>${fmtNum(fastAverage[index])}</b> 元&nbsp;&nbsp;<span style="color:${palette.averageBlue}">●</span> MA${slowPeriod} <b>${fmtNum(slowAverage[index])}</b> 元</div>${markerRows}${evidenceFoot}</div>`
+  const calculationState = index === bars.length - 1 ? '最新 K · 动态计算' : '历史 K · 收盘确认'
+  const dynamicFoot = index === bars.length - 1
+    ? `<div style="margin-top:7px;color:${palette.axisLabel};font-size:9px">最新一根随行情刷新；形态与标记可能在本周期结束前变化</div>`
+    : ''
+  return `<div style="box-sizing:border-box;width:330px;max-width:calc(100vw - 32px);white-space:normal;overflow-wrap:anywhere"><div style="display:flex;align-items:center;justify-content:space-between;gap:16px"><b style="font-size:13px">${escapeHtml(bar.date)}</b><span style="color:${palette.axisLabel};font-size:10px">${KLINE_PERIOD_LABEL[period]} · ${calculationState}</span></div><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:9px">${metrics}</div><div style="margin-top:8px;color:${palette.legendText};font-size:11px">涨跌 <b style="color:${changeColor}">${fmtPct(changePct)}</b> · 成交量 <b>${fmtHands(bar.volume)}</b>${amount}</div><div style="margin-top:5px;color:${palette.legendText};font-size:11px"><span style="color:${palette.gold}">●</span> MA${fastPeriod} <b>${fmtNum(fastAverage[index])}</b> 元&nbsp;&nbsp;<span style="color:${palette.averageBlue}">●</span> MA${slowPeriod} <b>${fmtNum(slowAverage[index])}</b> 元</div>${markerRows}${evidenceFoot}${dynamicFoot}</div>`
 }
 
 function klineMarkerProbability(
@@ -442,7 +448,10 @@ function klineMarkerProbability(
       ? ' · 样本极少'
       : evidence.limited || evidence.sampleSize < 30 ? ' · 样本较少' : ''
     const historyLabel = period === 'daily' ? '日线历史' : `${KLINE_PERIOD_LABEL[period]} 历史`
-    return `<div style="margin-top:6px;padding:6px 8px;border-radius:6px;background:${palette.splitLine}"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px"><span style="color:${palette.axisLabel}">${historyLabel} · 未来 ${evidence.horizon} ${evidence.horizonUnit}</span><strong style="color:${likelyColor}">${direction}</strong></div><div style="margin-top:4px;font-size:11px"><b style="color:${palette.up}">上涨 ${upRate.toFixed(1)}%</b><span style="color:${palette.axisLabel}"> · </span><b style="color:${palette.down}">走弱 ${weakRate.toFixed(1)}%</b><span style="color:${palette.axisLabel}"> · ${evidence.sampleSize} 例${limited}</span></div></div>`
+    const matched = evidence.matchedDirectionRate === undefined
+      ? ''
+      : `<div style="margin-top:4px;color:${palette.axisLabel};font-size:10px">同场景${escapeHtml(evidence.outcome)} ${evidence.matchedDirectionRate.toFixed(1)}%${evidence.matchedDirectionUpliftPp === undefined ? '' : ` · 匹配子集增量 ${evidence.matchedDirectionUpliftPp >= 0 ? '+' : ''}${evidence.matchedDirectionUpliftPp.toFixed(1)} pp`}${evidence.matchedConclusion === undefined ? '' : ` · ${escapeHtml(evidence.matchedConclusion)}`}</div>`
+    return `<div style="margin-top:6px;padding:6px 8px;border-radius:6px;background:${palette.splitLine}"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px"><span style="color:${palette.axisLabel}">${historyLabel} · 未来 ${evidence.horizon} ${evidence.horizonUnit}</span><strong style="color:${likelyColor}">${direction}</strong></div><div style="margin-top:4px;font-size:11px"><b style="color:${palette.up}">上涨 ${upRate.toFixed(1)}%</b><span style="color:${palette.axisLabel}"> · </span><b style="color:${palette.down}">走弱 ${weakRate.toFixed(1)}%</b><span style="color:${palette.axisLabel}"> · ${evidence.sampleSize} 例${limited}</span></div>${matched}</div>`
   }).join('')
 }
 
@@ -459,18 +468,34 @@ function klineMarkPointData(
     stackByAnchor.set(anchor, stack + 1)
     const above = marker.position === 'above'
     const risk = marker.tone === 'risk'
+    const research = marker.tone === 'research'
     const hollow = marker.kind === 'deep-decline-huge-volume'
+      || marker.kind === 'hammer-spring-anchor'
     const symbol = marker.kind === 'post-rise-huge-volume'
       ? 'diamond'
+      : marker.kind === 'low-bullish-outside'
+        ? 'diamond'
       : marker.kind === 'post-rise-huge-volume-weak'
         ? 'roundRect'
+        : marker.kind === 'hammer-spring-confirmed'
+          ? 'roundRect'
+          : marker.kind === 'huge-upper-rejection'
+            ? 'triangle'
         : marker.kind === 'deep-decline-huge-volume-lower-shadow'
           ? 'triangle'
           : marker.kind === 'deep-decline-reclaim-ma5'
             ? 'roundRect'
             : 'circle'
-    const fill = risk ? palette.gold : hollow ? palette.tooltipBackground : palette.up
-    const textColor = risk || !hollow ? palette.tooltipBackground : palette.up
+    const fill = risk
+      ? palette.gold
+      : research ? (hollow ? palette.tooltipBackground : palette.averageBlue)
+        : hollow ? palette.tooltipBackground : palette.up
+    const borderColor = risk
+      ? palette.tooltipBackground
+      : research ? palette.averageBlue : palette.up
+    const textColor = risk || !hollow
+      ? palette.tooltipBackground
+      : research ? palette.averageBlue : palette.up
     return {
       name: marker.label,
       coord: [marker.index, above ? bar?.high : bar?.low],
@@ -480,7 +505,7 @@ function klineMarkPointData(
       symbolOffset: [0, above ? -12 - stack * 22 : 12 + stack * 22],
       itemStyle: {
         color: fill,
-        borderColor: risk ? palette.tooltipBackground : palette.up,
+        borderColor,
         borderWidth: hollow ? 2 : 1,
       },
       label: {
@@ -500,6 +525,7 @@ export function buildKlineOption(
   viewWindow?: KlineViewWindow | null,
   maMode: KlineMaMode = 'short',
   period: KLinePeriod = 'daily',
+  turningMarkersVisible = true,
 ): EChartsCoreOption | null {
   if (bars.length === 0) return null
   const axis = axisStyle(palette)
@@ -507,7 +533,9 @@ export function buildKlineOption(
   const [fastPeriod, slowPeriod] = study.periods
   const fastAverage = study.averages[fastPeriod] ?? []
   const slowAverage = study.averages[slowPeriod] ?? []
-  const turningStudy = buildKlineTurningStudy(bars)
+  const turningStudy = turningMarkersVisible
+    ? buildKlineTurningStudy(bars, period)
+    : { markers: [], byIndex: bars.map((): KlineTurningMarker[] => []) }
   const turningMarkers = turningStudy.markers
   const zoomWindow = viewWindow === null || viewWindow === undefined
     ? { start: 55, end: 100 }

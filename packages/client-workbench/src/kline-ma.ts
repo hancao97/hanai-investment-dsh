@@ -10,13 +10,23 @@ export interface KlineMaStudy {
   averages: Record<number, Array<number | null>>
 }
 
-export type KlineTurningMarkerKind =
+export type LegacyKlineTurningMarkerKind =
   | 'post-rise-huge-volume'
   | 'post-rise-huge-volume-weak'
   | 'deep-decline-huge-volume'
   | 'deep-decline-huge-volume-strong'
   | 'deep-decline-huge-volume-lower-shadow'
   | 'deep-decline-reclaim-ma5'
+
+export type FullMarketKlineTurningMarkerKind =
+  | 'low-bullish-outside'
+  | 'hammer-spring-anchor'
+  | 'hammer-spring-confirmed'
+  | 'huge-upper-rejection'
+
+export type KlineTurningMarkerKind =
+  | LegacyKlineTurningMarkerKind
+  | FullMarketKlineTurningMarkerKind
 
 export interface KlineTurningEvidence {
   label: string
@@ -27,6 +37,9 @@ export interface KlineTurningEvidence {
   sampleSize: number
   averageReturnPct: number
   limited?: boolean
+  matchedDirectionRate?: number
+  matchedDirectionUpliftPp?: number
+  matchedConclusion?: string
 }
 
 export interface KlineTurningMarker {
@@ -34,9 +47,9 @@ export interface KlineTurningMarker {
   date: string
   kind: KlineTurningMarkerKind
   label: string
-  glyph: '分' | '弱' | '深' | '强' | '影' | '稳'
+  glyph: '分' | '弱' | '深' | '强' | '影' | '稳' | '包' | '针' | '确' | '拒'
   description: string
-  tone: 'risk' | 'up'
+  tone: 'risk' | 'up' | 'research'
   position: 'above' | 'below'
   volumeRatio: number
   priorRise20Pct: number | null
@@ -89,7 +102,7 @@ const POST_RISE_WEAK_EVIDENCE: KlineTurningEvidence = {
   outcome: '下跌',
   horizon: 10,
   horizonUnit: '交易日',
-  rate: 64.9,
+  rate: 65.8,
   sampleSize: 222,
   averageReturnPct: -1.32,
 }
@@ -136,7 +149,59 @@ const DEEP_RECLAIM_EVIDENCE: KlineTurningEvidence = {
   averageReturnPct: 2.77,
 }
 
-const WEEKLY_EVIDENCE: Record<KlineTurningMarkerKind, KlineTurningEvidence> = {
+const LOW_BULLISH_OUTSIDE_EVIDENCE: KlineTurningEvidence = {
+  label: '低位破低反包',
+  outcome: '上涨',
+  horizon: 20,
+  horizonUnit: '交易日',
+  rate: 65.60,
+  sampleSize: 3_581,
+  averageReturnPct: 7.12,
+  matchedDirectionRate: 65.75,
+  matchedDirectionUpliftPp: 0.29,
+  matchedConclusion: '形态增量未证实',
+}
+
+const HAMMER_SPRING_ANCHOR_EVIDENCE: KlineTurningEvidence = {
+  label: '金针探底观察',
+  outcome: '上涨',
+  horizon: 20,
+  horizonUnit: '交易日',
+  rate: 50.85,
+  sampleSize: 18_937,
+  averageReturnPct: 1.74,
+  matchedDirectionRate: 50.34,
+  matchedDirectionUpliftPp: 0.52,
+  matchedConclusion: '方向接近均衡',
+}
+
+const HAMMER_SPRING_CONFIRMED_EVIDENCE: KlineTurningEvidence = {
+  label: '金针突破确认',
+  outcome: '上涨',
+  horizon: 20,
+  horizonUnit: '交易日',
+  rate: 51.81,
+  sampleSize: 10_650,
+  averageReturnPct: 1.53,
+  matchedDirectionRate: 50.80,
+  matchedDirectionUpliftPp: 1.02,
+  matchedConclusion: '仍未达到高胜率门槛',
+}
+
+const HUGE_UPPER_REJECTION_EVIDENCE: KlineTurningEvidence = {
+  label: '高位巨量长上影',
+  outcome: '下跌',
+  horizon: 5,
+  horizonUnit: '交易日',
+  rate: 56.58,
+  sampleSize: 5_721,
+  averageReturnPct: -0.15,
+  matchedDirectionRate: 55.46,
+  matchedDirectionUpliftPp: 0.99,
+  matchedConclusion: '风险观察，不是卖点',
+}
+
+const WEEKLY_EVIDENCE: Record<LegacyKlineTurningMarkerKind, KlineTurningEvidence> = {
   'post-rise-huge-volume': {
     label: '上涨后巨量', outcome: '走弱', horizon: 2, horizonUnit: '周',
     rate: 58.75, sampleSize: 160, averageReturnPct: -0.32,
@@ -163,7 +228,7 @@ const WEEKLY_EVIDENCE: Record<KlineTurningMarkerKind, KlineTurningEvidence> = {
   },
 }
 
-const MONTHLY_EVIDENCE: Record<KlineTurningMarkerKind, KlineTurningEvidence> = {
+const MONTHLY_EVIDENCE: Record<LegacyKlineTurningMarkerKind, KlineTurningEvidence> = {
   'post-rise-huge-volume': {
     label: '上涨后巨量', outcome: '走弱', horizon: 1, horizonUnit: '月',
     rate: 50.94, sampleSize: 53, averageReturnPct: 1.76,
@@ -196,7 +261,17 @@ export function klineTurningEvidence(
   period: KLinePeriod,
 ): KlineTurningEvidence[] {
   if (period === 'daily') return marker.evidence
+  if (!isLegacyTurningMarker(marker.kind)) return []
   return [period === 'weekly' ? WEEKLY_EVIDENCE[marker.kind] : MONTHLY_EVIDENCE[marker.kind]]
+}
+
+function isLegacyTurningMarker(kind: KlineTurningMarkerKind): kind is LegacyKlineTurningMarkerKind {
+  return kind === 'post-rise-huge-volume'
+    || kind === 'post-rise-huge-volume-weak'
+    || kind === 'deep-decline-huge-volume'
+    || kind === 'deep-decline-huge-volume-strong'
+    || kind === 'deep-decline-huge-volume-lower-shadow'
+    || kind === 'deep-decline-reclaim-ma5'
 }
 
 /** Builds close-price moving averages without deriving trading signals. */
@@ -211,8 +286,18 @@ export function buildKlineMaStudy(bars: KLineBar[], mode: KlineMaMode): KlineMaS
   }
 }
 
-/** Builds every close-confirmed candidate before product display cooldowns. */
-export function buildKlineTurningCandidates(bars: KLineBar[]): KlineTurningMarker[] {
+/**
+ * Builds every close-confirmed candidate before product display cooldowns.
+ *
+ * The full-market V0 additions have only been independently measured on daily
+ * bars, so callers must explicitly pass `daily` to enable them. Omitting the
+ * period preserves the frozen six-marker research surface used by older
+ * scripts and artifacts.
+ */
+export function buildKlineTurningCandidates(
+  bars: KLineBar[],
+  period?: KLinePeriod,
+): KlineTurningMarker[] {
   if (bars.length === 0) return []
 
   const closes = bars.map(bar => bar.close)
@@ -221,8 +306,25 @@ export function buildKlineTurningCandidates(bars: KLineBar[]): KlineTurningMarke
   const ma10 = movingAverage(closes, 10)
   const ma20 = movingAverage(closes, 20)
   const vma20 = movingAverage(volumes, 20)
+  const priorVma20 = priorMovingAverage(volumes, 20)
+  const trueRanges = bars.map((bar, index) => {
+    const previousClose = bars[index - 1]?.close ?? bar.close
+    return Math.max(
+      bar.high - bar.low,
+      Math.abs(bar.high - previousClose),
+      Math.abs(bar.low - previousClose),
+    )
+  })
+  const priorAtr20 = priorMovingAverage(trueRanges, 20)
   const deepSetups = bars.map(() => false)
   const markers: KlineTurningMarker[] = []
+  const hammerAnchors: Array<{
+    index: number
+    atr: number
+    volumeRatio: number
+    drawdown60Pct: number
+  }> = []
+  const includeFullMarketDaily = period === 'daily'
   const add = (marker: KlineTurningMarker) => markers.push(marker)
 
   for (let index = TURNING_STUDY_WARMUP_BARS; index < bars.length; index += 1) {
@@ -374,22 +476,182 @@ export function buildKlineTurningCandidates(bars: KLineBar[]): KlineTurningMarke
         evidence: [DEEP_RECLAIM_EVIDENCE],
       })
     }
+
+    if (includeFullMarketDaily) {
+      const priorVolumeAverage20 = priorVma20[index]
+      const priorAtr = priorAtr20[index]
+      const prior10Base = bars[index - 11]?.close
+      if (priorVolumeAverage20 != null && priorVolumeAverage20 > 0
+        && priorAtr != null && priorAtr > 0
+        && prior10Base !== undefined && prior10Base > 0) {
+        const causalVolumeRatio = bar.volume / priorVolumeAverage20
+        const causalTrueRange = trueRanges[index] ?? 0
+        const priorHigh20 = Math.max(...bars.slice(index - 20, index).map(item => item.high))
+        const priorLow20 = Math.min(...bars.slice(index - 20, index).map(item => item.low))
+        const priorDecline10 = previous.close / prior10Base - 1
+        const belowMa20IncludingCurrent = bars
+          .slice(index - 19, index + 1)
+          .reduce((count, item, offset) => {
+            const value = ma20[index - 19 + offset]
+            return count + (value != null && item.close < value ? 1 : 0)
+          }, 0)
+        const bodyRatio = width > 0 ? Math.abs(bar.close - bar.open) / width : 0
+        const upperShadowRatio = width > 0
+          ? (bar.high - Math.max(bar.open, bar.close)) / width
+          : 0
+
+        const lowBullishOutside = drawdown60 !== null
+          && drawdown60 <= -0.15
+          && priorDecline10 <= -0.10
+          && belowMa20IncludingCurrent >= 10
+          && bar.low < previous.low
+          && bar.high > previous.high
+          && bar.close > previous.high
+          && bar.close > bar.open
+          && location >= 0.75
+          && causalTrueRange >= 1.20 * priorAtr
+          && causalVolumeRatio >= 1.20
+        if (lowBullishOutside) {
+          add({
+            index,
+            date: bar.date,
+            kind: 'low-bullish-outside',
+            label: '低位破低反包',
+            glyph: '包',
+            description: `此前 10 日下跌 ${formatRulePct(priorDecline10 * 100)}；本日先破前低、再越前高并收于前高之上，收盘位置 ${Math.round(location * 100)}%，量能为 prior VMA20 的 ${causalVolumeRatio.toFixed(2)} 倍。`,
+            tone: 'up',
+            position: 'below',
+            volumeRatio: causalVolumeRatio,
+            priorRise20Pct: null,
+            drawdown60Pct: drawdown60 * 100,
+            shapes: ['破前低', '反包前高', '收盘确认'],
+            evidence: [LOW_BULLISH_OUTSIDE_EVIDENCE],
+          })
+        }
+
+        const hammerSpring = drawdown60 !== null
+          && drawdown60 <= -0.20
+          && belowMa20IncludingCurrent >= 10
+          && bar.low <= priorLow20
+          && bar.close >= priorLow20
+          && lowerShadowRatio >= 0.50
+          && location >= 0.65
+          && bodyRatio <= 0.35
+          && causalTrueRange >= 0.80 * priorAtr
+        if (hammerSpring) {
+          add({
+            index,
+            date: bar.date,
+            kind: 'hammer-spring-anchor',
+            label: '金针探底观察',
+            glyph: '针',
+            description: `本日刺破此前 20 日低点后收回，下影占振幅 ${Math.round(lowerShadowRatio * 100)}%，收盘位置 ${Math.round(location * 100)}%；这里只是观察锚点，尚未形成高胜率买点。`,
+            tone: 'research',
+            position: 'below',
+            volumeRatio: causalVolumeRatio,
+            priorRise20Pct: null,
+            drawdown60Pct: drawdown60 * 100,
+            shapes: ['破 20 日低点', '收回', '长下影'],
+            evidence: [HAMMER_SPRING_ANCHOR_EVIDENCE],
+          })
+          hammerAnchors.push({
+            index,
+            atr: priorAtr,
+            volumeRatio: causalVolumeRatio,
+            drawdown60Pct: drawdown60 * 100,
+          })
+        }
+
+        const hugeUpperRejection = priorRise20 !== null
+          && priorRise20 >= 0.15
+          && fast5 > slow10
+          && slow10 > oldSlow10
+          && previous.close > previousFast5
+          && bar.high >= priorHigh20
+          && causalVolumeRatio >= 2.50
+          && upperShadowRatio >= 0.55
+          && location <= 0.35
+          && causalTrueRange >= priorAtr
+        if (hugeUpperRejection) {
+          add({
+            index,
+            date: bar.date,
+            kind: 'huge-upper-rejection',
+            label: '高位巨量长上影',
+            glyph: '拒',
+            description: `此前 20 日上涨 ${formatRulePct(priorRise20 * 100)}，本日创新高但长上影占振幅 ${Math.round(upperShadowRatio * 100)}%，收盘位置仅 ${Math.round(location * 100)}%，量能为 prior VMA20 的 ${causalVolumeRatio.toFixed(2)} 倍。`,
+            tone: 'risk',
+            position: 'above',
+            volumeRatio: causalVolumeRatio,
+            priorRise20Pct: priorRise20 * 100,
+            drawdown60Pct: null,
+            shapes: ['创新高', '巨量', '长上影'],
+            evidence: [HUGE_UPPER_REJECTION_EVIDENCE],
+          })
+        }
+      }
+    }
   }
 
-  return markers
+  if (includeFullMarketDaily) {
+    for (const anchor of hammerAnchors) {
+      const anchorBar = bars[anchor.index]
+      if (anchorBar === undefined) continue
+      const invalidation = anchorBar.low - 0.25 * anchor.atr
+      for (let confirmIndex = anchor.index + 1;
+        confirmIndex < Math.min(anchor.index + 4, bars.length);
+        confirmIndex += 1) {
+        const confirmBar = bars[confirmIndex]
+        if (confirmBar === undefined) continue
+        if (confirmBar.low < invalidation) break
+        const confirmLocation = closeLocation(confirmBar)
+        const confirmMa5 = ma5[confirmIndex]
+        if (confirmMa5 != null
+          && confirmBar.close > anchorBar.high
+          && confirmBar.close > confirmMa5
+          && confirmLocation >= 0.55) {
+          add({
+            index: confirmIndex,
+            date: confirmBar.date,
+            kind: 'hammer-spring-confirmed',
+            label: '金针突破确认',
+            glyph: '确',
+            description: `金针锚点 ${anchorBar.date} 后首次收盘越过锚点高点并站上 MA5；确认标在本日，不回填到锚点。历史方向仍接近均衡。`,
+            tone: 'research',
+            position: 'below',
+            volumeRatio: anchor.volumeRatio,
+            priorRise20Pct: null,
+            drawdown60Pct: anchor.drawdown60Pct,
+            shapes: ['越过锚点高', '站上 MA5', '确认日'],
+            evidence: [HAMMER_SPRING_CONFIRMED_EVIDENCE],
+          })
+          break
+        }
+      }
+    }
+  }
+
+  return markers.sort((left, right) => left.index - right.index)
 }
 
 /**
  * Builds close-confirmed observation markers from the current K-line period.
  * These are historical-observation markers, not buy/sell instructions.
  */
-export function buildKlineTurningStudy(bars: KLineBar[]): KlineTurningStudy {
+export function buildKlineTurningStudy(
+  bars: KLineBar[],
+  period?: KLinePeriod,
+): KlineTurningStudy {
   const byIndex = bars.map((): KlineTurningMarker[] => [])
-  const candidates = buildKlineTurningCandidates(bars)
+  const candidates = buildKlineTurningCandidates(bars, period)
   const markers: KlineTurningMarker[] = []
   let lastPostRise = -100_000
   let lastDeep = -100_000
   let lastReclaim = -100_000
+  let lastLowOutside = -100_000
+  let lastHammerAnchor = -100_000
+  let lastHammerConfirmed = -100_000
+  let lastHugeUpperRejection = -100_000
   const selectedPostRise = new Set<number>()
   const selectedDeep = new Set<number>()
 
@@ -421,9 +683,35 @@ export function buildKlineTurningStudy(bars: KLineBar[]): KlineTurningStudy {
       if (selectedDeep.has(marker.index)) add(marker)
       continue
     }
-    if (marker.index - lastReclaim <= 10) continue
-    add(marker)
-    lastReclaim = marker.index
+    if (marker.kind === 'deep-decline-reclaim-ma5') {
+      if (marker.index - lastReclaim <= 10) continue
+      add(marker)
+      lastReclaim = marker.index
+      continue
+    }
+    if (marker.kind === 'low-bullish-outside') {
+      if (marker.index - lastLowOutside < 20) continue
+      add(marker)
+      lastLowOutside = marker.index
+      continue
+    }
+    if (marker.kind === 'hammer-spring-anchor') {
+      if (marker.index - lastHammerAnchor < 20) continue
+      add(marker)
+      lastHammerAnchor = marker.index
+      continue
+    }
+    if (marker.kind === 'hammer-spring-confirmed') {
+      if (marker.index - lastHammerConfirmed < 20) continue
+      add(marker)
+      lastHammerConfirmed = marker.index
+      continue
+    }
+    if (marker.kind === 'huge-upper-rejection') {
+      if (marker.index - lastHugeUpperRejection < 10) continue
+      add(marker)
+      lastHugeUpperRejection = marker.index
+    }
   }
 
   return { markers, byIndex }
@@ -484,6 +772,18 @@ export function movingAverage(values: number[], period: number): Array<number | 
     sum += values[index] ?? 0
     if (index >= period) sum -= values[index - period] ?? 0
     if (index >= period - 1) result[index] = sum / period
+  }
+  return result
+}
+
+function priorMovingAverage(values: number[], period: number): Array<number | null> {
+  const result: Array<number | null> = Array.from({ length: values.length }, () => null)
+  if (!Number.isInteger(period) || period <= 0) return result
+  let sum = 0
+  for (let index = 0; index < values.length; index += 1) {
+    if (index >= period) result[index] = sum / period
+    sum += values[index] ?? 0
+    if (index >= period) sum -= values[index - period] ?? 0
   }
   return result
 }

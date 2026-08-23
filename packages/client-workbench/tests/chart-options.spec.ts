@@ -200,6 +200,7 @@ describe('legacy-compatible chart options', () => {
     const tooltip = option.tooltip?.formatter?.([{ seriesName: 'K 线', dataIndex: 1 }]) ?? ''
     expect(tooltip).toContain('2026-01-02')
     expect(tooltip).toContain('收盘')
+    expect(tooltip).toContain('历史 K · 收盘确认')
     expect(tooltip).toContain('MA5')
     expect(tooltip).toContain('MA10')
     expect(tooltip).not.toContain('成交额')
@@ -214,6 +215,10 @@ describe('legacy-compatible chart options', () => {
     ])
     expect((volumeSeries?.data as Array<{ itemStyle: { color: string } }>)[0]?.itemStyle.color).toBe(DARK_CHART_PALETTE.upBar)
     expect((volumeSeries?.data as Array<{ itemStyle: { color: string } }>)[1]?.itemStyle.color).toBe(DARK_CHART_PALETTE.downBar)
+
+    const latestTooltip = option.tooltip?.formatter?.([{ seriesName: 'K 线', dataIndex: bars.length - 1 }]) ?? ''
+    expect(latestTooltip).toContain('最新 K · 动态计算')
+    expect(latestTooltip).toContain('最新一根随行情刷新')
 
     const medium = inspect(buildKlineOption(bars, DARK_CHART_PALETTE, null, 'medium'))
     expect(medium.series?.map(item => item.name)).toEqual(['K 线', 'MA20', 'MA60', '成交量'])
@@ -259,12 +264,19 @@ describe('legacy-compatible chart options', () => {
     expect(tooltip).toContain('更常见：走弱')
     expect(tooltip).toContain('上涨 32.6%')
     expect(tooltip).toContain('走弱 67.4%')
-    expect(tooltip).toContain('走弱 64.9%')
+    expect(tooltip).toContain('走弱 65.8%')
     expect(tooltip).toContain('356 例')
     expect(tooltip).toContain('222 例')
     expect(tooltip).toContain('日 K 独立样本截至 2026-08-20')
     expect(tooltip).toContain('历史条件频率，不是预测')
     expect(tooltip).not.toContain('胜率')
+
+    const hidden = inspect(buildKlineOption(bars, DARK_CHART_PALETTE, null, 'short', 'daily', false))
+    expect(hidden.series?.find(item => item.name === 'K 线')?.markPoint).toBeUndefined()
+    const hiddenTooltip = hidden.tooltip?.formatter?.([{ seriesName: 'K 线', dataIndex: 139 }]) ?? ''
+    expect(hiddenTooltip).not.toContain('巨量分歧')
+    expect(hiddenTooltip).not.toContain('巨量弱收')
+    expect(hiddenTooltip).not.toContain('历史条件频率')
 
     const weekly = inspect(buildKlineOption(bars, DARK_CHART_PALETTE, null, 'short', 'weekly'))
     const weeklyTooltip = weekly.tooltip?.formatter?.([{ seriesName: 'K 线', dataIndex: 139 }]) ?? ''
@@ -288,6 +300,39 @@ describe('legacy-compatible chart options', () => {
     expect(monthlyTooltip).toContain('走弱 50.9%')
     expect(monthlyTooltip).toContain('53 例')
     expect(monthlyTooltip).toContain('月 K 独立样本截至 2026-08-20')
+  })
+
+  it('shows the new full-market marker and matched context on daily K only', () => {
+    const bars: KLineBar[] = Array.from({ length: 140 }, (_, index) => {
+      const close = 100 - index * 0.5
+      return {
+        date: `2026-${String(Math.floor(index / 28) + 1).padStart(2, '0')}-${String(index % 28 + 1).padStart(2, '0')}`,
+        open: index === 139 ? 29.5 : close + 0.1,
+        close: index === 139 ? 32 : close,
+        high: index === 139 ? 33 : close + 0.6,
+        low: index === 139 ? 29 : close - 0.6,
+        volume: index === 139 ? 150 : 100,
+        amount: null,
+      }
+    })
+
+    const daily = inspect(buildKlineOption(bars, DARK_CHART_PALETTE, null, 'short', 'daily'))
+    const candle = daily.series?.find(item => item.name === 'K 线')
+    const markPoint = candle?.markPoint as { data?: Array<Record<string, unknown>> }
+    expect(markPoint.data).toEqual([
+      expect.objectContaining({ name: '低位破低反包', value: '包', symbol: 'diamond' }),
+    ])
+    const tooltip = daily.tooltip?.formatter?.([{ seriesName: 'K 线', dataIndex: 139 }]) ?? ''
+    expect(tooltip).toContain('低位破低反包')
+    expect(tooltip).toContain('上涨 65.6%')
+    expect(tooltip).toContain('3581 例')
+    expect(tooltip).toContain('同场景上涨 65.8%')
+    expect(tooltip).toContain('匹配子集增量 +0.3 pp')
+    expect(tooltip).toContain('形态增量未证实')
+    expect(tooltip).not.toContain('胜率')
+
+    const weekly = inspect(buildKlineOption(bars, DARK_CHART_PALETTE, null, 'short', 'weekly'))
+    expect(weekly.series?.find(item => item.name === 'K 线')?.markPoint).toBeUndefined()
   })
 
   it('keeps valuation price and fair-value series on a true time axis and derives all four bands from fair value', () => {

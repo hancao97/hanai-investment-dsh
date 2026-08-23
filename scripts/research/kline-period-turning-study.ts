@@ -17,7 +17,7 @@ import type { KLineBar } from '../../packages/contracts/src/index.ts'
 import {
   KLINE_TURNING_STUDY_CUTOFF,
   buildKlineTurningCandidates,
-  type KlineTurningMarkerKind,
+  type LegacyKlineTurningMarkerKind,
 } from '../../packages/client-workbench/src/kline-ma.ts'
 
 type StudyPeriod = 'daily' | 'weekly' | 'monthly'
@@ -55,7 +55,7 @@ interface Observation {
 }
 
 const PERIODS: StudyPeriod[] = ['daily', 'weekly', 'monthly']
-const KINDS: KlineTurningMarkerKind[] = [
+const KINDS: LegacyKlineTurningMarkerKind[] = [
   'post-rise-huge-volume',
   'post-rise-huge-volume-weak',
   'deep-decline-huge-volume',
@@ -64,7 +64,11 @@ const KINDS: KlineTurningMarkerKind[] = [
   'deep-decline-reclaim-ma5',
 ]
 
-const KIND_LABELS: Record<KlineTurningMarkerKind, string> = {
+function isLegacyKind(kind: string): kind is LegacyKlineTurningMarkerKind {
+  return (KINDS as string[]).includes(kind)
+}
+
+const KIND_LABELS: Record<LegacyKlineTurningMarkerKind, string> = {
   'post-rise-huge-volume': '巨量分歧',
   'post-rise-huge-volume-weak': '巨量弱收',
   'deep-decline-huge-volume': '深跌放量',
@@ -73,7 +77,7 @@ const KIND_LABELS: Record<KlineTurningMarkerKind, string> = {
   'deep-decline-reclaim-ma5': '放量回稳',
 }
 
-const BASE_DAILY_HORIZON: Record<KlineTurningMarkerKind, 10 | 20> = {
+const BASE_DAILY_HORIZON: Record<LegacyKlineTurningMarkerKind, 10 | 20> = {
   'post-rise-huge-volume': 10,
   'post-rise-huge-volume-weak': 10,
   'deep-decline-huge-volume': 20,
@@ -101,7 +105,7 @@ const SOURCE_SEGMENTS: SourceSegmentKey[] = [
   'adverse_confirmation',
 ]
 
-const PRODUCT_SEGMENTS: Record<KlineTurningMarkerKind, SourceSegmentKey[]> = {
+const PRODUCT_SEGMENTS: Record<LegacyKlineTurningMarkerKind, SourceSegmentKey[]> = {
   'post-rise-huge-volume': ['recent_point_in_time', 'adverse_confirmation'],
   'post-rise-huge-volume-weak': ['recent_point_in_time', 'adverse_confirmation'],
   'deep-decline-huge-volume': SOURCE_SEGMENTS,
@@ -316,16 +320,17 @@ function main(): void {
         adverse_confirmation: [] as Observation[],
         product_evidence: [] as Observation[],
       } satisfies Record<SegmentKey, Observation[]>,
-    ])) as Record<KlineTurningMarkerKind, Record<SegmentKey, Observation[]>>
+    ])) as Record<LegacyKlineTurningMarkerKind, Record<SegmentKey, Observation[]>>
     const lastKept = Object.fromEntries(KINDS.map(kind => [
       kind,
       Object.fromEntries(SOURCE_SEGMENTS.map(segment => [segment, new Map<string, number>()])),
-    ])) as Record<KlineTurningMarkerKind, Record<SourceSegmentKey, Map<string, number>>>
+    ])) as Record<LegacyKlineTurningMarkerKind, Record<SourceSegmentKey, Map<string, number>>>
 
     for (const [symbol, dailyBars] of barsBySymbol) {
       const bars = aggregateBars(dailyBars, period)
       const markers = buildKlineTurningCandidates(bars)
       for (const marker of markers) {
+        if (!isLegacyKind(marker.kind)) continue
         if (marker.date > baseline.metadata.requested_end) continue
         const horizon = PERIOD_HORIZONS[period][BASE_DAILY_HORIZON[marker.kind]]
         const entry = bars[marker.index + 1]?.open

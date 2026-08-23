@@ -457,6 +457,8 @@
 .klineMaModes .button,
 .klineMaModes .buttonSelected { min-height: 25px; padding: 0 9px; border-radius: 6px; font-size: 10px; }
 .klineMaLegend { justify-content: flex-end; flex-wrap: wrap; color: var(--muted); font: 9px ui-monospace, monospace; }
+.klineMaLegend .button,
+.klineMaLegend .buttonSelected { min-height: 25px; padding: 0 9px; border-radius: 6px; font: 10px system-ui, sans-serif; }
 .klineMaLegend > span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .klineMaLegend i { display: inline-block; width: 13px; height: 2px; border-radius: 999px; }
 .maFast { background: var(--gold); }

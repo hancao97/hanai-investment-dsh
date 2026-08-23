@@ -845,6 +845,7 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
   const [dailyViewWindow, setDailyViewWindow] = useState<KlineViewWindow | null>(null)
   const [chart, setChart] = useState<StockChart>('daily')
   const [klineMaMode, setKlineMaMode] = useState<KlineMaMode>('short')
+  const [turningMarkersVisible, setTurningMarkersVisible] = useState(true)
   const [groups, setGroups] = useState(bootstrapGroups)
   const [watchDialogOpen, setWatchDialogOpen] = useState(false)
   const requestGeneration = useRef(0)
@@ -1043,6 +1044,51 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
     const timer = window.setInterval(() => void refreshSurface(), 15_000)
     return () => { active = false; controller.abort(); window.clearInterval(timer) }
   }, [chart, client, detailReady, notify, secId])
+  useEffect(() => {
+    if (!detailReady || chart === 'trend') return
+    const period = chart
+    let active = true
+    let inFlight = false
+    let requestController: AbortController | null = null
+    const refreshKline = async () => {
+      if (inFlight || !loadedSurfaces.current.has(period)) return
+      inFlight = true
+      const controller = new AbortController()
+      requestController = controller
+      try {
+        const result = await client.call('security.kline', { secId, period }, controller.signal)
+        if (!active || controller.signal.aborted || activeSecId.current !== secId) return
+        setDetailState(current => {
+          if (current?.secId !== secId) return current
+          const currentBars = current.detail[period]
+          const refreshedBars = mergeRefreshedKlineBars(currentBars, result.bars)
+          const currentMeta = current.detail.sources[period]
+          const refreshedMeta = result.meta ?? currentMeta
+          if (refreshedBars === currentBars && refreshedMeta === currentMeta) return current
+          return { secId, detail: {
+            ...current.detail,
+            [period]: refreshedBars,
+            sources: { ...current.detail.sources, [period]: refreshedMeta },
+          } }
+        })
+      } catch {
+        // Polling is best-effort. Keep the most recent successful K-line surface
+        // without producing a new toast every 15 seconds during provider outages.
+      } finally {
+        if (requestController === controller) requestController = null
+        inFlight = false
+      }
+    }
+    // A previously loaded period may have gone stale while another chart was
+    // selected, so refresh it immediately when the user switches back.
+    void refreshKline()
+    const timer = window.setInterval(() => void refreshKline(), 15_000)
+    return () => {
+      active = false
+      requestController?.abort()
+      window.clearInterval(timer)
+    }
+  }, [chart, client, detailReady, secId])
 
   const palette = getChartPalette(theme)
   const chartOption = useMemo(() => {
@@ -1050,8 +1096,8 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
     if (chart === 'trend') {
       return buildTrendOption(detail.trend, detail.trendPrevClose ?? detail.quote?.prevClose ?? detail.metrics?.prevClose ?? null, palette)
     }
-    return buildKlineOption(detail[chart], palette, chart === 'daily' ? dailyViewWindow : null, klineMaMode, chart)
-  }, [chart, dailyViewWindow, detail?.daily, detail?.metrics?.prevClose, detail?.monthly, detail?.quote?.prevClose, detail?.trend, detail?.trendPrevClose, detail?.weekly, klineMaMode, palette])
+    return buildKlineOption(detail[chart], palette, chart === 'daily' ? dailyViewWindow : null, klineMaMode, chart, turningMarkersVisible)
+  }, [chart, dailyViewWindow, detail?.daily, detail?.metrics?.prevClose, detail?.monthly, detail?.quote?.prevClose, detail?.trend, detail?.trendPrevClose, detail?.weekly, klineMaMode, palette, turningMarkersVisible])
 
   if (detail === null) return <Page><PageSkeleton cards={5} /></Page>
 
@@ -1090,9 +1136,16 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
               <button aria-pressed={klineMaMode === 'medium'} className={klineMaMode === 'medium' ? styles['buttonSelected'] : styles['button']} onClick={() => setKlineMaMode('medium')}>中线 MA20 / MA60</button>
             </div>
             <div className={styles['klineMaLegend']}>
+              <button
+                type="button"
+                aria-label="变盘点"
+                aria-pressed={turningMarkersVisible}
+                className={turningMarkersVisible ? styles['buttonSelected'] : styles['button']}
+                onClick={() => setTurningMarkersVisible(visible => !visible)}
+              >变盘点 {turningMarkersVisible ? '显示' : '隐藏'}</button>
               <span><i className={styles['maFast']} />MA{klineMaMode === 'short' ? '5' : '20'}</span>
               <span><i className={styles['maSlow']} />MA{klineMaMode === 'short' ? '10' : '60'}</span>
-              <small>均线基于当前 K 周期 · 标记点悬浮查看历史后续</small>
+              <small>最新 K 每 15 秒刷新并动态重算 · 标记点悬浮查看历史后续</small>
             </div>
           </div>}
           <div className={styles['priceChart']}>{chartOption === null ? <Empty compact title="图表数据加载中" detail="当前周期暂无可用数据。" /> : <EChart
@@ -1616,6 +1669,28 @@ function mergeKlineBars(earlier: StockDetail['daily'], current: StockDetail['dai
   const byDate = new Map<string, StockDetail['daily'][number]>()
   for (const bar of [...earlier, ...current]) byDate.set(bar.date, bar)
   return [...byDate.values()].sort((left, right) => left.date.localeCompare(right.date))
+}
+
+function mergeRefreshedKlineBars(
+  current: StockDetail['daily'],
+  refreshed: StockDetail['daily'],
+): StockDetail['daily'] {
+  if (refreshed.length === 0) return current
+  const merged = mergeKlineBars(current, refreshed)
+  if (merged.length !== current.length) return merged
+  for (let index = 0; index < merged.length; index += 1) {
+    const left = current[index]
+    const right = merged[index]
+    if (left === undefined || right === undefined
+      || left.date !== right.date
+      || left.open !== right.open
+      || left.close !== right.close
+      || left.high !== right.high
+      || left.low !== right.low
+      || left.volume !== right.volume
+      || left.amount !== right.amount) return merged
+  }
+  return current
 }
 
 function klineZoomWindow(bars: StockDetail['daily'], event: unknown): { window: KlineViewWindow; atStart: boolean } | null {

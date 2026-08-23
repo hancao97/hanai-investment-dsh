@@ -20,16 +20,19 @@ import { HanaiWorkbench } from '../src/app.tsx'
 import type { HanaiClient } from '../src/api.ts'
 
 vi.mock('../src/echarts.tsx', () => ({
-  EChart: ({ ariaLabel, onChartClick, onDataZoom, onAxisPointerUpdate, onPointerLeave }: { ariaLabel?: string; onChartClick?: (params: unknown) => void; onDataZoom?: (params: unknown) => void; onAxisPointerUpdate?: (params: unknown) => void; onPointerLeave?: () => void }) => (
-    <div
+  EChart: ({ ariaLabel, option, onChartClick, onDataZoom, onAxisPointerUpdate, onPointerLeave }: { ariaLabel?: string; option?: { series?: Array<{ name?: string; data?: number[][] }> }; onChartClick?: (params: unknown) => void; onDataZoom?: (params: unknown) => void; onAxisPointerUpdate?: (params: unknown) => void; onPointerLeave?: () => void }) => {
+    const candles = option?.series?.find(item => item.name === 'K 线')?.data ?? []
+    const latestClose = candles.at(-1)?.[1]
+    return <div
       role="img"
       aria-label={ariaLabel ?? 'ECharts 图表'}
+      data-latest-kline-close={latestClose ?? ''}
       onClick={() => onChartClick?.({ data: { sectorCode: 'BK0475', name: '电子' } })}
       onDoubleClick={() => onDataZoom?.({ start: 0, end: 100, startValue: 0, endValue: 1 })}
       onMouseMove={() => onAxisPointerUpdate?.({ axesInfo: [{ axisDim: 'x', axisIndex: 0, value: '2026-08-14' }] })}
       onMouseLeave={() => onPointerLeave?.()}
     />
-  ),
+  },
 }))
 
 vi.mock('../../client-chat/src/index.tsx', () => ({
@@ -624,6 +627,12 @@ describe('HanaiWorkbench old-client parity', () => {
     expect(screen.getByRole('img', { name: '日K线图' })).not.toBeNull()
     expect(screen.getByRole('group', { name: '均线组合模式' })).not.toBeNull()
     expect(screen.getByRole('button', { name: '短线 MA5 / MA10' }).getAttribute('aria-pressed')).toBe('true')
+    const turningToggle = screen.getByRole('button', { name: '变盘点' })
+    expect(turningToggle.getAttribute('aria-pressed')).toBe('true')
+    expect(turningToggle.textContent).toContain('显示')
+    fireEvent.click(turningToggle)
+    expect(turningToggle.getAttribute('aria-pressed')).toBe('false')
+    expect(turningToggle.textContent).toContain('隐藏')
     expect(screen.queryByLabelText('量价观察标记：分歧、弱收、深跌、强收、长影、回稳')).toBeNull()
     expect(screen.queryByLabelText('K线行情数据')).toBeNull()
     expect(screen.queryByLabelText('量价观察标记')).toBeNull()
@@ -632,7 +641,7 @@ describe('HanaiWorkbench old-client parity', () => {
     expect(screen.getByRole('button', { name: '中线 MA20 / MA60' }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByText('MA20')).not.toBeNull()
     expect(screen.getByText('MA60')).not.toBeNull()
-    expect(screen.getByText('均线基于当前 K 周期 · 标记点悬浮查看历史后续')).not.toBeNull()
+    expect(screen.getByText('最新 K 每 15 秒刷新并动态重算 · 标记点悬浮查看历史后续')).not.toBeNull()
     expect(screen.queryByText(/买点|卖点/)).toBeNull()
     expect(screen.getByRole('heading', { name: '价值判断' })).not.toBeNull()
     expect(screen.getByText('大师价值')).not.toBeNull()
@@ -732,6 +741,60 @@ describe('HanaiWorkbench old-client parity', () => {
       await quote.promise
     })
     expect(screen.getByRole('heading', { name: '贵州茅台' })).not.toBeNull()
+  })
+
+  it('refreshes the active daily, weekly, and monthly K line every 15 seconds', async () => {
+    vi.useFakeTimers()
+    const calls = { daily: 0, weekly: 0, monthly: 0 }
+    const client = makeClient({
+      'security.kline': request => {
+        const period = (request as { period: keyof typeof calls }).period
+        calls[period] += 1
+        const bars = stockDetail.daily.map((bar, index) => index === stockDetail.daily.length - 1
+          ? { ...bar, close: bar.close + calls[period] }
+          : bar)
+        return { period, bars, meta: { ...fresh, fetchedAt: `2026-08-15T10:00:${String(calls[period]).padStart(2, '0')}+08:00` }, hasMore: period === 'daily' }
+      },
+    })
+
+    try {
+      renderAt('/stock/1.600519', client)
+      await act(async () => {
+        for (let index = 0; index < 8; index += 1) await Promise.resolve()
+      })
+
+      expect(calls).toEqual({ daily: 1, weekly: 0, monthly: 0 })
+      expect(screen.getByRole('img', { name: '日K线图' }).getAttribute('data-latest-kline-close')).toBe('1501')
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
+      expect(calls.daily).toBe(2)
+      expect(screen.getByRole('img', { name: '日K线图' }).getAttribute('data-latest-kline-close')).toBe('1502')
+
+      fireEvent.click(screen.getByRole('button', { name: '周K' }))
+      await act(async () => {
+        for (let index = 0; index < 4; index += 1) await Promise.resolve()
+      })
+      expect(calls.weekly).toBe(1)
+      expect(screen.getByRole('img', { name: '周K线图' }).getAttribute('data-latest-kline-close')).toBe('1501')
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
+      expect(calls.weekly).toBe(2)
+      expect(screen.getByRole('img', { name: '周K线图' }).getAttribute('data-latest-kline-close')).toBe('1502')
+
+      fireEvent.click(screen.getByRole('button', { name: '月K' }))
+      await act(async () => {
+        for (let index = 0; index < 4; index += 1) await Promise.resolve()
+      })
+      expect(calls.monthly).toBe(1)
+      expect(screen.getByRole('img', { name: '月K线图' }).getAttribute('data-latest-kline-close')).toBe('1501')
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
+      expect(calls.monthly).toBe(2)
+      expect(screen.getByRole('img', { name: '月K线图' }).getAttribute('data-latest-kline-close')).toBe('1502')
+    } finally {
+      cleanup()
+      vi.useRealTimers()
+    }
   })
 
   it('keeps experts informational and exposes only conventional light/dark themes', async () => {
