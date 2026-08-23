@@ -2,10 +2,14 @@
 
 本文档目录记录 **Hanai Worth · 值见**（当前兼容包名 `hanai-investment-dsh`）的实现架构和关键决策。核心 Host、领域层、React 工作台、自绘 DSH Session 聊天、隔离数据根和独立 Profile 已完成；文档中的“后续”条目表示仍需继续演进的能力。
 
+变盘点能力审计的 GitHub Pages 在线版：<https://hancao97.github.io/hanai-investment-dsh/>
+
 ## 文档索引
 
 | 文档 | 内容 | 状态 |
 | --- | --- | --- |
+| [turning-point-research-index.md](turning-point-research-index.md) | 变盘点、扫描与回测材料的统一分类、数据血缘、cutoff、产物映射与复现命令 | **研究总入口** |
+| [turning-point-capability-audit-2026-08-23.html](turning-point-capability-audit-2026-08-23.html) | 当前 10 类生产标记、22 个有效周期格、候选 case 与统计比例的自包含审计报告 | 当前汇总报告 |
 | [full-market-turning-point-study-2026-08-22.md](full-market-turning-point-study-2026-08-22.md) | 5,809 只 A 股、981 万行日 K 上的金针探底、底部巨量、极度缩量、低位反包、巨量长上影等 16 个观察/确认规则 | 已完成：2 类建议观察，0 类达到高胜率上线门槛 |
 | [kline-period-turning-study-2026-08-22.md](kline-period-turning-study-2026-08-22.md) | 日 / 周 / 月 K 量价标记的独立后续方向频率、样本量与产品表达边界 | 已接入产品 |
 | [kline-turning-marker-product-decision-2026-08-22.md](kline-turning-marker-product-decision-2026-08-22.md) | 达到频率门槛的量价观察标记、精确触发规则、证据展示与统计边界 | 当前产品口径 |
