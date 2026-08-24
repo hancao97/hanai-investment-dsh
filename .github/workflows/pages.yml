@@ -34,6 +34,15 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
+      - name: Verify report visual shells
+        run: |
+          outlook_style_bytes=$(awk '/<style>/{inside=1} inside{print} /<\/style>/{inside=0}' docs/a-share-cycle-outlook-2026-08-23.html | wc -c)
+          test "$outlook_style_bytes" -gt 12000
+          grep -Fq '.site-nav{position:sticky' docs/a-share-cycle-outlook-2026-08-23.html
+          grep -Fq '.layout{display:grid' docs/a-share-cycle-outlook-2026-08-23.html
+          grep -Fq '.section{scroll-margin-top:' docs/a-share-cycle-outlook-2026-08-23.html
+          grep -Fq '<div class="page">' docs/a-share-cycle-outlook-2026-08-23.html
+
       - name: Prepare self-contained reports
         run: |
           mkdir -p _site/research-data
