@@ -642,7 +642,6 @@
 .personaCard label { color: var(--faint); font-size: 9px; font-weight: 600; letter-spacing: .1em; }
 .personaDescription { margin: 8px 0 0; overflow-wrap: anywhere; color: var(--muted); font-size: 12px; line-height: 1.75; white-space: pre-wrap; }
 .personaCapability { display: inline-flex; min-height: 20px; align-items: center; padding: 0 8px; border: 1px solid var(--border); border-radius: 999px; color: var(--faint); font-size: 8px; }
-.personaCardDisclaimer { margin-top: 14px; padding: 9px 10px; border-left: 2px solid var(--gold); color: var(--faint); font-size: 9px; line-height: 1.65; background: var(--gold-soft); }
 .personaMethods { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
 .personaMethods > div { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 .personaMethods span { display: inline-flex; min-height: 22px; align-items: center; padding: 0 8px; border: 1px solid var(--border-strong); border-radius: 999px; color: var(--muted); font-size: 10px; background: var(--panel-soft); }

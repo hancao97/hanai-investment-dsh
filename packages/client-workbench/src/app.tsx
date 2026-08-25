@@ -1537,7 +1537,6 @@ function PersonasPage({ masters }: { masters: MasterPersona[] }) {
         <div className={styles['personaIdentity']}><b>{master.name}</b><div>{master.roleTag && <em className={styles['personaRole']} style={{ color: master.color, borderColor: master.color }}>{master.roleTag}</em>}<small className={styles['personaCapability']}>{master.chatOnly === true ? '仅开放对谈' : '研判 · 开放对谈'}</small></div></div>
       </header>
       <section className={styles['personaBody']}><label>专家介绍</label><p className={styles['personaDescription']}>{master.description || '暂无介绍'}</p></section>
-      {master.personaDisclaimer !== undefined && <div className={styles['personaCardDisclaimer']}>{master.personaDisclaimer}</div>}
       {master.tags.length > 0 && <footer className={styles['personaMethods']}><label>核心方法</label><div>{master.tags.map(tag => <span key={tag}>{tag}</span>)}</div></footer>}
     </article>)}</div>
   </Page>

@@ -823,6 +823,7 @@ describe('HanaiWorkbench old-client parity', () => {
     await screen.findByRole('heading', { name: '专家中心' })
     expect(screen.getByText('沃伦 · 巴菲特')).not.toBeNull()
     expect(screen.queryByRole('button', { name: /开始研判/ })).toBeNull()
+    expect(screen.queryByText(/不代表孙宇晨本人观点/)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /设置与诊断/ }))
     await screen.findByRole('heading', { name: '设置与诊断' })
