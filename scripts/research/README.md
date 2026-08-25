@@ -8,17 +8,23 @@
 - `full-market-*` 用于全市场候选发现；
 - `kline-*`、`ma-volume-*` 是固定样本基线、周期研究和历史策略实验；
 - `chan-*` 依赖固定 commit 的外部 `chan.py`，用于点位生命周期和年度稳定性；
+- `a-share-cycle-market-snapshot.ts` 冻结点时估值、标准化前复权日线、逐条件事件、20/60/120日相对强弱、非重叠条件历史频率、市场/板块宽度与国债机会成本；
+- `complete-a-share-cycle-outlook.ts` 在历史结构化底稿上补齐主题五维评分、六股质量/估值/技术证据和机械门禁，默认生成独立的 `*-pre-council-*` 冻结输入；
 - `run-a-share-expert-council.ts` 把最新冻结事实包送入五个已打包专家 Skill，保存完整提示词、原始 DSH 输出、解析结果和提示词 / Skill / AGENTS / 脚本哈希；未冻结的具体模型与reasoning配置必须显式披露；
+- `finalize-a-share-cycle-council.ts` 校验前置输入 SHA 后，将全状态专家复核聚合到另一个最终 JSON；AI票只作为会商门，不能覆盖事实硬门，也不得原地覆盖专家实际读取的输入；
 - `render-a-share-cycle-outlook.ts` 读取人工策展的周期投研 JSON，校验三情景、六指标、五票与来源引用后生成自包含 HTML；报告不计算或展示未经校准的情景概率；
-- 周期展望主 JSON 不是模型输出的无损转录，也没有单一生成器；可重跑部分是 Round 3 专家台账与 HTML 渲染。研究方法变化时应新增版本与产物，不覆盖旧日期；
+- 周期展望主 JSON 不是模型输出的无损转录；2026-08-25完整版本由市场快照、结构化补全、Round 4、会商聚合和HTML渲染按顺序生成。研究方法变化时应新增版本与产物，不覆盖旧日期；
 - `/tmp` 下的行情缓存、中间年度产物和 manifest 不属于源码，运行前必须核对 cutoff、证券宇宙、失败数和哈希；
 - `--max-symbols`、`--exchange` 等子集参数只用于诊断，不能标记为全量研究。
 
-当前所有冻结研究均以 2026-08-20 为统一行情截止。新时间样本必须使用新的版本 / 日期，不应把 cutoff 后数据混回旧产物。
+变盘点冻结研究仍以 2026-08-20 为统一行情截止；周期展望完成版另使用2026-08-25点时市场快照，并以不同日期产物隔离。新时间样本必须使用新的版本 / 日期，不应把 cutoff 后数据混回旧产物。
 
 周期展望报告复现：
 
 ```bash
+pnpm exec tsx scripts/research/a-share-cycle-market-snapshot.ts
+pnpm exec tsx scripts/research/complete-a-share-cycle-outlook.ts
 pnpm exec tsx scripts/research/run-a-share-expert-council.ts
+pnpm exec tsx scripts/research/finalize-a-share-cycle-council.ts
 pnpm exec tsx scripts/research/render-a-share-cycle-outlook.ts
 ```

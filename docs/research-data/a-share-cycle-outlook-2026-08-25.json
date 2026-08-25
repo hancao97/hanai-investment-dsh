@@ -1,0 +1,4119 @@
+{
+  "schema_version": 3,
+  "metadata": {
+    "title": "A股未来一年周期展望：完整门禁与方向评分版",
+    "as_of": "2026-08-25",
+    "market_data_cutoff": "2026-08-25",
+    "forecast_start": "2026-08-25",
+    "forecast_end": "2027-08-25",
+    "expert_snapshot_version": "2026.08.23-v3",
+    "expert_runtime": "0.1.1-rc.2 / headless；具体模型与reasoning配置未冻结",
+    "expert_method": "五个隔离DSH工作区各安装一位专家Skill；Round 4使用同一冻结事实包，允许主题PASS/WATCH/REJECT和个股CORE/SATELLITE/WATCH/REJECT/INCOMPLETE全状态输出。角色共享底层运行环境，不能视为统计独立样本。",
+    "expert_disclosure": "五个姓名均指基于系统 Skill 的 AI 方法论角色；相关真人未参与、未审核、未背书。",
+    "committee_vote_snapshot": "Round 1/2/3保留为历史方法记录；最终门禁先由冻结行情、官方财报和机械规则生成，再由Round 4全状态反方复核。AI票不覆盖事实硬门。",
+    "expert_run_artifact": "docs/research-data/a-share-cycle-expert-runs-2026-08-25.json",
+    "expert_run_input_sha256": "44b060ef10486542137513ccc3c57a7ba2a93a09a59905d652c01ff83ada4610",
+    "probability_semantics": "主题分数是证据强度而非概率；个股历史条件频率使用非重叠样本与Wilson区间，只作描述，不是未来收益保证。",
+    "investment_boundary": "A/A-表示方向证据，不等于买入。股票执行层由六门独立决定；本版不提供目标价、仓位或收益承诺。",
+    "artifact_provenance": "人工策展的结构化研究JSON + scripts/research/render-a-share-cycle-outlook.ts；JSON不是模型输出的无损逐字转录",
+    "report_origin_date": "2026-08-23",
+    "report_revision": "2026.08.25-complete-v1",
+    "report_artifact": "docs/a-share-cycle-outlook-2026-08-25.html",
+    "report_data_artifact": "docs/research-data/a-share-cycle-outlook-2026-08-25.json",
+    "turning_point_audit_artifact": "docs/turning-point-capability-audit-2026-08-23.html",
+    "repository_url": "https://github.com/hancao97/hanai-investment-dsh",
+    "market_snapshot_artifact": "docs/research-data/a-share-cycle-market-snapshot-2026-08-25.json",
+    "market_snapshot_sha256": "f59d3639cd9d95dec851507ade7972a55669a668d64bda968163854c1ad59d9b",
+    "expert_run_artifact_sha256": "ca18454409299719f9e7940bce6fa04a3f6776272f4de461ad9585522edcc3ab",
+    "pre_council_artifact": "docs/research-data/a-share-cycle-outlook-pre-council-2026-08-25.json",
+    "pre_council_sha256": "44b060ef10486542137513ccc3c57a7ba2a93a09a59905d652c01ff83ada4610"
+  },
+  "verdict": {
+    "headline": "方向层有1个A档（A- 白色家电全球化与节能更新）；执行层为0 CORE / 1 SATELLITE。",
+    "summary": "六股36个门格均已落为PASS/WATCH/FAIL，当前3个WATCH、2个REJECT、0个INCOMPLETE。方向评分衡量证据强度，个股仍须六门全过；Round 4只作反方复核，不能被解释成独立胜率。",
+    "primary_watch": "000333 美的集团（SATELLITE）",
+    "research_watch": [
+      "长江电力",
+      "宁德时代",
+      "贵州茅台"
+    ],
+    "rejected": [
+      "恒瑞医药",
+      "中国移动"
+    ]
+  },
+  "latest_council": {
+    "round": "Round 4 · 完整市场/质量/估值复核",
+    "executed_at": "2026-08-25T16:43:35.551Z",
+    "artifact": "./research-data/a-share-cycle-expert-runs-2026-08-25.json",
+    "execution": "5/5 exit 0，5/5 JSON解析并通过当前契约验证；1/5 经修复重试；DSH 0.1.1-rc.2 headless；模型与reasoning未冻结",
+    "scenario_consensus": "5/5 基准：结构市延续",
+    "theme_results": [
+      {
+        "name": "电网、特高压与电力数字化",
+        "grade": "B+",
+        "score": 75,
+        "pass": 0,
+        "watch": 5,
+        "reject": 0
+      },
+      {
+        "name": "AI算力与国产集成电路制造",
+        "grade": "B-",
+        "score": 65,
+        "pass": 0,
+        "watch": 5,
+        "reject": 0
+      },
+      {
+        "name": "创新药出海与授权交易",
+        "grade": "C",
+        "score": 45,
+        "pass": 0,
+        "watch": 0,
+        "reject": 5
+      },
+      {
+        "name": "白色家电全球化与节能更新",
+        "grade": "A-",
+        "score": 80,
+        "pass": 5,
+        "watch": 0,
+        "reject": 0
+      },
+      {
+        "name": "高股息与可解释现金流",
+        "grade": "B+",
+        "score": 75,
+        "pass": 0,
+        "watch": 5,
+        "reject": 0
+      },
+      {
+        "name": "具身智能与机器人",
+        "grade": "C",
+        "score": 35,
+        "pass": 0,
+        "watch": 0,
+        "reject": 5
+      }
+    ],
+    "stock_results": [
+      {
+        "name": "长江电力",
+        "core": 0,
+        "satellite": 0,
+        "watch": 5,
+        "reject": 0,
+        "incomplete": 0,
+        "council_vote": {
+          "pass": 0,
+          "watch": 5,
+          "reject": 0
+        },
+        "decision": "watch",
+        "action": "WATCH；valuation / council尚未转为PASS"
+      },
+      {
+        "name": "美的集团",
+        "core": 0,
+        "satellite": 5,
+        "watch": 0,
+        "reject": 0,
+        "incomplete": 0,
+        "council_vote": {
+          "pass": 5,
+          "watch": 0,
+          "reject": 0
+        },
+        "decision": "satellite",
+        "action": "SATELLITE；六门全部通过，按冻结证伪条件持续复核"
+      },
+      {
+        "name": "宁德时代",
+        "core": 0,
+        "satellite": 0,
+        "watch": 5,
+        "reject": 0,
+        "incomplete": 0,
+        "council_vote": {
+          "pass": 0,
+          "watch": 5,
+          "reject": 0
+        },
+        "decision": "watch",
+        "action": "WATCH；fact / quality / council尚未转为PASS"
+      },
+      {
+        "name": "恒瑞医药",
+        "core": 0,
+        "satellite": 0,
+        "watch": 0,
+        "reject": 5,
+        "incomplete": 0,
+        "council_vote": {
+          "pass": 0,
+          "watch": 0,
+          "reject": 5
+        },
+        "decision": "reject",
+        "action": "REJECT；valuation / council失守"
+      },
+      {
+        "name": "中国移动",
+        "core": 0,
+        "satellite": 0,
+        "watch": 0,
+        "reject": 5,
+        "incomplete": 0,
+        "council_vote": {
+          "pass": 0,
+          "watch": 0,
+          "reject": 5
+        },
+        "decision": "reject",
+        "action": "REJECT；quality / council失守"
+      },
+      {
+        "name": "贵州茅台",
+        "core": 0,
+        "satellite": 0,
+        "watch": 5,
+        "reject": 0,
+        "incomplete": 0,
+        "council_vote": {
+          "pass": 0,
+          "watch": 5,
+          "reject": 0
+        },
+        "decision": "watch",
+        "action": "WATCH；fact / mechanism / quality / valuation / council尚未转为PASS"
+      }
+    ],
+    "disagreements": [
+      "主题票与机械评分分开：评分中1个A档，Round 4票只记录方法论反方意见。",
+      "个股最终动作由六门优先级决定：0 CORE / 1 SATELLITE / 3 WATCH / 2 REJECT / 0 INCOMPLETE。",
+      "五个角色共享底层运行环境；5/5一致也不是未来概率或真人背书。"
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "base",
+      "name": "基准：结构市延续",
+      "priority": "主情景",
+      "description": "现有报告只够把状态暂定为结构市 / 数据不足；六项开关尚未形成可确认的广泛上行或压力共振。",
+      "confirm": [
+        "不满足备选情景或压力情景的完整规则",
+        "或可评估指标少于5项，自动标记数据不足",
+        "当前单期证据不当作连续期确认"
+      ],
+      "falsify": "达到备选情景或压力情景的互斥规则。"
+    },
+    {
+      "id": "upside",
+      "name": "乐观：盈利扩散",
+      "priority": "备选情景",
+      "description": "财政资金与信用传导改善，盈利从电子、有色等少数行业扩散至中游设备、可选消费和金融，市场宽度恢复。",
+      "confirm": [
+        "六项中至少5项可评估",
+        "至少4项满足上行阈值，合计得分≥+3",
+        "每项均达到表中规定的连续发布期"
+      ],
+      "falsify": "上行项降至3项及以下、合计得分低于+3，或可评估项少于5。"
+    },
+    {
+      "id": "downside",
+      "name": "悲观：二次探底",
+      "priority": "压力情景",
+      "description": "地产和内需继续收缩，叠加出口、能源或外部利率冲击；高估值成长与强周期率先压缩估值。",
+      "confirm": [
+        "六项中至少5项可评估",
+        "至少4项满足压力阈值，合计得分≤-3",
+        "外部事件本身不触发切换，必须反映在六项国内指标"
+      ],
+      "falsify": "压力项降至3项及以下、合计得分高于-3，或可评估项少于5。"
+    }
+  ],
+  "scenario_state_rule": "每项按本报告冻结阈值记+1/0/-1。可评估≥5且上行≥4、总分≥+3时为盈利扩散；否则，可评估≥5且压力≥4、总分≤-3时为二次探底；其余为结构市/数据待确认。未知或断档记0并标pending，不可跨期拼接。当前覆盖不足，状态为base_pending。阈值是本报告研究门槛，不是官方标准或历史校准模型。",
+  "scenario_scorecard": [
+    {
+      "name": "规模以上工业增加值",
+      "current": "+5.3%（2026年1—7月）",
+      "upside": "累计同比≥6%，连续3次发布",
+      "downside": "累计同比≤4%，连续3次发布",
+      "source_ids": [
+        "nbs-july"
+      ]
+    },
+    {
+      "name": "社会消费品零售",
+      "current": "+1.2%（2026年1—7月）",
+      "upside": "累计同比≥3%，连续3次发布",
+      "downside": "累计同比≤0%，连续3次发布",
+      "source_ids": [
+        "nbs-retail"
+      ]
+    },
+    {
+      "name": "商品房销售额",
+      "current": "-13.1%（2026年1—7月）",
+      "upside": "累计同比≥-5%，连续3次发布",
+      "downside": "累计同比≤-15%，连续3次发布",
+      "source_ids": [
+        "nbs-july"
+      ]
+    },
+    {
+      "name": "PPI环比",
+      "current": "-0.7%（2026-07；单期）",
+      "upside": ">0%，连续3月",
+      "downside": "<0%，连续3月",
+      "source_ids": [
+        "nbs-prices"
+      ]
+    },
+    {
+      "name": "工业利润与广度",
+      "current": "总额+18.7%，电子贡献约45%（2026H1）",
+      "upside": "利润≥10%且电子增量贡献≤30%，连续2次",
+      "downside": "利润<5%，连续2次",
+      "source_ids": [
+        "nbs-profits"
+      ]
+    },
+    {
+      "name": "政府性基金收入",
+      "current": "-21.6%（2026H1；单期）",
+      "upside": "累计同比≥-5%，连续2次发布",
+      "downside": "累计同比≤-15%，连续2次发布",
+      "source_ids": [
+        "mof-h1"
+      ]
+    }
+  ],
+  "cycle_phases": [
+    {
+      "period": "2026.08—10",
+      "name": "初始基线与财报复核",
+      "state": "预定复核，不是必然阶段",
+      "focus": "建立六项开关与公司最新财报基线；成交和市场宽度在冻结数据接入前只记为证据缺口。",
+      "signals": [
+        "六项情景开关",
+        "工业利润广度",
+        "公司自由现金流"
+      ]
+    },
+    {
+      "period": "2026.11—2027.02",
+      "name": "财政与信用复核",
+      "state": "预定复核，不是传导承诺",
+      "focus": "观察电网、设备更新和AI资本开支的招标、合同负债与回款，区分真实需求和政策叙事。",
+      "signals": [
+        "财政执行",
+        "M1-M2剪刀差",
+        "居民贷款",
+        "订单与合同负债"
+      ]
+    },
+    {
+      "period": "2027.03—05",
+      "name": "年报与一季报裁决",
+      "state": "年报与一季报复核",
+      "focus": "只有收入、毛利、现金流和订单同时改善的主题才能从WATCH升级。",
+      "signals": [
+        "盈利上修比例",
+        "应收/存货相对营收",
+        "板块广度"
+      ]
+    },
+    {
+      "period": "2027.06—08",
+      "name": "拥挤度再定价",
+      "state": "估值与产能复核",
+      "focus": "检查资本开支是否把短缺变成过剩；高股息检查现金收益率是否已被拥挤交易买没。",
+      "signals": [
+        "产能利用率",
+        "产品价格/毛利",
+        "股息与无风险利率利差",
+        "估值分位"
+      ]
+    }
+  ],
+  "macro_evidence": [
+    {
+      "label": "2026H1 GDP",
+      "value": "+4.7%",
+      "detail": "Q1 +5.0%，Q2 +4.3%，增长动能放缓。",
+      "tone": "watch",
+      "source_ids": [
+        "nbs-gdp"
+      ]
+    },
+    {
+      "label": "1—7月工业",
+      "value": "+5.3%",
+      "detail": "装备制造 +9.7%，高技术制造 +13.8%；供给侧明显强于需求侧。",
+      "tone": "positive",
+      "source_ids": [
+        "nbs-july"
+      ]
+    },
+    {
+      "label": "1—7月社零",
+      "value": "+1.2%",
+      "detail": "服务零售 +5.0%，消费是结构修复而非总量繁荣。",
+      "tone": "watch",
+      "source_ids": [
+        "nbs-retail",
+        "nbs-services"
+      ]
+    },
+    {
+      "label": "地产开发投资",
+      "value": "-19.2%",
+      "detail": "销售面积 -11.8%、销售额 -13.1%、新开工 -24.0%，尚无基本面反转。",
+      "tone": "negative",
+      "source_ids": [
+        "nbs-july"
+      ]
+    },
+    {
+      "label": "7月CPI / PPI",
+      "value": "+0.5% / +3.5%",
+      "detail": "核心CPI +0.9%；PPI环比 -0.7%，再通胀动能并不稳。",
+      "tone": "watch",
+      "source_ids": [
+        "nbs-prices"
+      ]
+    },
+    {
+      "label": "H1工业利润",
+      "value": "+18.7%",
+      "detail": "电子制造贡献约45%的增速；盈利改善真实但集中。",
+      "tone": "positive",
+      "source_ids": [
+        "nbs-profits"
+      ]
+    },
+    {
+      "label": "8月LPR",
+      "value": "3.0% / 3.5%",
+      "detail": "总量利率偏低，但信用向居民和私人部门传导仍是核心变量。",
+      "tone": "neutral",
+      "source_ids": [
+        "lpr"
+      ]
+    },
+    {
+      "label": "H1政府性基金收入",
+      "value": "-21.6%",
+      "detail": "地方土地出让收入 -31.5%，中央财政托底与地方财力约束同时存在。",
+      "tone": "negative",
+      "source_ids": [
+        "mof-h1"
+      ]
+    },
+    {
+      "label": "7月PMI / 新订单",
+      "value": "49.2 / 48.5",
+      "detail": "两者均低于50；高技术制造PMI 53.3，结构分化明显。",
+      "tone": "watch",
+      "source_ids": [
+        "nbs-pmi"
+      ]
+    }
+  ],
+  "themes": [
+    {
+      "id": "grid",
+      "name": "电网、特高压与电力数字化",
+      "grade": "B+",
+      "committee": {
+        "pass": 1,
+        "watch": 4,
+        "reject": 0
+      },
+      "latest_committee": {
+        "pass": 0,
+        "watch": 5,
+        "reject": 0
+      },
+      "committee_basis": "Round 4对公开人工评分与A/B/C映射做5次一致性检查；不是自由投票，也不是独立统计样本。",
+      "thesis": "国家电网五年投资计划规模大、周期长，招标和回款可跟踪；但总盘子不能替代公司份额、毛利与现金回款验证。",
+      "evidence": [
+        "国家电网“十五五”固定资产投资计划4万亿元、较“十四五”增长40%",
+        "跨区输电、配网与数智化提供需求方向，但尚未证明单家公司增量"
+      ],
+      "candidate": "600406 国电南瑞（行业观察，未纳入六股委员会评级）",
+      "hard_fail": "连续两个季度订单增速低于10%，合同负债下降且经营现金流显著落后净利润。",
+      "source_ids": [
+        "nea-grid",
+        "nari-annual",
+        "market-snapshot"
+      ],
+      "score": 75,
+      "score_components": {
+        "demand": 20,
+        "earnings": 15,
+        "cash": 15,
+        "valuation": 15,
+        "market": 10
+      },
+      "score_summary": "四万亿元多年投资提供最强需求可见度；国电南瑞盈利为正、估值中性，但股价低于MA20/60/120且60/120日相对收益为负。",
+      "market_evidence": {
+        "date": "2026-08-25",
+        "board": "电网设备",
+        "board_change_pct": 1.13,
+        "board_advance_ratio": 0.8
+      },
+      "upgrade_condition": "升至A档需代表企业订单/合同负债与粗FCF共同改善，且代表股站回MA60、60日超额转正；不能只靠总投资计划。"
+    },
+    {
+      "id": "semiconductor",
+      "name": "AI算力与国产集成电路制造",
+      "grade": "B-",
+      "committee": {
+        "pass": 1,
+        "watch": 4,
+        "reject": 0
+      },
+      "latest_committee": {
+        "pass": 0,
+        "watch": 5,
+        "reject": 0
+      },
+      "committee_basis": "Round 4对公开人工评分与A/B/C映射做5次一致性检查；不是自由投票，也不是独立统计样本。",
+      "thesis": "电子制造利润高增与晶圆厂利用率改善提供基本面证据，但科创板整体估值很高，只能选盈利兑现环节。",
+      "evidence": [
+        "电子制造H1利润 +96.9%",
+        "中芯国际2026Q2收入同比 +36.1%、毛利率25.3%、利用率93.7%"
+      ],
+      "candidate": "688981 中芯国际（高波动行业观察）",
+      "hard_fail": "利用率低于85%、毛利率低于22%，或存货连续两个季度快于收入。",
+      "source_ids": [
+        "nbs-profits",
+        "smic-q2",
+        "market-snapshot"
+      ],
+      "score": 65,
+      "score_components": {
+        "demand": 20,
+        "earnings": 20,
+        "cash": 10,
+        "valuation": 5,
+        "market": 10
+      },
+      "score_summary": "收入、毛利和利用率验证最强，但中芯国际PE-TTM约204倍，代表股低于三条均线且板块当日上涨家数不足一半。",
+      "market_evidence": {
+        "date": "2026-08-25",
+        "board": "半导体",
+        "board_change_pct": -0.4,
+        "board_advance_ratio": 0.4153
+      },
+      "upgrade_condition": "升至A档需高利用率延续、粗FCF转强、代表股估值回到可解释区间并站回MA60；当前高估值与弱趋势是主要扣分。"
+    },
+    {
+      "id": "pharma",
+      "name": "创新药出海与授权交易",
+      "grade": "C",
+      "committee": {
+        "pass": 2,
+        "watch": 3,
+        "reject": 0
+      },
+      "latest_committee": {
+        "pass": 0,
+        "watch": 0,
+        "reject": 5
+      },
+      "committee_basis": "Round 4对公开人工评分与A/B/C映射做5次一致性检查；不是自由投票，也不是独立统计样本。",
+      "thesis": "研发与产品销售可形成长期IP周期，但一次性授权首付款不能线性外推。",
+      "evidence": [
+        "恒瑞2025创新药销售 +26.09%、经营现金流 +51.36%",
+        "2026H1创新药销售 +16.38%，但营收 -1.94%、扣非净利 -12.71%、经营现金流 -53.80%"
+      ],
+      "candidate": "600276 恒瑞医药",
+      "hard_fail": "剔除许可收入后核心产品增速降至个位数，或关键三期临床失败。",
+      "source_ids": [
+        "hengrui-annual",
+        "hengrui-h1",
+        "market-snapshot"
+      ],
+      "score": 45,
+      "score_components": {
+        "demand": 15,
+        "earnings": 10,
+        "cash": 5,
+        "valuation": 5,
+        "market": 10
+      },
+      "score_summary": "创新药销售仍增长，但恒瑞收入、扣非、FCF与趋势同时偏弱，估值余量不足。",
+      "market_evidence": {
+        "date": "2026-08-25",
+        "board": "创新药",
+        "board_change_pct": 2.19,
+        "board_advance_ratio": 0.8112
+      },
+      "upgrade_condition": "升至A档需剔除授权后核心销售与扣非恢复双位数、CFO/归母≥1，并取得估值和趋势确认。"
+    },
+    {
+      "id": "appliance",
+      "name": "白色家电全球化与节能更新",
+      "grade": "A-",
+      "committee": {
+        "pass": 0,
+        "watch": 4,
+        "reject": 1
+      },
+      "latest_committee": {
+        "pass": 5,
+        "watch": 0,
+        "reject": 0
+      },
+      "committee_basis": "Round 4对公开人工评分与A/B/C映射做5次一致性检查；不是自由投票，也不是独立统计样本。",
+      "thesis": "更新需求、全球渠道、合理估值与相对强势共同成立；但扣非利润转弱，A-是方向证据等级而不是买入评级。",
+      "evidence": [
+        "以旧换新销售额超过1万亿元",
+        "美的2026Q1收入 +2.55%、经营现金流 +1.45%，但扣非净利 -14.02%"
+      ],
+      "candidate": "000333 美的集团",
+      "hard_fail": "经营现金流连续下降、海外毛利率明显恶化，或补贴后家电零售仍低于2%。",
+      "source_ids": [
+        "ndrc-tradein",
+        "midea-q1",
+        "midea-annual",
+        "market-snapshot"
+      ],
+      "score": 80,
+      "score_components": {
+        "demand": 15,
+        "earnings": 10,
+        "cash": 15,
+        "valuation": 20,
+        "market": 20
+      },
+      "score_summary": "美的估值与股息利差合理、站上MA20/60/120且60/120日显著跑赢沪深300；扣非利润下降使其只能是A-而非A。",
+      "market_evidence": {
+        "date": "2026-08-25",
+        "board": "白色家电",
+        "board_change_pct": 1.42,
+        "board_advance_ratio": 0.8182
+      },
+      "upgrade_condition": "从A-升至A需下一报告期扣非利润恢复正增长、CFO/归母≥1且海外毛利率不再下降；满足后盈利维度由10升至15。"
+    },
+    {
+      "id": "dividend",
+      "name": "高股息与可解释现金流",
+      "grade": "B+",
+      "committee": {
+        "pass": 0,
+        "watch": 5,
+        "reject": 0
+      },
+      "latest_committee": {
+        "pass": 0,
+        "watch": 5,
+        "reject": 0
+      },
+      "committee_basis": "Round 4对公开人工评分与A/B/C映射做5次一致性检查；不是自由投票，也不是独立统计样本。",
+      "thesis": "只保留经营现金流覆盖派息、资产寿命与资本开支可解释的公司；“红利”不是统一因子。",
+      "evidence": [
+        "长江电力2026Q1现金转化1.73×，但维护性资本开支与实时利差待核",
+        "中国移动2026H1经营现金流 +37.0%、自由现金流539亿元（+111.6%），但通信服务收入 -5.7%"
+      ],
+      "candidate": "600900 长江电力；600941 中国移动仅条件观察",
+      "hard_fail": "派息靠负债、处置资产或削减必要资本开支维持。",
+      "source_ids": [
+        "cypc-q1",
+        "cypc-annual",
+        "cmcc-h1",
+        "cmcc-annual",
+        "market-snapshot"
+      ],
+      "score": 75,
+      "score_components": {
+        "demand": 15,
+        "earnings": 12,
+        "cash": 15,
+        "valuation": 18,
+        "market": 15
+      },
+      "score_summary": "长电与移动估值、股息和相对强弱具备防御属性，但移动FCF不能覆盖分红、长电股息利差略低于预设PASS线。",
+      "market_evidence": {
+        "date": "2026-08-25",
+        "board": "红利股",
+        "board_change_pct": 0.05,
+        "board_advance_ratio": 0.5638
+      },
+      "upgrade_condition": "升至A档需核心代表股FCF/股利≥1.2、股息—国债利差≥2.5pp且中期相对强势延续。"
+    },
+    {
+      "id": "robotics",
+      "name": "具身智能与机器人",
+      "grade": "C",
+      "committee": {
+        "pass": 0,
+        "watch": 4,
+        "reject": 1
+      },
+      "latest_committee": {
+        "pass": 0,
+        "watch": 0,
+        "reject": 5
+      },
+      "committee_basis": "Round 4对公开人工评分与A/B/C映射做5次一致性检查；不是自由投票，也不是独立统计样本。",
+      "thesis": "政策支持与装备制造增长成立，但多数标的仍缺稳定订单、单位经济和自由现金流。",
+      "evidence": [
+        "政府工作报告明确支持具身智能",
+        "装备制造1—7月 +9.7%，不能等同于机器人企业盈利"
+      ],
+      "candidate": "不列稳健核心股，仅维护订单与交付影子清单",
+      "hard_fail": "交付时点持续后延、只见概念成交而无真实终端订单，或扩产导致毛利连续下滑。",
+      "source_ids": [
+        "gov-work-report",
+        "nbs-july",
+        "market-snapshot"
+      ],
+      "score": 35,
+      "score_components": {
+        "demand": 10,
+        "earnings": 5,
+        "cash": 5,
+        "valuation": 5,
+        "market": 10
+      },
+      "score_summary": "同日板块广度较高，但缺稳定订单、单位经济、自由现金流和代表股完整门禁。",
+      "market_evidence": {
+        "date": "2026-08-25",
+        "board": "人形机器人",
+        "board_change_pct": 1.37,
+        "board_advance_ratio": 0.737
+      },
+      "upgrade_condition": "升至A档需可核订单、毛利、单位经济与粗FCF至少连续两个报告期验证，并建立代表股估值门。"
+    }
+  ],
+  "stocks": [
+    {
+      "symbol": "600900",
+      "name": "长江电力",
+      "decision": "watch",
+      "layer": "WATCH / 已完成但条件未过",
+      "financial_cutoff": "2026Q1 / 披露2026-04-30",
+      "committee": {
+        "core": 5,
+        "satellite": 0,
+        "watch": 0,
+        "reject": 0
+      },
+      "latest_committee": {
+        "core": 0,
+        "satellite": 0,
+        "watch": 5,
+        "reject": 0,
+        "incomplete": 0
+      },
+      "metrics": [
+        {
+          "label": "2026Q1营收",
+          "value": "181.12亿元",
+          "change": "+6.44%"
+        },
+        {
+          "label": "归母净利",
+          "value": "67.61亿元",
+          "change": "+30.50%"
+        },
+        {
+          "label": "经营现金流",
+          "value": "117.11亿元",
+          "change": "-1.15%"
+        },
+        {
+          "label": "现金转化 / 扣非",
+          "value": "1.73× / +19.20%",
+          "change": "非经常项影响归母增速"
+        },
+        {
+          "label": "收盘 / PE-TTM",
+          "value": "28.21 / 19.13×",
+          "change": "2026-08-25；PB 3.31×"
+        },
+        {
+          "label": "股息率 / 国债利差",
+          "value": "3.54% / +1.86pp",
+          "change": "10年国债1.68%"
+        },
+        {
+          "label": "60日收益 / 超额",
+          "value": "+4.56% / +10.59%",
+          "change": "相对沪深300价格指数"
+        },
+        {
+          "label": "粗FCF / 归母",
+          "value": "84.90亿元 / 1.26×",
+          "change": "2026Q1 / 2025A"
+        }
+      ],
+      "reason": "即使把全部购建长期资产现金视为维护性资本开支，Q1和全年现金质量仍过预设门。 PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。 60日相对沪深300为+10.59%。",
+      "catalysts": [
+        "来水与发电量改善",
+        "利率下行提高现金流资产相对价值",
+        "电力市场化机制优化"
+      ],
+      "valuation_gate": "统一按稳定现金流轨道审查：PE-TTM≤20×、2025粗FCF收益率≥5%、股息率较10年国债利差≥2.5pp才通过。",
+      "gate_bands": {
+        "pass": "PE-TTM≤20×、最近完整年度粗FCF收益率≥5%、股息率较10年国债利差≥2.5pp，且质量门不为FAIL。",
+        "watch": "稳定现金流估值三项只满足一至两项，或来水、资本回报仍需复核。",
+        "fail": "粗FCF/现金分红<1.0×，或发电量同比≤-10%且平均结算电价同比≤-5%连续两期即FAIL。"
+      },
+      "hard_fails": [
+        "年度派现率低于70%",
+        "经营现金流/现金分红低于1.5",
+        "发电量与平均结算电价同时同比下降超过5%"
+      ],
+      "source_ids": [
+        "cypc-q1",
+        "cypc-annual",
+        "market-snapshot",
+        "chinabond-10y"
+      ],
+      "market_cutoff": "2026-08-25",
+      "quality_snapshot": {
+        "status": "pass",
+        "period": "2026Q1 / 2025A",
+        "cfo": 117.11,
+        "capex": 32.2,
+        "fcf": 84.9,
+        "fcf_to_profit": 1.26,
+        "annual_fcf": 420.74,
+        "annual": "2025粗FCF420.74亿元、FCF/归母1.22×、覆盖现金分红1.72×、ROE15.90%。",
+        "conclusion": "即使把全部购建长期资产现金视为维护性资本开支，Q1和全年现金质量仍过预设门。"
+      },
+      "valuation_snapshot": {
+        "date": "2026-08-25",
+        "status": "watch",
+        "price": 28.21,
+        "market_cap_100m": 6902.4842176836,
+        "pe_ttm": 19.13,
+        "pb": 3.31,
+        "dividend_yield_pct": 3.54,
+        "government_bond_10y_pct": 1.68,
+        "dividend_spread_pp": 1.86,
+        "track": "stable_cash_flow",
+        "annual_fcf_100m": 420.74,
+        "annual_fcf_yield_pct": 6.095486591944659,
+        "rule": {
+          "pass": "PE-TTM≤20×、最近完整年度粗FCF收益率≥5%、股息率较10年国债利差≥2.5pp，且质量门不为FAIL。",
+          "watch": "未满足全部PASS条件、但也未同时触发FAIL条件；包括零至两项达标或渠道/资本回报仍待核。",
+          "fail": "PE-TTM≥35×、粗FCF收益率<3%，且最新盈利或现金流同时转弱。"
+        },
+        "conclusion": "PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。"
+      },
+      "technical_snapshot": {
+        "date": "2026-08-25",
+        "close_qfq": 28.21,
+        "returns": {
+          "20d": {
+            "absolute": -0.0296,
+            "benchmark": -0.0038,
+            "excess": -0.0258
+          },
+          "60d": {
+            "absolute": 0.0456,
+            "benchmark": -0.0603,
+            "excess": 0.1059
+          },
+          "120d": {
+            "absolute": 0.0775,
+            "benchmark": -0.0223,
+            "excess": 0.0998
+          }
+        },
+        "ma": {
+          "ma20": 28.291,
+          "ma60": 27.4757,
+          "ma120": 26.8378,
+          "close_vs_ma20": -0.0029,
+          "close_vs_ma60": 0.0267,
+          "close_vs_ma120": 0.0511
+        },
+        "state": {
+          "above_ma20": false,
+          "above_ma60": true,
+          "momentum_60_positive": true,
+          "relative_60_positive": true
+        },
+        "annualized_volatility_20d": 0.172,
+        "drawdown_from_120d_high": -0.0434,
+        "conditional_history": [
+          {
+            "horizon_trading_days": 20,
+            "non_overlapping_observations": 14,
+            "positive_rate": 0.6429,
+            "positive_rate_wilson95": [
+              0.3876,
+              0.8366
+            ],
+            "outperform_rate": 0.4286,
+            "outperform_rate_wilson95": [
+              0.2138,
+              0.6741
+            ],
+            "mean_return": 0.0101,
+            "mean_excess_return": -0.0113,
+            "excess_return_sd": 0.0774,
+            "events": [
+              {
+                "signal_date": "2023-08-29",
+                "exit_date": "2023-09-26",
+                "stock_return": 0.02557811765934126,
+                "benchmark_return": -0.02565097055230592,
+                "excess_return": 0.05122908821164718,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2023-10-19",
+                "exit_date": "2023-11-16",
+                "stock_return": 0.008086117147622085,
+                "benchmark_return": 0.010986149866705874,
+                "excess_return": -0.0029000327190837893,
+                "positive": true,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2023-11-28",
+                "exit_date": "2023-12-26",
+                "stock_return": 0.05218624917667336,
+                "benchmark_return": -0.05506008207996549,
+                "excess_return": 0.10724633125663885,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-01-10",
+                "exit_date": "2024-02-07",
+                "stock_return": 0.06609321086650133,
+                "benchmark_return": 0.020292145871539935,
+                "excess_return": 0.045801064994961393,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-03-12",
+                "exit_date": "2024-04-11",
+                "stock_return": 0.035346898083110645,
+                "benchmark_return": -0.025920850370675153,
+                "excess_return": 0.0612677484537858,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-07-31",
+                "exit_date": "2024-08-28",
+                "stock_return": -0.0014328187126124714,
+                "benchmark_return": -0.04519941430762797,
+                "excess_return": 0.0437665955950155,
+                "positive": false,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-08-29",
+                "exit_date": "2024-09-30",
+                "stock_return": 0.025166867272130355,
+                "benchmark_return": 0.22582131263576688,
+                "excess_return": -0.20065444536363652,
+                "positive": true,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-01-08",
+                "exit_date": "2025-02-13",
+                "stock_return": -0.022914587722215995,
+                "benchmark_return": 0.030592047967655578,
+                "excess_return": -0.05350663568987157,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-02-18",
+                "exit_date": "2025-03-18",
+                "stock_return": -0.04356480264393281,
+                "benchmark_return": 0.024264078225711527,
+                "excess_return": -0.06782888086964434,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-05-06",
+                "exit_date": "2025-06-04",
+                "stock_return": 0.025868036579589804,
+                "benchmark_return": 0.015806582049814333,
+                "excess_return": 0.010061454529775471,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2025-06-04",
+                "exit_date": "2025-07-02",
+                "stock_return": 0.012785452995702551,
+                "benchmark_return": 0.0193706478078135,
+                "excess_return": -0.0065851948121109505,
+                "positive": true,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-07-02",
+                "exit_date": "2025-07-30",
+                "stock_return": -0.028649577445032826,
+                "benchmark_return": 0.05263104511522232,
+                "excess_return": -0.08128062256025514,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-12-02",
+                "exit_date": "2025-12-30",
+                "stock_return": -0.034482758620689724,
+                "benchmark_return": 0.02128743415606693,
+                "excess_return": -0.055770192776756655,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2026-04-27",
+                "exit_date": "2026-05-28",
+                "stock_return": 0.021646695013529227,
+                "benchmark_return": 0.030027562644756367,
+                "excess_return": -0.00838086763122714,
+                "positive": true,
+                "outperformed": false
+              }
+            ],
+            "semantics": "当前四状态的历史非重叠条件频率；描述性统计，不是独立同分布样本或未来保证。"
+          },
+          {
+            "horizon_trading_days": 60,
+            "non_overlapping_observations": 8,
+            "positive_rate": 0.75,
+            "positive_rate_wilson95": [
+              0.4093,
+              0.9285
+            ],
+            "outperform_rate": 0.625,
+            "outperform_rate_wilson95": [
+              0.3057,
+              0.8632
+            ],
+            "mean_return": 0.0448,
+            "mean_excess_return": 0.0289,
+            "excess_return_sd": 0.1302,
+            "events": [
+              {
+                "signal_date": "2023-08-29",
+                "exit_date": "2023-11-29",
+                "stock_return": 0.028188129665396522,
+                "benchmark_return": -0.07962829574867225,
+                "excess_return": 0.10781642541406877,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2023-11-29",
+                "exit_date": "2024-03-01",
+                "stock_return": 0.12895364776361884,
+                "benchmark_return": 0.014187385868801972,
+                "excess_return": 0.11476626189481687,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-03-12",
+                "exit_date": "2024-06-12",
+                "stock_return": 0.16087370281415692,
+                "benchmark_return": -0.014835343531184209,
+                "excess_return": 0.17570904634534112,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-07-31",
+                "exit_date": "2024-11-01",
+                "stock_return": -0.06734247949278227,
+                "benchmark_return": 0.1301364291358713,
+                "excess_return": -0.19747890862865358,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-01-08",
+                "exit_date": "2025-04-11",
+                "stock_return": 0.015153195106626827,
+                "benchmark_return": -0.010213183715909846,
+                "excess_return": 0.025366378822536673,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2025-05-06",
+                "exit_date": "2025-07-30",
+                "stock_return": 0.009217765147375045,
+                "benchmark_return": 0.08998198784836187,
+                "excess_return": -0.08076422270098682,
+                "positive": true,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-12-02",
+                "exit_date": "2026-03-06",
+                "stock_return": -0.03338224504768894,
+                "benchmark_return": 0.023298706944819392,
+                "excess_return": -0.05668095199250833,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2026-04-27",
+                "exit_date": "2026-07-24",
+                "stock_return": 0.11712408194820245,
+                "benchmark_return": -0.025521122627569004,
+                "excess_return": 0.14264520457577146,
+                "positive": true,
+                "outperformed": true
+              }
+            ],
+            "semantics": "当前四状态的历史非重叠条件频率；描述性统计，不是独立同分布样本或未来保证。"
+          }
+        ]
+      },
+      "gate_evidence": {
+        "fact": "2025A、2026Q1、2026-08-25行情和国债机会成本均已冻结；全部购建支出已按保守口径扣除。",
+        "mechanism": "来水、发电量与结算电价可直接传导至现金流，且采用全量capex扣除。",
+        "quality": "即使把全部购建长期资产现金视为维护性资本开支，Q1和全年现金质量仍过预设门。",
+        "valuation": "PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。",
+        "falsifier": "粗FCF/现金分红<1.0×，或发电量同比≤-10%且平均结算电价同比≤-5%连续两期即FAIL。",
+        "council": "Round 4会商票 0 PASS / 5 WATCH / 0 REJECT；按3/5多数映射为WATCH。"
+      },
+      "pre_council_decision": "watch",
+      "proposed_execution_tier": null,
+      "latest_council_vote": {
+        "pass": 0,
+        "watch": 5,
+        "reject": 0
+      },
+      "execution_tier": null
+    },
+    {
+      "symbol": "000333",
+      "name": "美的集团",
+      "decision": "satellite",
+      "layer": "SATELLITE / 六门通过",
+      "financial_cutoff": "2026Q1 / 披露2026-04-30",
+      "committee": {
+        "core": 0,
+        "satellite": 3,
+        "watch": 2,
+        "reject": 0
+      },
+      "latest_committee": {
+        "core": 0,
+        "satellite": 5,
+        "watch": 0,
+        "reject": 0,
+        "incomplete": 0
+      },
+      "metrics": [
+        {
+          "label": "2026Q1营收",
+          "value": "1,310.99亿元",
+          "change": "+2.55%"
+        },
+        {
+          "label": "归母净利",
+          "value": "126.75亿元",
+          "change": "+2.03%"
+        },
+        {
+          "label": "经营现金流",
+          "value": "145.29亿元",
+          "change": "+1.45%"
+        },
+        {
+          "label": "现金转化 / 扣非",
+          "value": "1.15× / -14.02%",
+          "change": "底层盈利承压"
+        },
+        {
+          "label": "收盘 / PE-TTM",
+          "value": "86.69 / 14.96×",
+          "change": "2026-08-25；PB 3.20×"
+        },
+        {
+          "label": "股息率 / 国债利差",
+          "value": "4.96% / +3.28pp",
+          "change": "10年国债1.68%"
+        },
+        {
+          "label": "60日收益 / 超额",
+          "value": "+11.17% / +17.20%",
+          "change": "相对沪深300价格指数"
+        },
+        {
+          "label": "粗FCF / 归母",
+          "value": "123.86亿元 / 0.98×",
+          "change": "2026Q1 / 2025A"
+        }
+      ],
+      "reason": "2025 CFO/归母1.21×、粗FCF/分红1.30×、ROE19.70%；购建支出111.42亿元、营运资本约释现52.80亿元，海外毛利率仅降0.22pp，均已拆清。Q1扣非-14.02%作为下一期证伪，不追认成FAIL。 PE-TTM14.96×、2025粗FCF收益率6.38%、股息率较10年国债利差3.28pp，稳定现金流轨道三项全部通过。 60日相对沪深300为+17.20%。",
+      "catalysts": [
+        "海外本地化收入继续增长",
+        "ToB业务兑现",
+        "补贴后仍保持自然需求"
+      ],
+      "valuation_gate": "2025营运资本、资本开支和海外毛利已拆清；当前PE-TTM14.96×、股息率4.96%。后续要求CFO/归母维持≥1.0、年度ROE≥18%，且扣非利润恢复。",
+      "gate_bands": {
+        "pass": "CFO/归母≥1.0、年度ROE≥18%，海外毛利稳定，且营运资本与资本开支变动已解释。",
+        "watch": "CFO/归母0.8—1.0，或现金流下降、并购与营运资本影响尚未拆清。",
+        "fail": "CFO/归母<0.8×、收入或利润转负、或海外毛利率同比下降≥2pp连续两期即FAIL。"
+      },
+      "hard_fails": [
+        "CFO/归母低于0.8",
+        "收入或利润转负",
+        "海外毛利率连续两期明显恶化"
+      ],
+      "source_ids": [
+        "midea-q1",
+        "midea-annual",
+        "market-snapshot",
+        "chinabond-10y",
+        "midea-annual-full"
+      ],
+      "market_cutoff": "2026-08-25",
+      "quality_snapshot": {
+        "status": "pass",
+        "period": "2026Q1 / 2025A",
+        "cfo": 145.29,
+        "capex": 21.43,
+        "fcf": 123.86,
+        "fcf_to_profit": 0.98,
+        "annual_cfo": 533.46,
+        "annual_capex": 111.42,
+        "annual_fcf": 422.04,
+        "annual_net_profit": 439.45,
+        "annual_cfo_to_profit": 1.21,
+        "annual_fcf_to_profit": 0.96,
+        "annual_dividends": 323.61,
+        "annual_fcf_dividend_cover": 1.3,
+        "annual_roe_pct": 19.7,
+        "working_capital_release": 52.8,
+        "annual": "2025 CFO533.46亿元、粗FCF422.04亿元、FCF/归母0.96×、覆盖现金分红1.30×、ROE19.70%；海外毛利率26.60%，同比仅-0.22pp。",
+        "conclusion": "2025 CFO/归母1.21×、粗FCF/分红1.30×、ROE19.70%；购建支出111.42亿元、营运资本约释现52.80亿元，海外毛利率仅降0.22pp，均已拆清。Q1扣非-14.02%作为下一期证伪，不追认成FAIL。"
+      },
+      "valuation_snapshot": {
+        "date": "2026-08-25",
+        "status": "pass",
+        "price": 86.69,
+        "market_cap_100m": 6613.4050659548,
+        "pe_ttm": 14.96,
+        "pb": 3.2,
+        "dividend_yield_pct": 4.96,
+        "government_bond_10y_pct": 1.68,
+        "dividend_spread_pp": 3.2800000000000002,
+        "track": "stable_cash_flow",
+        "annual_fcf_100m": 422.04,
+        "annual_fcf_yield_pct": 6.381584006892653,
+        "rule": {
+          "pass": "PE-TTM≤20×、最近完整年度粗FCF收益率≥5%、股息率较10年国债利差≥2.5pp，且质量门不为FAIL。",
+          "watch": "未满足全部PASS条件、但也未同时触发FAIL条件；包括零至两项达标或渠道/资本回报仍待核。",
+          "fail": "PE-TTM≥35×、粗FCF收益率<3%，且最新盈利或现金流同时转弱。"
+        },
+        "conclusion": "PE-TTM14.96×、2025粗FCF收益率6.38%、股息率较10年国债利差3.28pp，稳定现金流轨道三项全部通过。"
+      },
+      "technical_snapshot": {
+        "date": "2026-08-25",
+        "close_qfq": 86.69,
+        "returns": {
+          "20d": {
+            "absolute": 0.0155,
+            "benchmark": -0.0038,
+            "excess": 0.0193
+          },
+          "60d": {
+            "absolute": 0.1117,
+            "benchmark": -0.0603,
+            "excess": 0.172
+          },
+          "120d": {
+            "absolute": 0.1902,
+            "benchmark": -0.0223,
+            "excess": 0.2125
+          }
+        },
+        "ma": {
+          "ma20": 85.232,
+          "ma60": 81.2119,
+          "ma120": 77.8375,
+          "close_vs_ma20": 0.0171,
+          "close_vs_ma60": 0.0675,
+          "close_vs_ma120": 0.1137
+        },
+        "state": {
+          "above_ma20": true,
+          "above_ma60": true,
+          "momentum_60_positive": true,
+          "relative_60_positive": true
+        },
+        "annualized_volatility_20d": 0.2241,
+        "drawdown_from_120d_high": -0.0254,
+        "conditional_history": [
+          {
+            "horizon_trading_days": 20,
+            "non_overlapping_observations": 23,
+            "positive_rate": 0.5652,
+            "positive_rate_wilson95": [
+              0.3681,
+              0.7437
+            ],
+            "outperform_rate": 0.5217,
+            "outperform_rate_wilson95": [
+              0.3296,
+              0.7076
+            ],
+            "mean_return": 0.0139,
+            "mean_excess_return": 0.0046,
+            "excess_return_sd": 0.0692,
+            "events": [
+              {
+                "signal_date": "2023-09-01",
+                "exit_date": "2023-10-09",
+                "stock_return": -0.04591620820990261,
+                "benchmark_return": -0.028157795484097248,
+                "excess_return": -0.01775841272580536,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2024-01-04",
+                "exit_date": "2024-02-01",
+                "stock_return": 0.07985643786451324,
+                "benchmark_return": -0.03864298412034484,
+                "excess_return": 0.11849942198485808,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-02-01",
+                "exit_date": "2024-03-08",
+                "stock_return": 0.15143331948483585,
+                "benchmark_return": 0.10168722476543879,
+                "excess_return": 0.04974609471939706,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-03-08",
+                "exit_date": "2024-04-09",
+                "stock_return": -0.019123218473750758,
+                "benchmark_return": -0.003221520433522973,
+                "excess_return": -0.015901698040227785,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2024-04-09",
+                "exit_date": "2024-05-10",
+                "stock_return": 0.12580467169394893,
+                "benchmark_return": 0.037580409170536955,
+                "excess_return": 0.08822426252341198,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-05-10",
+                "exit_date": "2024-06-07",
+                "stock_return": -0.06111746446659039,
+                "benchmark_return": -0.025139923846514756,
+                "excess_return": -0.03597754062007563,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2024-06-25",
+                "exit_date": "2024-07-23",
+                "stock_return": -0.05052171044636189,
+                "benchmark_return": -0.0052112553862170286,
+                "excess_return": -0.04531045506014486,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2024-08-23",
+                "exit_date": "2024-09-24",
+                "stock_return": 0.044660631134345374,
+                "benchmark_return": 0.007429692924058928,
+                "excess_return": 0.037230938210286446,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-09-24",
+                "exit_date": "2024-10-29",
+                "stock_return": 0.0999188056140119,
+                "benchmark_return": 0.17086974292269197,
+                "excess_return": -0.07095093730868007,
+                "positive": true,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2024-11-14",
+                "exit_date": "2024-12-12",
+                "stock_return": 0.02911340581358335,
+                "benchmark_return": -0.0027527341680653183,
+                "excess_return": 0.03186613998164867,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-12-12",
+                "exit_date": "2025-01-10",
+                "stock_return": 0.011934756663572577,
+                "benchmark_return": -0.07348144470646645,
+                "excess_return": 0.08541620137003902,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2025-01-10",
+                "exit_date": "2025-02-17",
+                "stock_return": -0.06304692846430493,
+                "benchmark_return": 0.0575810185185186,
+                "excess_return": -0.12062794698282353,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-03-19",
+                "exit_date": "2025-04-17",
+                "stock_return": -0.08079164184309573,
+                "benchmark_return": -0.05933663660144095,
+                "excess_return": -0.02145500524165478,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-04-29",
+                "exit_date": "2025-05-30",
+                "stock_return": 0.07307281721270797,
+                "benchmark_return": 0.017257912415101107,
+                "excess_return": 0.05581490479760687,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2025-05-30",
+                "exit_date": "2025-06-30",
+                "stock_return": -0.04737350950692876,
+                "benchmark_return": 0.024959442533389886,
+                "excess_return": -0.07233295204031864,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-07-03",
+                "exit_date": "2025-07-31",
+                "stock_return": -0.03931389964763099,
+                "benchmark_return": 0.027096296184291102,
+                "excess_return": -0.06641019583192209,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-11-18",
+                "exit_date": "2025-12-16",
+                "stock_return": 0.034745785716224775,
+                "benchmark_return": -0.015463454891324502,
+                "excess_return": 0.05020924060754928,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2025-12-17",
+                "exit_date": "2026-01-16",
+                "stock_return": -0.0411737113670716,
+                "benchmark_return": 0.03318645903386108,
+                "excess_return": -0.07436017040093268,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2026-01-20",
+                "exit_date": "2026-02-25",
+                "stock_return": 0.009298865538404089,
+                "benchmark_return": 0.0036046689044859637,
+                "excess_return": 0.005694196633918125,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2026-04-16",
+                "exit_date": "2026-05-19",
+                "stock_return": 0.0417913667125025,
+                "benchmark_return": 0.02454709169638214,
+                "excess_return": 0.01724427501612036,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2026-05-21",
+                "exit_date": "2026-06-18",
+                "stock_return": -0.0449998714289388,
+                "benchmark_return": 0.03313750496539902,
+                "excess_return": -0.07813737639433782,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2026-06-29",
+                "exit_date": "2026-07-27",
+                "stock_return": 0.08877960398602314,
+                "benchmark_return": -0.04556396288147557,
+                "excess_return": 0.1343435668674987,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2026-07-27",
+                "exit_date": "2026-08-24",
+                "stock_return": 0.022108641388327577,
+                "benchmark_return": -0.02962298216028736,
+                "excess_return": 0.051731623548614936,
+                "positive": true,
+                "outperformed": true
+              }
+            ],
+            "semantics": "当前四状态的历史非重叠条件频率；描述性统计，不是独立同分布样本或未来保证。"
+          },
+          {
+            "horizon_trading_days": 60,
+            "non_overlapping_observations": 10,
+            "positive_rate": 0.6,
+            "positive_rate_wilson95": [
+              0.3127,
+              0.8318
+            ],
+            "outperform_rate": 0.4,
+            "outperform_rate_wilson95": [
+              0.1682,
+              0.6873
+            ],
+            "mean_return": 0.0284,
+            "mean_excess_return": 0.0065,
+            "excess_return_sd": 0.1079,
+            "events": [
+              {
+                "signal_date": "2023-09-01",
+                "exit_date": "2023-12-04",
+                "stock_return": -0.16589081675835793,
+                "benchmark_return": -0.08739308293045744,
+                "excess_return": -0.07849773382790048,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2024-01-04",
+                "exit_date": "2024-04-09",
+                "stock_return": 0.21960520412741147,
+                "benchmark_return": 0.05570278304775833,
+                "excess_return": 0.16390242107965314,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-04-09",
+                "exit_date": "2024-07-08",
+                "stock_return": 0.03989332352400221,
+                "benchmark_return": -0.03728042247183372,
+                "excess_return": 0.07717374599583593,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-08-23",
+                "exit_date": "2024-11-26",
+                "stock_return": 0.0889750558257889,
+                "benchmark_return": 0.15418115587026882,
+                "excess_return": -0.06520610004447991,
+                "positive": true,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2024-12-11",
+                "exit_date": "2025-03-14",
+                "stock_return": -0.047916450325624194,
+                "benchmark_return": 0.004444912417927105,
+                "excess_return": -0.0523613627435513,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-03-19",
+                "exit_date": "2025-06-18",
+                "stock_return": -0.013528240747467946,
+                "benchmark_return": -0.03371428143944033,
+                "excess_return": 0.020186040691972384,
+                "positive": false,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2025-07-03",
+                "exit_date": "2025-09-25",
+                "stock_return": -0.0007280351786598249,
+                "benchmark_return": 0.15761314694549222,
+                "excess_return": -0.15834118212415205,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-11-18",
+                "exit_date": "2026-02-12",
+                "stock_return": 0.032574174108960685,
+                "benchmark_return": 0.03314004014719174,
+                "excess_return": -0.0005658660382310554,
+                "positive": true,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2026-02-13",
+                "exit_date": "2026-05-22",
+                "stock_return": 0.016328589634664548,
+                "benchmark_return": 0.03962956048931332,
+                "excess_return": -0.023300970854648773,
+                "positive": true,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2026-05-29",
+                "exit_date": "2026-08-24",
+                "stock_return": 0.11489990664868777,
+                "benchmark_return": -0.06724896363948552,
+                "excess_return": 0.18214887028817328,
+                "positive": true,
+                "outperformed": true
+              }
+            ],
+            "semantics": "当前四状态的历史非重叠条件频率；描述性统计，不是独立同分布样本或未来保证。"
+          }
+        ]
+      },
+      "gate_evidence": {
+        "fact": "2025完整年报、2026Q1、营运资本、资本开支、海外毛利与点时估值均已闭环。",
+        "mechanism": "更新需求与海外本地化能传导至收入、海外毛利和CFO，关键桥接均已披露。",
+        "quality": "2025 CFO/归母1.21×、粗FCF/分红1.30×、ROE19.70%；购建支出111.42亿元、营运资本约释现52.80亿元，海外毛利率仅降0.22pp，均已拆清。Q1扣非-14.02%作为下一期证伪，不追认成FAIL。",
+        "valuation": "PE-TTM14.96×、2025粗FCF收益率6.38%、股息率较10年国债利差3.28pp，稳定现金流轨道三项全部通过。",
+        "falsifier": "CFO/归母<0.8×、收入或利润转负、或海外毛利率同比下降≥2pp连续两期即FAIL。",
+        "council": "Round 4会商票 5 PASS / 0 WATCH / 0 REJECT；按3/5多数映射为PASS。"
+      },
+      "pre_council_decision": "satellite",
+      "proposed_execution_tier": "satellite",
+      "latest_council_vote": {
+        "pass": 5,
+        "watch": 0,
+        "reject": 0
+      },
+      "execution_tier": "satellite"
+    },
+    {
+      "symbol": "300750",
+      "name": "宁德时代",
+      "decision": "watch",
+      "layer": "WATCH / 已完成但条件未过",
+      "financial_cutoff": "2026H1 / 披露2026-07-26",
+      "committee": {
+        "core": 2,
+        "satellite": 3,
+        "watch": 0,
+        "reject": 0
+      },
+      "latest_committee": {
+        "core": 0,
+        "satellite": 0,
+        "watch": 5,
+        "reject": 0,
+        "incomplete": 0
+      },
+      "metrics": [
+        {
+          "label": "2026H1营收",
+          "value": "2,769.17亿元",
+          "change": "+54.80%"
+        },
+        {
+          "label": "归母净利",
+          "value": "432.84亿元",
+          "change": "+41.98%"
+        },
+        {
+          "label": "经营现金流",
+          "value": "602.17亿元",
+          "change": "+2.61%"
+        },
+        {
+          "label": "现金转化",
+          "value": "1.39×",
+          "change": "营收/利润快于现金流"
+        },
+        {
+          "label": "收盘 / PE-TTM",
+          "value": "376.73 / 20.51×",
+          "change": "2026-08-25；PB 4.67×"
+        },
+        {
+          "label": "股息率 / 国债利差",
+          "value": "2.19% / +0.51pp",
+          "change": "10年国债1.68%"
+        },
+        {
+          "label": "60日收益 / 超额",
+          "value": "-10.02% / -3.99%",
+          "change": "相对沪深300价格指数"
+        },
+        {
+          "label": "粗FCF / 归母",
+          "value": "351.44亿元 / 0.81×",
+          "change": "2026H1 / 2025A"
+        }
+      ],
+      "reason": "2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。 PE-TTM20.51×、2025粗FCF收益率5.21%，H1收入/归母净利+54.8%/+42.0%，成长轨道三项全部通过；质量门仍独立为WATCH。 60日相对沪深300为-3.99%。",
+      "catalysts": [
+        "储能需求和海外基地放量",
+        "产品结构提升",
+        "资本回报与分红兑现"
+      ],
+      "valuation_gate": "营收增速≥10%、销量增速≥15%、经营现金流/归母净利≥1.2、ROE≥20%，并要求估值没有把未来两年增长一次性贴现。",
+      "gate_bands": {
+        "pass": "营收≥10%、销量≥15%、现金转化率≥1.2、ROE≥20%，且利用率、ASP、资本开支回报和实时估值全部通过。",
+        "watch": "一项质量门未过，或预收/应付对现金流影响、海外项目回报、实时估值任一未知。",
+        "fail": "FCF/归母<0.8×且收入增速<10%连续两期，或利用率<85%且收入/GWh代理再降≥10%而capex仍增即FAIL。"
+      },
+      "hard_fails": [
+        "利用率和产品价格连续两季下行但资本开支仍扩",
+        "两项质量门槛连续失守",
+        "海外项目重大减值"
+      ],
+      "source_ids": [
+        "catl-h1",
+        "catl-annual",
+        "market-snapshot",
+        "chinabond-10y"
+      ],
+      "market_cutoff": "2026-08-25",
+      "quality_snapshot": {
+        "status": "watch",
+        "period": "2026H1 / 2025A",
+        "cfo": 602.17,
+        "capex": 250.73,
+        "fcf": 351.44,
+        "fcf_to_profit": 0.81,
+        "annual_fcf": 908.75,
+        "annual": "2025粗FCF908.75亿元、FCF/归母1.26×、覆盖现金分红2.52×、ROE24.91%。",
+        "conclusion": "2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。"
+      },
+      "valuation_snapshot": {
+        "date": "2026-08-25",
+        "status": "pass",
+        "price": 376.73,
+        "market_cap_100m": 17429.9970763487,
+        "pe_ttm": 20.51,
+        "pb": 4.67,
+        "dividend_yield_pct": 2.19,
+        "government_bond_10y_pct": 1.68,
+        "dividend_spread_pp": 0.51,
+        "track": "growth",
+        "annual_fcf_100m": 908.75,
+        "annual_fcf_yield_pct": 5.2137128653516,
+        "rule": {
+          "pass": "PE-TTM≤25×、最近完整年度粗FCF收益率≥4.5%，且最新收入与归母净利均增长≥20%。",
+          "watch": "未满足全部PASS条件、但也未同时触发FAIL条件；包括成长仍在但任一估值/现金阈值未过。",
+          "fail": "增长转负且PE-TTM≥35×或粗FCF收益率<3%。"
+        },
+        "conclusion": "PE-TTM20.51×、2025粗FCF收益率5.21%，H1收入/归母净利+54.8%/+42.0%，成长轨道三项全部通过；质量门仍独立为WATCH。"
+      },
+      "technical_snapshot": {
+        "date": "2026-08-25",
+        "close_qfq": 376.73,
+        "returns": {
+          "20d": {
+            "absolute": -0.0327,
+            "benchmark": -0.0038,
+            "excess": -0.0289
+          },
+          "60d": {
+            "absolute": -0.1002,
+            "benchmark": -0.0603,
+            "excess": -0.0399
+          },
+          "120d": {
+            "absolute": 0.122,
+            "benchmark": -0.0223,
+            "excess": 0.1443
+          }
+        },
+        "ma": {
+          "ma20": 392.4007,
+          "ma60": 387.8381,
+          "ma120": 397.8908,
+          "close_vs_ma20": -0.0399,
+          "close_vs_ma60": -0.0286,
+          "close_vs_ma120": -0.0532
+        },
+        "state": {
+          "above_ma20": false,
+          "above_ma60": false,
+          "momentum_60_positive": false,
+          "relative_60_positive": false
+        },
+        "annualized_volatility_20d": 0.267,
+        "drawdown_from_120d_high": -0.1785,
+        "conditional_history": [
+          {
+            "horizon_trading_days": 20,
+            "non_overlapping_observations": 15,
+            "positive_rate": 0.5333,
+            "positive_rate_wilson95": [
+              0.3012,
+              0.7519
+            ],
+            "outperform_rate": 0.6,
+            "outperform_rate_wilson95": [
+              0.3575,
+              0.8018
+            ],
+            "mean_return": 0.0017,
+            "mean_excess_return": 0.0141,
+            "excess_return_sd": 0.1078,
+            "events": [
+              {
+                "signal_date": "2023-09-11",
+                "exit_date": "2023-10-17",
+                "stock_return": -0.17915737950685806,
+                "benchmark_return": -0.034011583155056035,
+                "excess_return": -0.14514579635180203,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2023-10-17",
+                "exit_date": "2023-11-14",
+                "stock_return": -0.010643895181823293,
+                "benchmark_return": -0.015755344287520012,
+                "excess_return": 0.005111449105696719,
+                "positive": false,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2023-11-14",
+                "exit_date": "2023-12-12",
+                "stock_return": -0.12256025624568279,
+                "benchmark_return": -0.043343774252804224,
+                "excess_return": -0.07921648199287856,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2023-12-12",
+                "exit_date": "2024-01-10",
+                "stock_return": -0.09035619988435517,
+                "benchmark_return": -0.0436763160966499,
+                "excess_return": -0.04667988378770527,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2024-01-10",
+                "exit_date": "2024-02-07",
+                "stock_return": 0.06846744732831445,
+                "benchmark_return": 0.020292145871539935,
+                "excess_return": 0.04817530145677451,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-06-28",
+                "exit_date": "2024-07-26",
+                "stock_return": 0.056499230107057485,
+                "benchmark_return": -0.015128579929860164,
+                "excess_return": 0.07162781003691765,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-08-01",
+                "exit_date": "2024-08-29",
+                "stock_return": 0.003026121480620647,
+                "benchmark_return": -0.04140942364890754,
+                "excess_return": 0.04443554512952819,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2025-03-11",
+                "exit_date": "2025-04-09",
+                "stock_return": -0.1815183569294767,
+                "benchmark_return": -0.06460362001512143,
+                "excess_return": -0.11691473691435528,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-04-09",
+                "exit_date": "2025-05-12",
+                "stock_return": 0.2538535913699802,
+                "benchmark_return": 0.05528386482549874,
+                "excess_return": 0.19856972654448146,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2025-06-10",
+                "exit_date": "2025-07-08",
+                "stock_return": 0.08625924817174857,
+                "benchmark_return": 0.0344020261442981,
+                "excess_return": 0.05185722202745047,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2025-12-18",
+                "exit_date": "2026-01-19",
+                "stock_return": -0.06351528216182933,
+                "benchmark_return": 0.03990300453128737,
+                "excess_return": -0.1034182866931167,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2026-01-19",
+                "exit_date": "2026-02-24",
+                "stock_return": 0.038315638652698825,
+                "benchmark_return": -0.005685970522509409,
+                "excess_return": 0.044001609175208234,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2026-02-26",
+                "exit_date": "2026-03-26",
+                "stock_return": 0.16731222534143542,
+                "benchmark_return": -0.05274949385111083,
+                "excess_return": 0.22006171919254625,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2026-06-10",
+                "exit_date": "2026-07-09",
+                "stock_return": -0.03358322698644789,
+                "benchmark_return": 0.02689640503812707,
+                "excess_return": -0.06047963202457496,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2026-07-09",
+                "exit_date": "2026-08-06",
+                "stock_return": 0.033413704430389934,
+                "benchmark_return": -0.04614144711882551,
+                "excess_return": 0.07955515154921544,
+                "positive": true,
+                "outperformed": true
+              }
+            ],
+            "semantics": "当前四状态的历史非重叠条件频率；描述性统计，不是独立同分布样本或未来保证。"
+          },
+          {
+            "horizon_trading_days": 60,
+            "non_overlapping_observations": 6,
+            "positive_rate": 0.6667,
+            "positive_rate_wilson95": [
+              0.3,
+              0.9032
+            ],
+            "outperform_rate": 0.6667,
+            "outperform_rate_wilson95": [
+              0.3,
+              0.9032
+            ],
+            "mean_return": 0.0427,
+            "mean_excess_return": 0.0356,
+            "excess_return_sd": 0.1245,
+            "events": [
+              {
+                "signal_date": "2023-09-11",
+                "exit_date": "2023-12-12",
+                "stock_return": -0.2874262198239701,
+                "benchmark_return": -0.09044097740169976,
+                "excess_return": -0.19698524242227033,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2023-12-12",
+                "exit_date": "2024-03-14",
+                "stock_return": 0.14058505116933606,
+                "benchmark_return": 0.03951791759075518,
+                "excess_return": 0.10106713357858088,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-06-28",
+                "exit_date": "2024-09-24",
+                "stock_return": 0.10602698868802984,
+                "benchmark_return": -0.03170444237735648,
+                "excess_return": 0.13773143106538632,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2025-03-11",
+                "exit_date": "2025-06-10",
+                "stock_return": -0.031170111827903524,
+                "benchmark_return": -0.019269704827194367,
+                "excess_return": -0.011900407000709157,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-06-10",
+                "exit_date": "2025-09-02",
+                "stock_return": 0.25972715220459297,
+                "benchmark_return": 0.16168279665862118,
+                "excess_return": 0.0980443555459718,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2025-12-18",
+                "exit_date": "2026-03-24",
+                "stock_return": 0.06871198706597892,
+                "benchmark_return": -0.017147726998170243,
+                "excess_return": 0.08585971406414916,
+                "positive": true,
+                "outperformed": true
+              }
+            ],
+            "semantics": "当前四状态的历史非重叠条件频率；描述性统计，不是独立同分布样本或未来保证。"
+          }
+        ]
+      },
+      "gate_evidence": {
+        "fact": "2026H1财务已披露，但公司未给出同口径H1销量、ASP与利用率，事实门保留WATCH。",
+        "mechanism": "销量与利用率可传导至收入/GWh、毛利和FCF；H1运营量缺失由事实/质量门保留。",
+        "quality": "2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。",
+        "valuation": "PE-TTM20.51×、2025粗FCF收益率5.21%，H1收入/归母净利+54.8%/+42.0%，成长轨道三项全部通过；质量门仍独立为WATCH。",
+        "falsifier": "FCF/归母<0.8×且收入增速<10%连续两期，或利用率<85%且收入/GWh代理再降≥10%而capex仍增即FAIL。",
+        "council": "Round 4会商票 0 PASS / 5 WATCH / 0 REJECT；按3/5多数映射为WATCH。"
+      },
+      "pre_council_decision": "watch",
+      "proposed_execution_tier": null,
+      "latest_council_vote": {
+        "pass": 0,
+        "watch": 5,
+        "reject": 0
+      },
+      "execution_tier": null
+    },
+    {
+      "symbol": "600276",
+      "name": "恒瑞医药",
+      "decision": "reject",
+      "layer": "REJECT / 硬门失守",
+      "financial_cutoff": "2026H1 / 披露2026-08-19",
+      "committee": {
+        "core": 1,
+        "satellite": 3,
+        "watch": 1,
+        "reject": 0
+      },
+      "latest_committee": {
+        "core": 0,
+        "satellite": 0,
+        "watch": 0,
+        "reject": 5,
+        "incomplete": 0
+      },
+      "metrics": [
+        {
+          "label": "2026H1营收",
+          "value": "154.56亿元",
+          "change": "-1.94%"
+        },
+        {
+          "label": "归母 / 扣非",
+          "value": "44.65 / 37.30亿元",
+          "change": "+0.34% / -12.71%"
+        },
+        {
+          "label": "经营现金流",
+          "value": "19.87亿元",
+          "change": "-53.80%"
+        },
+        {
+          "label": "现金转化 / 创新药",
+          "value": "0.45× / +16.38%",
+          "change": "触发复核，尚非持续期FAIL"
+        },
+        {
+          "label": "收盘 / PE-TTM",
+          "value": "46.49 / 39.94×",
+          "change": "2026-08-25；PB 4.79×"
+        },
+        {
+          "label": "股息率 / 国债利差",
+          "value": "0.43% / -1.25pp",
+          "change": "10年国债1.68%"
+        },
+        {
+          "label": "60日收益 / 超额",
+          "value": "-5.45% / +0.58%",
+          "change": "相对沪深300价格指数"
+        },
+        {
+          "label": "粗FCF / 归母",
+          "value": "4.09亿元 / 0.09×",
+          "change": "2026H1 / 2025A"
+        }
+      ],
+      "reason": "最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。 PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。 60日相对沪深300为+0.58%。",
+      "catalysts": [
+        "核心产品放量",
+        "国际授权里程碑实际到账",
+        "关键临床与审批成功"
+      ],
+      "valuation_gate": "分拆产品销售与许可收入；剔除一次性授权后核心销售仍保持两位数增长，经营现金流/归母净利≥1.0。",
+      "gate_bands": {
+        "pass": "剔除许可首付款后核心产品销售≥10%、现金转化率≥1.0，关键临床与实时估值均通过。",
+        "watch": "剔除许可后核心销售0—10%，现金转化率单期<1.0，或现金流中一次性授权影响未拆清。",
+        "fail": "剔除许可后核心销售转负、关键三期失败/延期，或CFO/归母<1.0×连续两期即FAIL。"
+      },
+      "hard_fails": [
+        "剔除许可收入后主业增速转负",
+        "关键三期临床失败或审批延期",
+        "研发资本化持续上升但现金回报未改善"
+      ],
+      "source_ids": [
+        "hengrui-h1",
+        "hengrui-annual",
+        "market-snapshot",
+        "chinabond-10y"
+      ],
+      "market_cutoff": "2026-08-25",
+      "quality_snapshot": {
+        "status": "watch",
+        "period": "2026H1 / 2025A",
+        "cfo": 19.87,
+        "capex": 15.78,
+        "fcf": 4.09,
+        "fcf_to_profit": 0.09,
+        "annual_fcf": 82.73,
+        "annual": "2025粗FCF82.73亿元、FCF/归母1.07×；2026H1许可收入14.22亿元，流动及长期合同负债合计下降43.7%。",
+        "conclusion": "最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。"
+      },
+      "valuation_snapshot": {
+        "date": "2026-08-25",
+        "status": "fail",
+        "price": 46.49,
+        "market_cap_100m": 3085.6342214226,
+        "pe_ttm": 39.94,
+        "pb": 4.79,
+        "dividend_yield_pct": 0.43,
+        "government_bond_10y_pct": 1.68,
+        "dividend_spread_pp": -1.25,
+        "track": "growth",
+        "annual_fcf_100m": 82.73,
+        "annual_fcf_yield_pct": 2.6811343815683437,
+        "rule": {
+          "pass": "PE-TTM≤25×、最近完整年度粗FCF收益率≥4.5%，且最新收入与归母净利均增长≥20%。",
+          "watch": "未满足全部PASS条件、但也未同时触发FAIL条件；包括成长仍在但任一估值/现金阈值未过。",
+          "fail": "增长转负且PE-TTM≥35×或粗FCF收益率<3%。"
+        },
+        "conclusion": "PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。"
+      },
+      "technical_snapshot": {
+        "date": "2026-08-25",
+        "close_qfq": 46.49,
+        "returns": {
+          "20d": {
+            "absolute": -0.1276,
+            "benchmark": -0.0038,
+            "excess": -0.1238
+          },
+          "60d": {
+            "absolute": -0.0545,
+            "benchmark": -0.0603,
+            "excess": 0.0058
+          },
+          "120d": {
+            "absolute": -0.1296,
+            "benchmark": -0.0223,
+            "excess": -0.1073
+          }
+        },
+        "ma": {
+          "ma20": 52.3795,
+          "ma60": 51.8703,
+          "ma120": 53.0622,
+          "close_vs_ma20": -0.1124,
+          "close_vs_ma60": -0.1037,
+          "close_vs_ma120": -0.1239
+        },
+        "state": {
+          "above_ma20": false,
+          "above_ma60": false,
+          "momentum_60_positive": false,
+          "relative_60_positive": true
+        },
+        "annualized_volatility_20d": 0.348,
+        "drawdown_from_120d_high": -0.1919,
+        "conditional_history": [
+          {
+            "horizon_trading_days": 20,
+            "non_overlapping_observations": 3,
+            "positive_rate": 0.6667,
+            "positive_rate_wilson95": [
+              0.2077,
+              0.9385
+            ],
+            "outperform_rate": 0.3333,
+            "outperform_rate_wilson95": [
+              0.0615,
+              0.7923
+            ],
+            "mean_return": 0.0215,
+            "mean_excess_return": -0.0035,
+            "excess_return_sd": 0.0805,
+            "events": [
+              {
+                "signal_date": "2023-10-20",
+                "exit_date": "2023-11-17",
+                "stock_return": 0.10493578025213068,
+                "benchmark_return": 0.016373316166228502,
+                "excess_return": 0.08856246408590218,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2023-12-20",
+                "exit_date": "2024-01-18",
+                "stock_return": -0.06738328252847736,
+                "benchmark_return": -0.006905231235784681,
+                "excess_return": -0.06047805129269268,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2024-01-18",
+                "exit_date": "2024-02-23",
+                "stock_return": 0.02703300484136517,
+                "benchmark_return": 0.06565732136695224,
+                "excess_return": -0.038624316525587066,
+                "positive": true,
+                "outperformed": false
+              }
+            ],
+            "semantics": "当前四状态的历史非重叠条件频率；描述性统计，不是独立同分布样本或未来保证。"
+          },
+          {
+            "horizon_trading_days": 60,
+            "non_overlapping_observations": 2,
+            "positive_rate": 0.5,
+            "positive_rate_wilson95": [
+              0.0945,
+              0.9055
+            ],
+            "outperform_rate": 0.5,
+            "outperform_rate_wilson95": [
+              0.0945,
+              0.9055
+            ],
+            "mean_return": -0.0041,
+            "mean_excess_return": -0.0154,
+            "excess_return_sd": 0.0737,
+            "events": [
+              {
+                "signal_date": "2023-10-20",
+                "exit_date": "2024-01-15",
+                "stock_return": -0.028726763372189712,
+                "benchmark_return": -0.06542205156398218,
+                "excess_return": 0.03669528819179246,
+                "positive": false,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-01-15",
+                "exit_date": "2024-04-18",
+                "stock_return": 0.020532375155825955,
+                "benchmark_return": 0.08804847420845374,
+                "excess_return": -0.06751609905262779,
+                "positive": true,
+                "outperformed": false
+              }
+            ],
+            "semantics": "当前四状态的历史非重叠条件频率；描述性统计，不是独立同分布样本或未来保证。"
+          }
+        ]
+      },
+      "gate_evidence": {
+        "fact": "2025A、2026H1、许可收入、合同负债与点时估值均有一手披露。",
+        "mechanism": "创新药销售与许可交易可传导至产品收入和现金，但需剔除一次性授权影响。",
+        "quality": "最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。",
+        "valuation": "PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。",
+        "falsifier": "剔除许可后核心销售转负、关键三期失败/延期，或CFO/归母<1.0×连续两期即FAIL。",
+        "council": "Round 4会商票 0 PASS / 0 WATCH / 5 REJECT；按3/5多数映射为FAIL。"
+      },
+      "pre_council_decision": "reject",
+      "proposed_execution_tier": null,
+      "latest_council_vote": {
+        "pass": 0,
+        "watch": 0,
+        "reject": 5
+      },
+      "execution_tier": null
+    },
+    {
+      "symbol": "600941",
+      "name": "中国移动",
+      "decision": "reject",
+      "layer": "REJECT / 硬门失守",
+      "financial_cutoff": "2026H1 / 披露2026-08-13",
+      "committee": {
+        "core": 0,
+        "satellite": 0,
+        "watch": 3,
+        "reject": 2
+      },
+      "latest_committee": {
+        "core": 0,
+        "satellite": 0,
+        "watch": 0,
+        "reject": 5,
+        "incomplete": 0
+      },
+      "metrics": [
+        {
+          "label": "2026H1营收",
+          "value": "5,380.35亿元",
+          "change": "-1.1%"
+        },
+        {
+          "label": "归母净利",
+          "value": "789.34亿元",
+          "change": "-6.3%"
+        },
+        {
+          "label": "经营现金流",
+          "value": "1,149亿元",
+          "change": "+37.0%"
+        },
+        {
+          "label": "现金转化 / FCF",
+          "value": "1.46× / 539亿元",
+          "change": "FCF +111.6%"
+        },
+        {
+          "label": "收盘 / PE-TTM",
+          "value": "98.86 / 16.27×",
+          "change": "2026-08-25；PB 1.51×"
+        },
+        {
+          "label": "股息率 / 国债利差",
+          "value": "4.76% / +3.08pp",
+          "change": "10年国债1.68%"
+        },
+        {
+          "label": "60日收益 / 超额",
+          "value": "+2.23% / +8.27%",
+          "change": "相对沪深300价格指数"
+        },
+        {
+          "label": "粗FCF / 归母",
+          "value": "539.00亿元 / 0.68×",
+          "change": "2026H1 / 2025A"
+        }
+      ],
+      "reason": "连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。 PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。 60日相对沪深300为+8.27%。",
+      "catalysts": [
+        "算力收入转化为自由现金流",
+        "资本开支下降",
+        "通信服务收入企稳"
+      ],
+      "valuation_gate": "通信服务收入不连续两个报告期负增长；自由现金流/现金分红≥1.2，算力资本开支回报可解释，且实时估值留有安全边际。",
+      "gate_bands": {
+        "pass": "自由现金流覆盖分红≥1.2、通信服务收入恢复正增长，资本开支回报可解释，实时估值通过。",
+        "watch": "自由现金流已披露但分红覆盖、算力资本回报或实时估值尚未拆清。",
+        "fail": "同利润归属期FCF/股利<1.0×连续两期，或通信服务收入连续两期负增长即FAIL。"
+      },
+      "hard_fails": [
+        "现金流负增长结构化",
+        "自由现金流无法覆盖分红",
+        "算力资本开支回报率持续低迷"
+      ],
+      "source_ids": [
+        "cmcc-h1",
+        "cmcc-annual",
+        "market-snapshot",
+        "chinabond-10y"
+      ],
+      "market_cutoff": "2026-08-25",
+      "quality_snapshot": {
+        "status": "fail",
+        "period": "2026H1 / 2025A",
+        "cfo": 1148.54,
+        "capex": 609.54,
+        "fcf": 539,
+        "fcf_to_profit": 0.68,
+        "annual_fcf": 820.41,
+        "annual": "2025公司披露FCF820.41亿元、覆盖同期实际现金分红0.806×；2026H1 FCF覆盖同期宣告中期股利0.990×。",
+        "conclusion": "连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。"
+      },
+      "valuation_snapshot": {
+        "date": "2026-08-25",
+        "status": "watch",
+        "price": 98.86,
+        "market_cap_100m": 21439.9799314278,
+        "pe_ttm": 16.27,
+        "pb": 1.51,
+        "dividend_yield_pct": 4.76,
+        "government_bond_10y_pct": 1.68,
+        "dividend_spread_pp": 3.08,
+        "track": "stable_cash_flow",
+        "annual_fcf_100m": 820.41,
+        "annual_fcf_yield_pct": 3.8265427608791827,
+        "rule": {
+          "pass": "PE-TTM≤20×、最近完整年度粗FCF收益率≥5%、股息率较10年国债利差≥2.5pp，且质量门不为FAIL。",
+          "watch": "未满足全部PASS条件、但也未同时触发FAIL条件；包括零至两项达标或渠道/资本回报仍待核。",
+          "fail": "PE-TTM≥35×、粗FCF收益率<3%，且最新盈利或现金流同时转弱。"
+        },
+        "conclusion": "PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。"
+      },
+      "technical_snapshot": {
+        "date": "2026-08-25",
+        "close_qfq": 98.86,
+        "returns": {
+          "20d": {
+            "absolute": 0.0261,
+            "benchmark": -0.0038,
+            "excess": 0.0299
+          },
+          "60d": {
+            "absolute": 0.0223,
+            "benchmark": -0.0603,
+            "excess": 0.0827
+          },
+          "120d": {
+            "absolute": 0.0581,
+            "benchmark": -0.0223,
+            "excess": 0.0804
+          }
+        },
+        "ma": {
+          "ma20": 96.9085,
+          "ma60": 93.9359,
+          "ma120": 93.8294,
+          "close_vs_ma20": 0.0201,
+          "close_vs_ma60": 0.0524,
+          "close_vs_ma120": 0.0536
+        },
+        "state": {
+          "above_ma20": true,
+          "above_ma60": true,
+          "momentum_60_positive": true,
+          "relative_60_positive": true
+        },
+        "annualized_volatility_20d": 0.1917,
+        "drawdown_from_120d_high": -0.0011,
+        "conditional_history": [
+          {
+            "horizon_trading_days": 20,
+            "non_overlapping_observations": 19,
+            "positive_rate": 0.5263,
+            "positive_rate_wilson95": [
+              0.3171,
+              0.7267
+            ],
+            "outperform_rate": 0.5263,
+            "outperform_rate_wilson95": [
+              0.3171,
+              0.7267
+            ],
+            "mean_return": -0.0086,
+            "mean_excess_return": -0.0127,
+            "excess_return_sd": 0.0554,
+            "events": [
+              {
+                "signal_date": "2023-08-08",
+                "exit_date": "2023-09-05",
+                "stock_return": 0.02983509330247358,
+                "benchmark_return": -0.04005548115073132,
+                "excess_return": 0.0698905744532049,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2023-09-07",
+                "exit_date": "2023-10-13",
+                "stock_return": 0.040353506153319785,
+                "benchmark_return": -0.025292206669203177,
+                "excess_return": 0.06564571282252296,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2023-10-13",
+                "exit_date": "2023-11-10",
+                "stock_return": -0.10128046636649246,
+                "benchmark_return": -0.02099683082155701,
+                "excess_return": -0.08028363554493545,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2023-12-27",
+                "exit_date": "2024-01-25",
+                "stock_return": 0.016222823913813356,
+                "benchmark_return": 0.0019662146770731415,
+                "excess_return": 0.014256609236740214,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-01-25",
+                "exit_date": "2024-03-01",
+                "stock_return": 0.015963845263122334,
+                "benchmark_return": 0.05829633972694537,
+                "excess_return": -0.042332494463823034,
+                "positive": true,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2024-03-04",
+                "exit_date": "2024-04-01",
+                "stock_return": 0.006273593579301684,
+                "benchmark_return": 0.015470774131781218,
+                "excess_return": -0.009197180552479534,
+                "positive": true,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2024-04-01",
+                "exit_date": "2024-05-06",
+                "stock_return": -0.04073910846922002,
+                "benchmark_return": 0.017307023764826956,
+                "excess_return": -0.058046132234046977,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2024-06-13",
+                "exit_date": "2024-07-11",
+                "stock_return": 0.06406630699617111,
+                "benchmark_return": -0.016437283934511826,
+                "excess_return": 0.08050359093068293,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-07-11",
+                "exit_date": "2024-08-08",
+                "stock_return": -0.033324474066199095,
+                "benchmark_return": -0.03610837992370619,
+                "excess_return": 0.0027839058575070963,
+                "positive": false,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-08-22",
+                "exit_date": "2024-09-23",
+                "stock_return": -0.022053318915321807,
+                "benchmark_return": -0.03029754251254091,
+                "excess_return": 0.008244223597219102,
+                "positive": false,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-12-27",
+                "exit_date": "2025-01-27",
+                "stock_return": -0.033734491891640794,
+                "benchmark_return": -0.04118280947393016,
+                "excess_return": 0.0074483175822893655,
+                "positive": false,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2025-01-27",
+                "exit_date": "2025-03-04",
+                "stock_return": -0.04010579466217834,
+                "benchmark_return": 0.01785134186341386,
+                "excess_return": -0.0579571365255922,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-04-09",
+                "exit_date": "2025-05-12",
+                "stock_return": 0.010416173476634594,
+                "benchmark_return": 0.05528386482549874,
+                "excess_return": -0.04486769134886415,
+                "positive": true,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-05-12",
+                "exit_date": "2025-06-10",
+                "stock_return": 0.017815472564547186,
+                "benchmark_return": -0.006461711659611291,
+                "excess_return": 0.024277184224158477,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2025-06-10",
+                "exit_date": "2025-07-08",
+                "stock_return": -0.012522328416477935,
+                "benchmark_return": 0.0344020261442981,
+                "excess_return": -0.04692435456077604,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-11-24",
+                "exit_date": "2025-12-22",
+                "stock_return": -0.0709732535979497,
+                "benchmark_return": 0.0367734175650003,
+                "excess_return": -0.10774667116295,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2026-04-30",
+                "exit_date": "2026-06-02",
+                "stock_return": 0.04013597517711709,
+                "benchmark_return": 0.022309774073234312,
+                "excess_return": 0.017826201103882777,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2026-06-05",
+                "exit_date": "2026-07-06",
+                "stock_return": -0.09585944724134388,
+                "benchmark_return": 0.005206646570837803,
+                "excess_return": -0.10106609381218168,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2026-07-17",
+                "exit_date": "2026-08-14",
+                "stock_return": 0.046145610278372384,
+                "benchmark_return": 0.030200260537413648,
+                "excess_return": 0.015945349740958736,
+                "positive": true,
+                "outperformed": true
+              }
+            ],
+            "semantics": "当前四状态的历史非重叠条件频率；描述性统计，不是独立同分布样本或未来保证。"
+          },
+          {
+            "horizon_trading_days": 60,
+            "non_overlapping_observations": 8,
+            "positive_rate": 0.5,
+            "positive_rate_wilson95": [
+              0.2152,
+              0.7848
+            ],
+            "outperform_rate": 0.625,
+            "outperform_rate_wilson95": [
+              0.3057,
+              0.8632
+            ],
+            "mean_return": -0.0118,
+            "mean_excess_return": -0.013,
+            "excess_return_sd": 0.0913,
+            "events": [
+              {
+                "signal_date": "2023-08-08",
+                "exit_date": "2023-11-08",
+                "stock_return": -0.03658565986788176,
+                "benchmark_return": -0.09263442494842611,
+                "excess_return": 0.05604876508054435,
+                "positive": false,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2023-12-27",
+                "exit_date": "2024-03-29",
+                "stock_return": 0.0762015742993909,
+                "benchmark_return": 0.060281264611732555,
+                "excess_return": 0.01592030968765834,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-03-29",
+                "exit_date": "2024-07-01",
+                "stock_return": 0.04124160040763902,
+                "benchmark_return": -0.016763345658491358,
+                "excess_return": 0.05800494606613038,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-07-01",
+                "exit_date": "2024-09-25",
+                "stock_return": -0.012040454295210279,
+                "benchmark_return": -0.0220373873692562,
+                "excess_return": 0.009996933074045922,
+                "positive": false,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2024-12-27",
+                "exit_date": "2025-04-01",
+                "stock_return": -0.07062868825798063,
+                "benchmark_return": -0.023448705485766386,
+                "excess_return": -0.047179982772214246,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-04-09",
+                "exit_date": "2025-07-08",
+                "stock_return": 0.015539036977415766,
+                "benchmark_return": 0.08453424252534036,
+                "excess_return": -0.0689952055479246,
+                "positive": true,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-11-24",
+                "exit_date": "2026-02-26",
+                "stock_return": -0.13847294848806313,
+                "benchmark_return": 0.06268364789064873,
+                "excess_return": -0.20115659637871186,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2026-04-30",
+                "exit_date": "2026-07-29",
+                "stock_return": 0.030403795444196025,
+                "benchmark_return": -0.04306982491247713,
+                "excess_return": 0.07347362035667315,
+                "positive": true,
+                "outperformed": true
+              }
+            ],
+            "semantics": "当前四状态的历史非重叠条件频率；描述性统计，不是独立同分布样本或未来保证。"
+          }
+        ]
+      },
+      "gate_evidence": {
+        "fact": "2025A、2026H1、公司FCF、同期宣告股利及点时估值均已闭环。",
+        "mechanism": "算力收入增长已披露，但分业务资本回报尚未披露，机制门保持WATCH。",
+        "quality": "连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。",
+        "valuation": "PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。",
+        "falsifier": "同利润归属期FCF/股利<1.0×连续两期，或通信服务收入连续两期负增长即FAIL。",
+        "council": "Round 4会商票 0 PASS / 0 WATCH / 5 REJECT；按3/5多数映射为FAIL。"
+      },
+      "pre_council_decision": "reject",
+      "proposed_execution_tier": null,
+      "latest_council_vote": {
+        "pass": 0,
+        "watch": 0,
+        "reject": 5
+      },
+      "execution_tier": null
+    },
+    {
+      "symbol": "600519",
+      "name": "贵州茅台",
+      "decision": "watch",
+      "layer": "WATCH / 已完成但条件未过",
+      "financial_cutoff": "2026H1 / 披露2026-08-15",
+      "committee": {
+        "core": 0,
+        "satellite": 0,
+        "watch": 1,
+        "reject": 4
+      },
+      "latest_committee": {
+        "core": 0,
+        "satellite": 0,
+        "watch": 5,
+        "reject": 0,
+        "incomplete": 0
+      },
+      "metrics": [
+        {
+          "label": "2026H1营收",
+          "value": "907.03亿元",
+          "change": "+1.47%"
+        },
+        {
+          "label": "归母净利",
+          "value": "445.17亿元",
+          "change": "-1.95%"
+        },
+        {
+          "label": "经营现金流",
+          "value": "706.91亿元",
+          "change": "+438.84%"
+        },
+        {
+          "label": "现金转化 / 主品",
+          "value": "1.59× / +2.82%",
+          "change": "现金流含财务公司因素"
+        },
+        {
+          "label": "收盘 / PE-TTM",
+          "value": "1304.00 / 20.02×",
+          "change": "2026-08-25；PB 6.49×"
+        },
+        {
+          "label": "股息率 / 国债利差",
+          "value": "3.99% / +2.31pp",
+          "change": "10年国债1.68%"
+        },
+        {
+          "label": "60日收益 / 超额",
+          "value": "+1.75% / +7.78%",
+          "change": "相对沪深300价格指数"
+        },
+        {
+          "label": "粗FCF / 归母",
+          "value": "698.59亿元 / 1.57×",
+          "change": "2026H1 / 2025A"
+        }
+      ],
+      "reason": "归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。 PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。 60日相对沪深300为+7.78%。",
+      "catalysts": [
+        "批价和渠道库存企稳",
+        "主品收入恢复正增长",
+        "剔除财务公司存款变动后的酒业经营现金流与现金转化改善"
+      ],
+      "valuation_gate": "不因历史低估值或品牌标签自动重估；茅台酒收入非负、系列酒降幅收窄、经营现金流/归母净利回到≥0.8后重新评审。",
+      "gate_bands": {
+        "pass": "茅台酒收入恢复正增长、现金转化率≥0.8、渠道库存与批价企稳，且实时估值留有安全边际。",
+        "watch": "主品收入0—5%、现金转化率0.6—0.8，或渠道库存/批价缺少可复核数据。",
+        "fail": "茅台酒收入转负、调整FCF/归母<0.6×，或境内经销商净减少≥50家连续两期即FAIL。"
+      },
+      "hard_fails": [
+        "主品收入转负",
+        "批价和渠道库存继续恶化",
+        "经营现金流长期低于净利润"
+      ],
+      "source_ids": [
+        "moutai-h1",
+        "moutai-annual",
+        "market-snapshot",
+        "chinabond-10y"
+      ],
+      "market_cutoff": "2026-08-25",
+      "quality_snapshot": {
+        "status": "watch",
+        "period": "2026H1 / 2025A",
+        "cfo": 706.91,
+        "capex": 8.32,
+        "fcf": 698.59,
+        "fcf_to_profit": 1.57,
+        "annual_fcf": 722.087,
+        "annual": "剔除财务公司专属现金流行后，2025调整FCF约722.09亿元、FCF/归母0.877×、现金分红覆盖1.110×。",
+        "normalized": "同口径下2026H1调整CFO约379.71亿元、粗FCF371.38亿元、FCF/归母0.834×；该近似未同步剔除财务公司利润。",
+        "conclusion": "归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。"
+      },
+      "valuation_snapshot": {
+        "date": "2026-08-25",
+        "status": "watch",
+        "price": 1304,
+        "market_cap_100m": 16301.06407704,
+        "pe_ttm": 20.02,
+        "pb": 6.49,
+        "dividend_yield_pct": 3.99,
+        "government_bond_10y_pct": 1.68,
+        "dividend_spread_pp": 2.3100000000000005,
+        "track": "stable_cash_flow",
+        "annual_fcf_100m": 722.087,
+        "annual_fcf_yield_pct": 4.429692421227013,
+        "rule": {
+          "pass": "PE-TTM≤20×、最近完整年度粗FCF收益率≥5%、股息率较10年国债利差≥2.5pp，且质量门不为FAIL。",
+          "watch": "未满足全部PASS条件、但也未同时触发FAIL条件；包括零至两项达标或渠道/资本回报仍待核。",
+          "fail": "PE-TTM≥35×、粗FCF收益率<3%，且最新盈利或现金流同时转弱。"
+        },
+        "conclusion": "PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。"
+      },
+      "technical_snapshot": {
+        "date": "2026-08-25",
+        "close_qfq": 1304,
+        "returns": {
+          "20d": {
+            "absolute": -0.0121,
+            "benchmark": -0.0038,
+            "excess": -0.0083
+          },
+          "60d": {
+            "absolute": 0.0175,
+            "benchmark": -0.0603,
+            "excess": 0.0778
+          },
+          "120d": {
+            "absolute": -0.0673,
+            "benchmark": -0.0223,
+            "excess": -0.045
+          }
+        },
+        "ma": {
+          "ma20": 1322.6255,
+          "ma60": 1263.1222,
+          "ma120": 1315.4956,
+          "close_vs_ma20": -0.0141,
+          "close_vs_ma60": 0.0324,
+          "close_vs_ma120": -0.0087
+        },
+        "state": {
+          "above_ma20": false,
+          "above_ma60": true,
+          "momentum_60_positive": true,
+          "relative_60_positive": true
+        },
+        "annualized_volatility_20d": 0.2607,
+        "drawdown_from_120d_high": -0.105,
+        "conditional_history": [
+          {
+            "horizon_trading_days": 20,
+            "non_overlapping_observations": 5,
+            "positive_rate": 0.2,
+            "positive_rate_wilson95": [
+              0.0362,
+              0.6245
+            ],
+            "outperform_rate": 0.4,
+            "outperform_rate_wilson95": [
+              0.1176,
+              0.7693
+            ],
+            "mean_return": -0.0288,
+            "mean_excess_return": -0.0266,
+            "excess_return_sd": 0.0637,
+            "events": [
+              {
+                "signal_date": "2023-08-14",
+                "exit_date": "2023-09-11",
+                "stock_return": 0.011621316051904751,
+                "benchmark_return": -0.022918066033698947,
+                "excess_return": 0.0345393820856037,
+                "positive": true,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2023-09-11",
+                "exit_date": "2023-10-17",
+                "stock_return": -0.05763082592997637,
+                "benchmark_return": -0.034011583155056035,
+                "excess_return": -0.023619242774920335,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2025-03-31",
+                "exit_date": "2025-04-29",
+                "stock_return": -0.011475483978536816,
+                "benchmark_return": -0.028870864428100718,
+                "excess_return": 0.017395380449563902,
+                "positive": false,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2025-04-29",
+                "exit_date": "2025-05-30",
+                "stock_return": -0.015023022782414075,
+                "benchmark_return": 0.017257912415101107,
+                "excess_return": -0.03228093519751518,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2026-04-13",
+                "exit_date": "2026-05-14",
+                "stock_return": -0.07146258777377867,
+                "benchmark_return": 0.05777902134024959,
+                "excess_return": -0.12924160911402827,
+                "positive": false,
+                "outperformed": false
+              }
+            ],
+            "semantics": "当前四状态的历史非重叠条件频率；描述性统计，不是独立同分布样本或未来保证。"
+          },
+          {
+            "horizon_trading_days": 60,
+            "non_overlapping_observations": 3,
+            "positive_rate": 0,
+            "positive_rate_wilson95": [
+              0,
+              0.5615
+            ],
+            "outperform_rate": 0.3333,
+            "outperform_rate_wilson95": [
+              0.0615,
+              0.7923
+            ],
+            "mean_return": -0.085,
+            "mean_excess_return": -0.0752,
+            "excess_return_sd": 0.1143,
+            "events": [
+              {
+                "signal_date": "2023-08-14",
+                "exit_date": "2023-11-14",
+                "stock_return": -0.022872835401062774,
+                "benchmark_return": -0.07102084851565515,
+                "excess_return": 0.04814801311459238,
+                "positive": false,
+                "outperformed": true
+              },
+              {
+                "signal_date": "2025-03-31",
+                "exit_date": "2025-06-30",
+                "stock_return": -0.08362252678006699,
+                "benchmark_return": 0.012545950798881433,
+                "excess_return": -0.09616847757894842,
+                "positive": false,
+                "outperformed": false
+              },
+              {
+                "signal_date": "2026-04-13",
+                "exit_date": "2026-07-10",
+                "stock_return": -0.14859611414230056,
+                "benchmark_return": 0.028978831936119276,
+                "excess_return": -0.17757494607841984,
+                "positive": false,
+                "outperformed": false
+              }
+            ],
+            "semantics": "当前四状态的历史非重叠条件频率；描述性统计，不是独立同分布样本或未来保证。"
+          }
+        ]
+      },
+      "gate_evidence": {
+        "fact": "财报与点时估值已冻结，但没有发行人可复核的批价和渠道库存序列，事实门保留WATCH。",
+        "mechanism": "品牌需求可传导至主品收入和回款，但批价/渠道库存缺乏一手序列，机制门保持WATCH。",
+        "quality": "归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。",
+        "valuation": "PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。",
+        "falsifier": "茅台酒收入转负、调整FCF/归母<0.6×，或境内经销商净减少≥50家连续两期即FAIL。",
+        "council": "Round 4会商票 0 PASS / 5 WATCH / 0 REJECT；按3/5多数映射为WATCH。"
+      },
+      "pre_council_decision": "watch",
+      "proposed_execution_tier": null,
+      "latest_council_vote": {
+        "pass": 0,
+        "watch": 5,
+        "reject": 0
+      },
+      "execution_tier": null
+    }
+  ],
+  "experts": [
+    {
+      "id": "duan-yongping-perspective",
+      "name": "段永平式商业模式视角（AI模拟）",
+      "role": "商业模式、用户价值、现金流与估值纪律",
+      "round1": {
+        "cycle": "把市场定义为估值不贵、方向未明、情绪退潮的结构性磨底；反对用指数点位替代企业价值。",
+        "scenarios": "基准50 / 乐观20 / 悲观30",
+        "preferred": [
+          "高股息与银行",
+          "AI真实需求",
+          "品牌消费困境反转",
+          "新能源储能",
+          "出海制造"
+        ],
+        "stocks": [
+          "贵州茅台",
+          "宁德时代",
+          "中国移动",
+          "招商银行",
+          "工商银行"
+        ],
+        "objections": [
+          "黄金不产现金流，不能自动叫稳健",
+          "预测指数整数点位不可复用"
+        ],
+        "questions": [
+          "周期四阶段如何事前证伪？",
+          "题材如何转成最终用户现金流？",
+          "AI资本开支何时从投资变成军备竞赛？"
+        ]
+      },
+      "round2": {
+        "rebuttals": [
+          "资金弱转强是结果而非生意变好的第一因",
+          "安全边际若不定义相对什么就只是口号"
+        ],
+        "accepted_revision": "承认现金流也是后视镜，必须拆分主营回款、一次性授权、处置与资本开支，并看连续趋势。",
+        "theme_ratings": {
+          "dividend": "WATCH",
+          "grid_ai": "WATCH",
+          "manufacturing": "WATCH",
+          "pharma": "WATCH",
+          "consumption": "WATCH"
+        },
+        "stock_ratings": {
+          "300750": "SATELLITE",
+          "600276": "SATELLITE",
+          "600519": "REJECT",
+          "600900": "CORE",
+          "600941": "WATCH",
+          "000333": "WATCH"
+        },
+        "scenarios": "基准45 / 乐观25 / 悲观30",
+        "gates": [
+          "现金流必须来自主营且连续两期同向",
+          "成长主题必须有最终付费用户",
+          "估值未知不得给CORE执行结论"
+        ]
+      }
+    },
+    {
+      "id": "hunjianglong-perspective",
+      "name": "混江龙式题材周期视角（AI模拟）",
+      "role": "题材、情绪周期、资金确认与退出纪律",
+      "round1": {
+        "cycle": "缩量混沌、弱势极限偏后段；政策底已亮牌但资金底未确认，主线从讲故事切向业绩兑现。",
+        "scenarios": "基准55 / 乐观25 / 悲观20",
+        "preferred": [
+          "国产算力与半导体",
+          "具身智能",
+          "红利水电",
+          "金铜资源",
+          "储能"
+        ],
+        "stocks": [
+          "中芯国际",
+          "寒武纪",
+          "宁德时代",
+          "紫金矿业",
+          "长江电力",
+          "汇川技术"
+        ],
+        "objections": [
+          "成交缩量不能机械等同于全面离场",
+          "科技是从叙事转业绩，不是全部退潮"
+        ],
+        "questions": [
+          "政策底怎样传到资金底？",
+          "高增长能否支撑估值？",
+          "如何事前区分缩量筑底与无量阴跌？"
+        ]
+      },
+      "round2": {
+        "rebuttals": [
+          "静态现金流不能替代周期确认，且价格合算必须有估值锚",
+          "供需框架若不给产能、库存和价格拐点就不可证伪"
+        ],
+        "accepted_revision": "接受资金弱转强可能反复假启动，升级为资金确认与盈利/现金流确认双门槛。",
+        "theme_ratings": {
+          "dividend": "WATCH",
+          "grid_ai": "WATCH",
+          "manufacturing": "WATCH",
+          "pharma": "PASS",
+          "consumption": "REJECT"
+        },
+        "stock_ratings": {
+          "300750": "CORE",
+          "600276": "CORE",
+          "600519": "REJECT",
+          "600900": "CORE",
+          "600941": "WATCH",
+          "000333": "SATELLITE"
+        },
+        "scenarios": "基准55 / 乐观25 / 悲观20",
+        "gates": [
+          "下一财报现金流转负即降级",
+          "成长必须有板块广度与成交确认",
+          "估值透支不得给CORE"
+        ]
+      }
+    },
+    {
+      "id": "munger-perspective",
+      "name": "芒格式反证视角（AI模拟）",
+      "role": "逆向、激励、偏误、拥挤与最强反证",
+      "round1": {
+        "cycle": "缩量退潮的磨底区，不在顶部也不在亢奋；政策底不等于主升。",
+        "scenarios": "基准60 / 乐观20 / 悲观20",
+        "preferred": [
+          "红利现金流",
+          "金铜资源",
+          "高端芯片和基础软件",
+          "创新药"
+        ],
+        "stocks": [
+          "贵州茅台",
+          "长江电力",
+          "中国神华",
+          "中钨高新",
+          "紫金矿业"
+        ],
+        "objections": [
+          "政策底已现不等于全面牛市",
+          "高股息不是闭眼躺赢"
+        ],
+        "questions": [
+          "给出带日期的可证伪触发器",
+          "增收不增利是周期还是结构？",
+          "估值锚究竟是什么？"
+        ]
+      },
+      "round2": {
+        "rebuttals": [
+          "高股息标签若不追现金来源就架空自己的标准",
+          "等资金弱转强是把择时打扮成行业研究"
+        ],
+        "accepted_revision": "承认能力圈偏见会错杀宁德、恒瑞；改用可验证现金流和竞争位置，而非按行业类别直接否决。",
+        "theme_ratings": {
+          "dividend": "WATCH",
+          "grid_ai": "WATCH",
+          "manufacturing": "WATCH",
+          "pharma": "WATCH",
+          "consumption": "REJECT"
+        },
+        "stock_ratings": {
+          "300750": "SATELLITE",
+          "600276": "WATCH",
+          "600519": "REJECT",
+          "600900": "CORE",
+          "600941": "REJECT",
+          "000333": "SATELLITE"
+        },
+        "scenarios": "基准50 / 乐观30 / 悲观20",
+        "gates": [
+          "现金流连续覆盖派息与再投资",
+          "盈利底用利润和现金流确认",
+          "估值未知时不为优质付溢价"
+        ]
+      }
+    },
+    {
+      "id": "warren-buffett-perspective",
+      "name": "巴菲特式所有者收益视角（AI模拟）",
+      "role": "护城河、所有者收益、资本配置与安全边际",
+      "round1": {
+        "cycle": "不预测短期点位，把周期翻译成价格相对内在价值、利率重力和谁被迫卖；政策底到盈利底有时滞。",
+        "scenarios": "基准55 / 乐观20 / 悲观25",
+        "preferred": [
+          "现金流与高股息",
+          "电力与电网",
+          "消费龙头困境反转",
+          "出海制造",
+          "大盘蓝筹"
+        ],
+        "stocks": [
+          "贵州茅台",
+          "长江电力",
+          "招商银行",
+          "中国神华",
+          "美的集团",
+          "宁德时代"
+        ],
+        "objections": [
+          "政策底不等于马上牛市",
+          "周期利润不能冒充永续高股息"
+        ],
+        "questions": [
+          "周期拐点如何落到估值锚？",
+          "政策底到盈利底有何实证？",
+          "利率在模型中权重多大？"
+        ]
+      },
+      "round2": {
+        "rebuttals": [
+          "成交和资金回答别人是否出价，不回答企业能产多少现金",
+          "注意力不是价值，短缺资本开支会制造过剩"
+        ],
+        "accepted_revision": "承认高派息不等于所有者收益、品牌护城河未必转成当期现金；高股息降为逐股验证。",
+        "theme_ratings": {
+          "dividend": "WATCH",
+          "grid_ai": "WATCH",
+          "manufacturing": "REJECT",
+          "pharma": "WATCH",
+          "consumption": "WATCH"
+        },
+        "stock_ratings": {
+          "300750": "SATELLITE",
+          "600276": "SATELLITE",
+          "600519": "WATCH",
+          "600900": "CORE",
+          "600941": "WATCH",
+          "000333": "SATELLITE"
+        },
+        "scenarios": "磨底50 / 结构弱复苏35 / 全面转强15",
+        "gates": [
+          "派息与经营现金流背离即剔除",
+          "十年赚钱形态想不清进too hard",
+          "价格不给犯错余地就等待"
+        ]
+      }
+    },
+    {
+      "id": "sun-yuchen-perspective",
+      "name": "孙宇晨式供需与注意力视角（AI模拟）",
+      "role": "供需、库存、资本开支、注意力与叙事拥挤",
+      "round1": {
+        "cycle": "大幅回调后的修复与再平衡；不是普涨起点，注意力会从故事转向盈利兑现。",
+        "scenarios": "基准50 / 乐观25 / 悲观25",
+        "preferred": [
+          "存储周期",
+          "国产算力",
+          "人形机器人",
+          "创新药出海"
+        ],
+        "stocks": [
+          "中芯国际",
+          "兆易创新",
+          "华虹公司"
+        ],
+        "objections": [
+          "存储涨价不能线性外推",
+          "未来产业合同额和出货量不等于现金利润"
+        ],
+        "questions": [
+          "谁在做利润而非流水？",
+          "安全溢价能否抵消盈利下修？",
+          "政策托底如何区分于改变盈利？"
+        ]
+      },
+      "round2": {
+        "rebuttals": [
+          "高派息不等于健康现金流",
+          "资金弱转强若无事前触发器只是事后择时"
+        ],
+        "accepted_revision": "承认创新药是IP周期而非产能周期；把短缺拆成产能周期与IP周期，并新增估值门禁。",
+        "theme_ratings": {
+          "dividend": "WATCH",
+          "grid_ai": "PASS",
+          "manufacturing": "WATCH",
+          "pharma": "PASS",
+          "consumption": "REJECT"
+        },
+        "stock_ratings": {
+          "300750": "CORE",
+          "600276": "SATELLITE",
+          "600519": "REJECT",
+          "600900": "CORE",
+          "600941": "REJECT",
+          "000333": "WATCH"
+        },
+        "scenarios": "基准45 / 乐观30 / 悲观25",
+        "gates": [
+          "核心标的下一季度现金流转负即降级",
+          "利用率和价格两季下行触发过剩门",
+          "社零或核心CPI转负整体降风险"
+        ]
+      }
+    }
+  ],
+  "view_gates": {
+    "criteria": [
+      {
+        "id": "fact",
+        "name": "事实门",
+        "rule": "一手财报/官方统计与冻结行情均有数据日期和来源；未知不得视为通过。"
+      },
+      {
+        "id": "mechanism",
+        "name": "机制门",
+        "rule": "政策或需求必须能传导至公司订单、利润和现金；仅有标签不得通过。"
+      },
+      {
+        "id": "quality",
+        "name": "质量门",
+        "rule": "用CFO减购建长期资产现金估算粗FCF，并核现金转化、分红覆盖、营运资本和一次性项。"
+      },
+      {
+        "id": "valuation",
+        "name": "估值门",
+        "rule": "统一使用2026-08-25价格、PE-TTM/PB/股息率及10年国债1.68%的机会成本；增长和资本强度必须匹配。"
+      },
+      {
+        "id": "falsifier",
+        "name": "反证门",
+        "rule": "必须有可观测硬失效条件、阈值和降级动作。"
+      },
+      {
+        "id": "council",
+        "name": "会商门",
+        "rule": "同源AI角色只作反方审查；不能替代数据门，也不计作独立统计样本。"
+      }
+    ],
+    "results": [
+      {
+        "name": "长江电力",
+        "fact": "pass",
+        "mechanism": "pass",
+        "quality": "pass",
+        "valuation": "watch",
+        "falsifier": "pass",
+        "council": "watch",
+        "decision": "watch",
+        "gate_notes": {
+          "fact": "2025A、2026Q1、2026-08-25行情和国债机会成本均已冻结；全部购建支出已按保守口径扣除。",
+          "mechanism": "来水、发电量与结算电价可直接传导至现金流，且采用全量capex扣除。",
+          "quality": "即使把全部购建长期资产现金视为维护性资本开支，Q1和全年现金质量仍过预设门。",
+          "valuation": "PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。",
+          "falsifier": "粗FCF/现金分红<1.0×，或发电量同比≤-10%且平均结算电价同比≤-5%连续两期即FAIL。",
+          "council": "Round 4会商票 0 PASS / 5 WATCH / 0 REJECT；按3/5多数映射为WATCH。"
+        },
+        "action": "WATCH；valuation / council尚未转为PASS"
+      },
+      {
+        "name": "美的集团",
+        "fact": "pass",
+        "mechanism": "pass",
+        "quality": "pass",
+        "valuation": "pass",
+        "falsifier": "pass",
+        "council": "pass",
+        "decision": "satellite",
+        "gate_notes": {
+          "fact": "2025完整年报、2026Q1、营运资本、资本开支、海外毛利与点时估值均已闭环。",
+          "mechanism": "更新需求与海外本地化能传导至收入、海外毛利和CFO，关键桥接均已披露。",
+          "quality": "2025 CFO/归母1.21×、粗FCF/分红1.30×、ROE19.70%；购建支出111.42亿元、营运资本约释现52.80亿元，海外毛利率仅降0.22pp，均已拆清。Q1扣非-14.02%作为下一期证伪，不追认成FAIL。",
+          "valuation": "PE-TTM14.96×、2025粗FCF收益率6.38%、股息率较10年国债利差3.28pp，稳定现金流轨道三项全部通过。",
+          "falsifier": "CFO/归母<0.8×、收入或利润转负、或海外毛利率同比下降≥2pp连续两期即FAIL。",
+          "council": "Round 4会商票 5 PASS / 0 WATCH / 0 REJECT；按3/5多数映射为PASS。"
+        },
+        "action": "SATELLITE；六门全部通过，按冻结证伪条件持续复核"
+      },
+      {
+        "name": "宁德时代",
+        "fact": "watch",
+        "mechanism": "pass",
+        "quality": "watch",
+        "valuation": "pass",
+        "falsifier": "pass",
+        "council": "watch",
+        "decision": "watch",
+        "gate_notes": {
+          "fact": "2026H1财务已披露，但公司未给出同口径H1销量、ASP与利用率，事实门保留WATCH。",
+          "mechanism": "销量与利用率可传导至收入/GWh、毛利和FCF；H1运营量缺失由事实/质量门保留。",
+          "quality": "2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。",
+          "valuation": "PE-TTM20.51×、2025粗FCF收益率5.21%，H1收入/归母净利+54.8%/+42.0%，成长轨道三项全部通过；质量门仍独立为WATCH。",
+          "falsifier": "FCF/归母<0.8×且收入增速<10%连续两期，或利用率<85%且收入/GWh代理再降≥10%而capex仍增即FAIL。",
+          "council": "Round 4会商票 0 PASS / 5 WATCH / 0 REJECT；按3/5多数映射为WATCH。"
+        },
+        "action": "WATCH；fact / quality / council尚未转为PASS"
+      },
+      {
+        "name": "恒瑞医药",
+        "fact": "pass",
+        "mechanism": "pass",
+        "quality": "watch",
+        "valuation": "fail",
+        "falsifier": "pass",
+        "council": "fail",
+        "decision": "reject",
+        "gate_notes": {
+          "fact": "2025A、2026H1、许可收入、合同负债与点时估值均有一手披露。",
+          "mechanism": "创新药销售与许可交易可传导至产品收入和现金，但需剔除一次性授权影响。",
+          "quality": "最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。",
+          "valuation": "PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。",
+          "falsifier": "剔除许可后核心销售转负、关键三期失败/延期，或CFO/归母<1.0×连续两期即FAIL。",
+          "council": "Round 4会商票 0 PASS / 0 WATCH / 5 REJECT；按3/5多数映射为FAIL。"
+        },
+        "action": "REJECT；valuation / council失守"
+      },
+      {
+        "name": "中国移动",
+        "fact": "pass",
+        "mechanism": "watch",
+        "quality": "fail",
+        "valuation": "watch",
+        "falsifier": "pass",
+        "council": "fail",
+        "decision": "reject",
+        "gate_notes": {
+          "fact": "2025A、2026H1、公司FCF、同期宣告股利及点时估值均已闭环。",
+          "mechanism": "算力收入增长已披露，但分业务资本回报尚未披露，机制门保持WATCH。",
+          "quality": "连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。",
+          "valuation": "PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。",
+          "falsifier": "同利润归属期FCF/股利<1.0×连续两期，或通信服务收入连续两期负增长即FAIL。",
+          "council": "Round 4会商票 0 PASS / 0 WATCH / 5 REJECT；按3/5多数映射为FAIL。"
+        },
+        "action": "REJECT；quality / council失守"
+      },
+      {
+        "name": "贵州茅台",
+        "fact": "watch",
+        "mechanism": "watch",
+        "quality": "watch",
+        "valuation": "watch",
+        "falsifier": "pass",
+        "council": "watch",
+        "decision": "watch",
+        "gate_notes": {
+          "fact": "财报与点时估值已冻结，但没有发行人可复核的批价和渠道库存序列，事实门保留WATCH。",
+          "mechanism": "品牌需求可传导至主品收入和回款，但批价/渠道库存缺乏一手序列，机制门保持WATCH。",
+          "quality": "归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。",
+          "valuation": "PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。",
+          "falsifier": "茅台酒收入转负、调整FCF/归母<0.6×，或境内经销商净减少≥50家连续两期即FAIL。",
+          "council": "Round 4会商票 0 PASS / 5 WATCH / 0 REJECT；按3/5多数映射为WATCH。"
+        },
+        "action": "WATCH；fact / mechanism / quality / valuation / council尚未转为PASS"
+      }
+    ]
+  },
+  "monitor_switches": [
+    "工业增加值累计同比是否连续三期达到6%或跌到4%",
+    "社零累计同比是否连续三期达到3%或跌到0%",
+    "地产销售额降幅是否连续三期收窄至-5%以内或扩大至-15%",
+    "PPI环比是否连续三个月同向",
+    "工业利润是否不再依赖电子行业贡献近半增量",
+    "政府性基金收入是否连续两期改善至-5%以上",
+    "M1-M2、居民/企业中长期贷款与社融结构是否连续改善",
+    "沪深300能否收复MA60，且全市场20日宽度连续10日高于55%",
+    "A-家电方向的扣非利润、海外毛利与粗FCF能否同时改善",
+    "六股估值、质量和硬失效条件是否发生门禁迁移"
+  ],
+  "limitations": [
+    "主题五维分数的分档阈值尚未经过跨周期历史校准；本版公开组件与分数，后续必须冻结回看。",
+    "个股条件历史统计只有约800根前复权日线，非重叠样本仍小且具有幸存者偏差；Wilson区间不处理制度变化。",
+    "东方财富估值字段、概念板块和同日涨跌宽度属于行情商口径；会与官方财报字段分层展示，不混称一手会计数据。",
+    "粗FCF=CFO−购建固定/无形/其他长期资产现金，不等于严格维护性资本开支，也未对并购、租赁和金融子公司全部标准化。",
+    "五个AI方法论角色共享底层运行环境，投票不是独立概率；数据门优先于会商门。",
+    "A/H公司总市值采用A股现价乘行情商总股本，不是按两地价格分别计价的合并经济市值。",
+    "同日板块宽度可能快速反转；中期趋势主要依赖MA与20/60/120日相对收益，不能用单日普涨代替。",
+    "报告仍不提供目标价、仓位和收益承诺；WATCH表示条件未过，REJECT表示当前硬门失守。",
+    "市场快照已保存标准化前复权日线与逐条件事件，可离线复算条件比例；但供应商原始响应体未提交，报价与板块字段只能核验解析值和响应哈希，不能完整回放原始载荷。"
+  ],
+  "sources": [
+    {
+      "id": "nbs-gdp",
+      "publisher": "国家统计局",
+      "date": "2026-07-16",
+      "title": "2026年上半年国民经济运行情况",
+      "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260716_1964142.html"
+    },
+    {
+      "id": "nbs-july",
+      "publisher": "国家统计局",
+      "date": "2026-08-17",
+      "title": "2026年7月份国民经济运行情况",
+      "url": "https://www.stats.gov.cn/sj/zxfb/202608/t20260817_1965056.html"
+    },
+    {
+      "id": "nbs-retail",
+      "publisher": "国家统计局",
+      "date": "2026-08-17",
+      "title": "2026年1—7月份社会消费品零售总额",
+      "url": "https://www.stats.gov.cn/sj/zxfbhjd/202608/t20260817_1965052.html"
+    },
+    {
+      "id": "nbs-services",
+      "publisher": "国家统计局",
+      "date": "2026-08-17",
+      "title": "国家统计局新闻发言人就2026年7月份国民经济运行情况答记者问",
+      "url": "https://www.stats.gov.cn/zwfwck/sjfb/202608/t20260817_1965064.html"
+    },
+    {
+      "id": "nbs-pmi",
+      "publisher": "国家统计局",
+      "date": "2026-07-31",
+      "title": "2026年7月中国采购经理指数运行情况",
+      "url": "https://www.stats.gov.cn/sj/zxfbhjd/202607/t20260731_1964253.html"
+    },
+    {
+      "id": "nbs-prices",
+      "publisher": "国家统计局",
+      "date": "2026-08-09",
+      "title": "2026年7月份CPI和PPI数据解读",
+      "url": "https://www.stats.gov.cn/sj/zxfbhjd/202608/t20260809_1965009.html"
+    },
+    {
+      "id": "nbs-profits",
+      "publisher": "国家统计局",
+      "date": "2026-07-27",
+      "title": "2026年上半年工业企业利润解读",
+      "url": "https://www.stats.gov.cn/sj/zxfbhjd/202607/t20260727_1964193.html"
+    },
+    {
+      "id": "mof-h1",
+      "publisher": "财政部",
+      "date": "2026-07-22",
+      "title": "2026年上半年财政收支情况",
+      "url": "https://gks.mof.gov.cn/tongjishuju/202607/t20260722_3993943.htm"
+    },
+    {
+      "id": "lpr",
+      "publisher": "中国货币网 / 中国人民银行授权",
+      "date": "2026-08-20",
+      "title": "2026年8月20日LPR公告",
+      "url": "https://www.chinamoney.com.cn/chinese/rdgz/20260820/3399885.html"
+    },
+    {
+      "id": "gov-work-report",
+      "publisher": "中国政府工作报告（辽宁省政府转载）",
+      "date": "2026-03-16",
+      "title": "2026年政府工作报告",
+      "url": "https://www.ln.gov.cn/web/zwgkx/zfgzbg/zyzfgzbg/2026031609022955591/index.shtml"
+    },
+    {
+      "id": "nea-grid",
+      "publisher": "国务院国资委 / 国家电网",
+      "date": "2026-01-19",
+      "title": "国家电网“十五五”计划投资4万亿元建设新型电力系统",
+      "url": "https://www.sasac.gov.cn/n2588025/n2588124/c35325777/content.html"
+    },
+    {
+      "id": "ndrc-tradein",
+      "publisher": "国家发展改革委",
+      "date": "2026-06-26",
+      "title": "消费品以旧换新阶段性数据",
+      "url": "https://www.ndrc.gov.cn/xwdt/ztzl/tddgmsbgxhxfpyjhx/gzdt/202606/t20260626_1406119_ext.html"
+    },
+    {
+      "id": "cmcc-annual",
+      "publisher": "巨潮资讯 / 中国移动",
+      "date": "2026-03-27",
+      "title": "中国移动2025年年度报告摘要",
+      "url": "https://static.cninfo.com.cn/finalpage/2026-03-27/1225036258.PDF"
+    },
+    {
+      "id": "cmcc-h1",
+      "publisher": "港交所 / 中国移动",
+      "date": "2026-08-13",
+      "title": "中国移动2026年中期业绩公告",
+      "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0813/2026081300218.pdf"
+    },
+    {
+      "id": "cypc-annual",
+      "publisher": "巨潮资讯 / 长江电力",
+      "date": "2026-04-30",
+      "title": "长江电力2025年年度报告",
+      "url": "https://static.cninfo.com.cn/finalpage/2026-04-30/1225262036.PDF"
+    },
+    {
+      "id": "cypc-q1",
+      "publisher": "巨潮资讯 / 长江电力",
+      "date": "2026-04-30",
+      "title": "长江电力2026年第一季度报告",
+      "url": "https://static.cninfo.com.cn/finalpage/2026-04-30/1225262110.PDF"
+    },
+    {
+      "id": "midea-annual",
+      "publisher": "巨潮资讯 / 美的集团",
+      "date": "2026-03-31",
+      "title": "美的集团2025年年度报告摘要",
+      "url": "https://static.cninfo.com.cn/finalpage/2026-03-31/1225058109.PDF"
+    },
+    {
+      "id": "midea-q1",
+      "publisher": "巨潮资讯 / 美的集团",
+      "date": "2026-04-30",
+      "title": "美的集团2026年第一季度报告",
+      "url": "https://static.cninfo.com.cn/finalpage/2026-04-30/1225259066.PDF"
+    },
+    {
+      "id": "catl-annual",
+      "publisher": "巨潮资讯 / 宁德时代",
+      "date": "2026-03-10",
+      "title": "宁德时代2025年年度报告",
+      "url": "https://static.cninfo.com.cn/finalpage/2026-03-10/1225002214.PDF"
+    },
+    {
+      "id": "catl-h1",
+      "publisher": "港交所 / 宁德时代",
+      "date": "2026-07-26",
+      "title": "宁德时代2026年中期报告",
+      "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0726/2026072600031.pdf"
+    },
+    {
+      "id": "hengrui-annual",
+      "publisher": "港交所 / 恒瑞医药",
+      "date": "2026-03-25",
+      "title": "恒瑞医药2025年年度报告",
+      "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0325/2026032502087_c.pdf"
+    },
+    {
+      "id": "hengrui-h1",
+      "publisher": "港交所 / 恒瑞医药（A股海外监管公告）",
+      "date": "2026-08-19",
+      "title": "恒瑞医药2026年半年度报告",
+      "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0819/2026081901589_c.pdf"
+    },
+    {
+      "id": "moutai-annual",
+      "publisher": "巨潮资讯 / 贵州茅台",
+      "date": "2026-04-17",
+      "title": "贵州茅台2025年年度报告",
+      "url": "https://static.cninfo.com.cn/finalpage/2026-04-17/1225114741.PDF"
+    },
+    {
+      "id": "moutai-h1",
+      "publisher": "贵州茅台",
+      "date": "2026-08-15",
+      "title": "贵州茅台2026年半年度报告",
+      "url": "https://www.moutaichina.com/mtgf/articleFileDir/2026-08/17/277c9b776bff4ae89dde75e987437760.pdf"
+    },
+    {
+      "id": "nari-annual",
+      "publisher": "巨潮资讯 / 国电南瑞",
+      "date": "2026-04-30",
+      "title": "国电南瑞2025年年度报告",
+      "url": "https://static.cninfo.com.cn/finalpage/2026-04-30/1225257886.PDF"
+    },
+    {
+      "id": "smic-q2",
+      "publisher": "港交所 / 中芯国际",
+      "date": "2026-08-13",
+      "title": "中芯国际2026年第二季度报告",
+      "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0813/2026081300353.pdf"
+    },
+    {
+      "id": "market-snapshot",
+      "publisher": "东方财富 / 腾讯行情",
+      "date": "2026-08-25",
+      "title": "六股、主题代理、沪深300估值与前复权技术解析快照",
+      "url": "./research-data/a-share-cycle-market-snapshot-2026-08-25.json"
+    },
+    {
+      "id": "chinabond-10y",
+      "publisher": "财政部-中国国债收益率曲线 / CCDC",
+      "date": "2026-08-25",
+      "title": "10年期国债收益率1.68%",
+      "url": "https://yield.chinabond.com.cn/cbweb-czb-web/czb/moreInfo?locale=cn_ZH&nameType=1"
+    },
+    {
+      "id": "midea-annual-full",
+      "publisher": "巨潮资讯 / 美的集团",
+      "date": "2026-03-31",
+      "title": "美的集团2025年年度报告全文",
+      "url": "https://static.cninfo.com.cn/finalpage/2026-03-31/1225065145.PDF"
+    }
+  ],
+  "theme_scoring": {
+    "methodology": "完成版编辑性五维证据评分，每维0—20、总分100；0=反证/缺失，5=偏弱，10=混合，15=多数验证，20=强验证。分值由公开事实按同一尺度人工判定，不是历史校准概率或机械交易信号。",
+    "components": [
+      {
+        "id": "demand",
+        "name": "需求可见度",
+        "rule": "官方多年计划/真实需求量与可追踪订单越明确，得分越高。"
+      },
+      {
+        "id": "earnings",
+        "name": "盈利验证",
+        "rule": "代表企业收入、利润、毛利和利用率共同改善，且不是单一一次性项目。"
+      },
+      {
+        "id": "cash",
+        "name": "现金质量",
+        "rule": "经营现金流、粗略FCF、分红覆盖和资本回报共同验证。"
+      },
+      {
+        "id": "valuation",
+        "name": "估值余量",
+        "rule": "统一截面的PE/PB/股息利差与增长、资本强度匹配。"
+      },
+      {
+        "id": "market",
+        "name": "市场确认",
+        "rule": "代表股相对沪深300、MA20/60/120与同日板块广度共同验证；单日广度只能贡献一部分。"
+      }
+    ],
+    "grades": [
+      {
+        "grade": "A",
+        "min": 85,
+        "meaning": "五维均强，仍须个股门禁独立通过。"
+      },
+      {
+        "grade": "A-",
+        "min": 80,
+        "meaning": "方向证据强，但至少一个维度仍有清晰缺口。"
+      },
+      {
+        "grade": "B+",
+        "min": 75,
+        "meaning": "优先跟踪，尚不足以视为完整趋势。"
+      },
+      {
+        "grade": "B",
+        "min": 70,
+        "meaning": "有两到三项证据，条件性较强。"
+      },
+      {
+        "grade": "B-",
+        "min": 60,
+        "meaning": "存在产业证据，但估值、现金或市场确认明显不足。"
+      },
+      {
+        "grade": "C",
+        "min": 0,
+        "meaning": "影子研究或反证占优。"
+      }
+    ],
+    "execution_separation": "主题A/A-只表示本版证据评分较高，不等于股票可买；股票必须另过事实、机制、质量、估值、反证和会商六门。"
+  },
+  "valuation_framework": {
+    "methodology": "本版冻结的分析师估值判据，不是历史分位或统计胜率。先用同一截面的PE-TTM、粗FCF收益率、股息率与10年国债利差，再按稳定现金流/成长两条轨道判定。",
+    "stable_cash_flow": {
+      "pass": "PE-TTM≤20×、最近完整年度粗FCF收益率≥5%、股息率较10年国债利差≥2.5pp，且质量门不为FAIL。",
+      "watch": "未满足全部PASS条件、但也未同时触发FAIL条件；包括零至两项达标或渠道/资本回报仍待核。",
+      "fail": "PE-TTM≥35×、粗FCF收益率<3%，且最新盈利或现金流同时转弱。"
+    },
+    "growth": {
+      "pass": "PE-TTM≤25×、最近完整年度粗FCF收益率≥4.5%，且最新收入与归母净利均增长≥20%。",
+      "watch": "未满足全部PASS条件、但也未同时触发FAIL条件；包括成长仍在但任一估值/现金阈值未过。",
+      "fail": "增长转负且PE-TTM≥35×或粗FCF收益率<3%。"
+    },
+    "disclosure": "这些阈值在完成版中公开冻结，但没有跨周期历史校准；SATELLITE只表示本框架内六门通过，不代表安全边际客观确定。"
+  },
+  "market_snapshot_summary": {
+    "date": "2026-08-25",
+    "hs300": {
+      "date": "2026-08-25",
+      "close_qfq": 4552.03,
+      "returns": {
+        "20d": {
+          "absolute": -0.0038,
+          "benchmark": -0.0038,
+          "excess": 0
+        },
+        "60d": {
+          "absolute": -0.0603,
+          "benchmark": -0.0603,
+          "excess": 0
+        },
+        "120d": {
+          "absolute": -0.0223,
+          "benchmark": -0.0223,
+          "excess": 0
+        }
+      },
+      "ma": {
+        "ma20": 4632.7585,
+        "ma60": 4753.8352,
+        "ma120": 4734.0658,
+        "close_vs_ma20": -0.0174,
+        "close_vs_ma60": -0.0425,
+        "close_vs_ma120": -0.0385
+      },
+      "state": {
+        "above_ma20": false,
+        "above_ma60": false,
+        "momentum_60_positive": false,
+        "relative_60_positive": true
+      },
+      "annualized_volatility_20d": 0.1663,
+      "drawdown_from_120d_high": -0.1003,
+      "conditional_history": [
+        {
+          "horizon_trading_days": 20,
+          "non_overlapping_observations": 18,
+          "positive_rate": 0.4444,
+          "positive_rate_wilson95": [
+            0.2456,
+            0.6628
+          ],
+          "outperform_rate": 0,
+          "outperform_rate_wilson95": [
+            0,
+            0.1759
+          ],
+          "mean_return": 0.0088,
+          "mean_excess_return": 0,
+          "excess_return_sd": 0,
+          "events": [
+            {
+              "signal_date": "2023-08-11",
+              "exit_date": "2023-09-08",
+              "stock_return": -0.03713973096479373,
+              "benchmark_return": -0.03713973096479373,
+              "excess_return": 0,
+              "positive": false,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2023-09-08",
+              "exit_date": "2023-10-16",
+              "stock_return": -0.030318262883055835,
+              "benchmark_return": -0.030318262883055835,
+              "excess_return": 0,
+              "positive": false,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2023-10-16",
+              "exit_date": "2023-11-13",
+              "stock_return": -0.013012187724039115,
+              "benchmark_return": -0.013012187724039115,
+              "excess_return": 0,
+              "positive": false,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2023-11-17",
+              "exit_date": "2023-12-15",
+              "stock_return": -0.06348530157760357,
+              "benchmark_return": -0.06348530157760357,
+              "excess_return": 0,
+              "positive": false,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2023-12-15",
+              "exit_date": "2024-01-15",
+              "stock_return": -0.01814427436369348,
+              "benchmark_return": -0.01814427436369348,
+              "excess_return": 0,
+              "positive": false,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2024-01-15",
+              "exit_date": "2024-02-20",
+              "stock_return": 0.03960169708496397,
+              "benchmark_return": 0.03960169708496397,
+              "excess_return": 0,
+              "positive": true,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2024-06-11",
+              "exit_date": "2024-07-09",
+              "stock_return": -0.029092151018380585,
+              "benchmark_return": -0.029092151018380585,
+              "excess_return": 0,
+              "positive": false,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2024-07-09",
+              "exit_date": "2024-08-06",
+              "stock_return": -0.0281498106000041,
+              "benchmark_return": -0.0281498106000041,
+              "excess_return": 0,
+              "positive": false,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2024-08-06",
+              "exit_date": "2024-09-03",
+              "stock_return": -0.020804790935034068,
+              "benchmark_return": -0.020804790935034068,
+              "excess_return": 0,
+              "positive": false,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2024-09-03",
+              "exit_date": "2024-10-10",
+              "stock_return": 0.22128470747808882,
+              "benchmark_return": 0.22128470747808882,
+              "excess_return": 0,
+              "positive": true,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2024-12-31",
+              "exit_date": "2025-02-06",
+              "stock_return": -0.023400789344610207,
+              "benchmark_return": -0.023400789344610207,
+              "excess_return": 0,
+              "positive": false,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2025-02-28",
+              "exit_date": "2025-03-28",
+              "stock_return": 0.006457500546265482,
+              "benchmark_return": 0.006457500546265482,
+              "excess_return": 0,
+              "positive": true,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2025-03-31",
+              "exit_date": "2025-04-29",
+              "stock_return": -0.028870864428100718,
+              "benchmark_return": -0.028870864428100718,
+              "excess_return": 0,
+              "positive": false,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2025-05-27",
+              "exit_date": "2025-06-25",
+              "stock_return": 0.031429390008855584,
+              "benchmark_return": 0.031429390008855584,
+              "excess_return": 0,
+              "positive": true,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2025-12-16",
+              "exit_date": "2026-01-15",
+              "stock_return": 0.056448510855910516,
+              "benchmark_return": 0.056448510855910516,
+              "excess_return": 0,
+              "positive": true,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2026-02-02",
+              "exit_date": "2026-03-10",
+              "stock_return": 0.014932761323323218,
+              "benchmark_return": 0.014932761323323218,
+              "excess_return": 0,
+              "positive": true,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2026-03-23",
+              "exit_date": "2026-04-21",
+              "stock_return": 0.07922136713444994,
+              "benchmark_return": 0.07922136713444994,
+              "excess_return": 0,
+              "positive": true,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2026-07-13",
+              "exit_date": "2026-08-10",
+              "stock_return": 0.0014141560427485267,
+              "benchmark_return": 0.0014141560427485267,
+              "excess_return": 0,
+              "positive": true,
+              "outperformed": false
+            }
+          ],
+          "semantics": "当前四状态的历史非重叠条件频率；描述性统计，不是独立同分布样本或未来保证。"
+        },
+        {
+          "horizon_trading_days": 60,
+          "non_overlapping_observations": 8,
+          "positive_rate": 0.5,
+          "positive_rate_wilson95": [
+            0.2152,
+            0.7848
+          ],
+          "outperform_rate": 0,
+          "outperform_rate_wilson95": [
+            0,
+            0.3244
+          ],
+          "mean_return": 0.0211,
+          "mean_excess_return": 0,
+          "excess_return_sd": 0,
+          "events": [
+            {
+              "signal_date": "2023-08-11",
+              "exit_date": "2023-11-13",
+              "stock_return": -0.0784810452468302,
+              "benchmark_return": -0.0784810452468302,
+              "excess_return": 0,
+              "positive": false,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2023-11-17",
+              "exit_date": "2024-02-20",
+              "stock_return": -0.04406303687988189,
+              "benchmark_return": -0.04406303687988189,
+              "excess_return": 0,
+              "positive": false,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2024-06-11",
+              "exit_date": "2024-09-03",
+              "stock_return": -0.07605394481325933,
+              "benchmark_return": -0.07605394481325933,
+              "excess_return": 0,
+              "positive": false,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2024-09-03",
+              "exit_date": "2024-12-05",
+              "stock_return": 0.1980063725205672,
+              "benchmark_return": 0.1980063725205672,
+              "excess_return": 0,
+              "positive": true,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2024-12-31",
+              "exit_date": "2025-04-03",
+              "stock_return": -0.018656081079363895,
+              "benchmark_return": -0.018656081079363895,
+              "excess_return": 0,
+              "positive": false,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2025-04-03",
+              "exit_date": "2025-07-03",
+              "stock_return": 0.027598083646251492,
+              "benchmark_return": 0.027598083646251492,
+              "excess_return": 0,
+              "positive": true,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2025-12-16",
+              "exit_date": "2026-03-20",
+              "stock_return": 0.015446187368678643,
+              "benchmark_return": 0.015446187368678643,
+              "excess_return": 0,
+              "positive": true,
+              "outperformed": false
+            },
+            {
+              "signal_date": "2026-03-23",
+              "exit_date": "2026-06-22",
+              "stock_return": 0.14523766410140326,
+              "benchmark_return": 0.14523766410140326,
+              "excess_return": 0,
+              "positive": true,
+              "outperformed": false
+            }
+          ],
+          "semantics": "当前四状态的历史非重叠条件频率；描述性统计，不是独立同分布样本或未来保证。"
+        }
+      ]
+    },
+    "breadth": {
+      "date": "2026-08-25",
+      "up": 4089,
+      "down": 1202,
+      "flat": 51,
+      "limit_up": 65,
+      "limit_down": 2,
+      "advance_ratio": 0.7728,
+      "source_url": "https://push2ex.eastmoney.com/getTopicZDFenBu?ut=7eea3edcaed734bea9cbfc24409ed989&dpt=wz.ztzt",
+      "source_response_sha256": "c3f2d6a654b3d067575e5c654b9b6a3428cb36615919c0414b28a71c85639949",
+      "source_normalized_sha256": "cd66ed45cc910085b40c1263f63bdd5f0d40ea049fb66cda7e367dbbc5d7b014",
+      "retrieved_at": "2026-08-25T15:39:47.944Z"
+    },
+    "government_bond_10y": {
+      "date": "2026-08-25",
+      "maturity": "10Y",
+      "yield_pct": 1.68,
+      "source_name": "财政部-中国国债收益率曲线（CCDC提供）",
+      "source_url": "https://yield.chinabond.com.cn/cbweb-czb-web/czb/moreInfo?locale=cn_ZH&nameType=1",
+      "source_response_sha256": "de0465d068ada33223e0e26d04db28077217d9f092a0f71fa997844fadd8e001",
+      "source_normalized_sha256": "c7fa6f48b943ac82f9016cfd27a0dd4ca0b80158c58ccc4f5d62ba474ff93fdf",
+      "retrieved_at": "2026-08-25T15:39:47.858Z"
+    },
+    "interpretation": "沪深300低于MA20/60/120，而当日上涨家数占涨跌家数77.3%；这是弱中期趋势中的单日普涨，不能单独定义反转。"
+  }
+}

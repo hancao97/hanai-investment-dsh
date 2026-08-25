@@ -7,8 +7,13 @@ on:
     paths:
       - docs/turning-point-capability-audit-2026-08-23.html
       - docs/a-share-cycle-outlook-2026-08-23.html
+      - docs/a-share-cycle-outlook-2026-08-25.html
       - docs/research-data/a-share-cycle-outlook-2026-08-23.json
       - docs/research-data/a-share-cycle-expert-runs-2026-08-23.json
+      - docs/research-data/a-share-cycle-outlook-2026-08-25.json
+      - docs/research-data/a-share-cycle-outlook-pre-council-2026-08-25.json
+      - docs/research-data/a-share-cycle-expert-runs-2026-08-25.json
+      - docs/research-data/a-share-cycle-market-snapshot-2026-08-25.json
       - .github/workflows/pages.yml
   workflow_dispatch:
 
@@ -34,6 +39,31 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
+      - name: Verify research data contracts
+        run: |
+          set -euo pipefail
+          final=docs/research-data/a-share-cycle-outlook-2026-08-25.json
+          pre=docs/research-data/a-share-cycle-outlook-pre-council-2026-08-25.json
+          runs=docs/research-data/a-share-cycle-expert-runs-2026-08-25.json
+          market=docs/research-data/a-share-cycle-market-snapshot-2026-08-25.json
+          html=docs/a-share-cycle-outlook-2026-08-25.html
+          jq empty "$final" "$pre" "$runs" "$market"
+          pre_sha=$(sha256sum "$pre" | cut -d' ' -f1)
+          runs_sha=$(sha256sum "$runs" | cut -d' ' -f1)
+          market_sha=$(sha256sum "$market" | cut -d' ' -f1)
+          final_sha=$(sha256sum "$final" | cut -d' ' -f1)
+          test "$pre_sha" = "$(jq -r '.input_sha256' "$runs")"
+          test "$pre_sha" = "$(jq -r '.metadata.pre_council_sha256' "$final")"
+          test "$pre_sha" = "$(jq -r '.metadata.expert_run_input_sha256' "$final")"
+          test "$runs_sha" = "$(jq -r '.metadata.expert_run_artifact_sha256' "$final")"
+          test "$market_sha" = "$(jq -r '.metadata.market_snapshot_sha256' "$final")"
+          grep -Fq "sha256 $final_sha" "$html"
+          grep -Fq "expert input $pre_sha" "$html"
+          grep -Fq "expert runs $runs_sha" "$html"
+          jq -e '(.runs|length == 5) and ([.runs[] | select(.exit_code != 0 or .parsed == null or ((.validation_errors // [])|length != 0))] | length == 0)' "$runs" >/dev/null
+          jq -e '[.view_gates.results[] | .fact,.mechanism,.quality,.valuation,.falsifier,.council] as $g | ($g|length == 36) and ($g|all(. == "pass" or . == "watch" or . == "fail"))' "$final" >/dev/null
+          jq -e '.schema_version == 2 and ([.securities[].history_bars|length]|min >= 700) and ([.securities[].technical.conditional_history[].events|length]|add > 0)' "$market" >/dev/null
+
       - name: Verify report visual shells
         run: |
           outlook_style_bytes=$(awk '/<style>/{inside=1} inside{print} /<\/style>/{inside=0}' docs/a-share-cycle-outlook-2026-08-23.html | wc -c)
@@ -42,6 +72,12 @@ jobs:
           grep -Fq '.layout{display:grid' docs/a-share-cycle-outlook-2026-08-23.html
           grep -Fq '.section{scroll-margin-top:' docs/a-share-cycle-outlook-2026-08-23.html
           grep -Fq '<div class="page">' docs/a-share-cycle-outlook-2026-08-23.html
+          outlook_complete_style_bytes=$(awk '/<style>/{inside=1} inside{print} /<\/style>/{inside=0}' docs/a-share-cycle-outlook-2026-08-25.html | wc -c)
+          test "$outlook_complete_style_bytes" -gt 12000
+          grep -Fq '.site-nav{position:sticky' docs/a-share-cycle-outlook-2026-08-25.html
+          grep -Fq '白色家电全球化与节能更新' docs/a-share-cycle-outlook-2026-08-25.html
+          grep -Fq 'SATELLITE' docs/a-share-cycle-outlook-2026-08-25.html
+          grep -Fq '<div class="page">' docs/a-share-cycle-outlook-2026-08-25.html
 
       - name: Prepare self-contained reports
         run: |
@@ -49,8 +85,14 @@ jobs:
           cp docs/turning-point-capability-audit-2026-08-23.html _site/index.html
           cp docs/turning-point-capability-audit-2026-08-23.html _site/turning-point-capability-audit-2026-08-23.html
           cp docs/a-share-cycle-outlook-2026-08-23.html _site/a-share-cycle-outlook-2026-08-23.html
+          cp docs/a-share-cycle-outlook-2026-08-25.html _site/a-share-cycle-outlook-2026-08-25.html
+          cp docs/a-share-cycle-outlook-2026-08-25.html _site/a-share-cycle-outlook.html
           cp docs/research-data/a-share-cycle-outlook-2026-08-23.json _site/research-data/a-share-cycle-outlook-2026-08-23.json
           cp docs/research-data/a-share-cycle-expert-runs-2026-08-23.json _site/research-data/a-share-cycle-expert-runs-2026-08-23.json
+          cp docs/research-data/a-share-cycle-outlook-2026-08-25.json _site/research-data/a-share-cycle-outlook-2026-08-25.json
+          cp docs/research-data/a-share-cycle-outlook-pre-council-2026-08-25.json _site/research-data/a-share-cycle-outlook-pre-council-2026-08-25.json
+          cp docs/research-data/a-share-cycle-expert-runs-2026-08-25.json _site/research-data/a-share-cycle-expert-runs-2026-08-25.json
+          cp docs/research-data/a-share-cycle-market-snapshot-2026-08-25.json _site/research-data/a-share-cycle-market-snapshot-2026-08-25.json
           touch _site/.nojekyll
 
       - name: Upload Pages artifact

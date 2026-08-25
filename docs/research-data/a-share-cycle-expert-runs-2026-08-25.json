@@ -1,0 +1,1164 @@
+{
+  "schema_version": 3,
+  "generated_at": "2026-08-25T16:43:35.551Z",
+  "purpose": "Round 4 completed-data consistency review. Theme statuses audit a disclosed human evidence-score mapping rather than form free or independent votes; stock council votes review, but never rewrite, the five pre-council data gates. Raw DSH stdout/stderr retained for audit.",
+  "review_semantics": {
+    "themes": "PASS/WATCH/REJECT is a consistency audit of the disclosed human evidence-score grade mapping, not an independent probability or fresh score.",
+    "stocks": "decision follows the five pre-council gates; council_vote is the reviewer output used downstream to close the sixth gate."
+  },
+  "input": "docs/research-data/a-share-cycle-outlook-pre-council-2026-08-25.json",
+  "input_sha256": "44b060ef10486542137513ccc3c57a7ba2a93a09a59905d652c01ff83ada4610",
+  "script": "scripts/research/run-a-share-expert-council.ts",
+  "script_sha256": "00c73e191e84677419c3f7683010c931201ce300c81aeb9a0af4ee81ec1affcb",
+  "master_snapshot_version": "2026.08.23-v3",
+  "runtime": {
+    "dsh": "0.1.1-rc.2",
+    "profile": "headless",
+    "concurrency": 2,
+    "max_attempts_per_executed_master": 2,
+    "max_output_characters": 6000,
+    "model_config_frozen": false,
+    "note": "The artifact does not prove a specific model name or reasoning-effort setting."
+  },
+  "common_fact_pack_sha256": "4e46dada6d2428f1d2575f54d0bd6bb066b780ebb146b26b76d325bcb9d63700",
+  "common_fact_pack": {
+    "as_of": "2026-08-25",
+    "market_data_cutoff": "2026-08-25",
+    "forecast_window": [
+      "2026-08-25",
+      "2027-08-25"
+    ],
+    "scenario_rule": "每项按本报告冻结阈值记+1/0/-1。可评估≥5且上行≥4、总分≥+3时为盈利扩散；否则，可评估≥5且压力≥4、总分≤-3时为二次探底；其余为结构市/数据待确认。未知或断档记0并标pending，不可跨期拼接。当前覆盖不足，状态为base_pending。阈值是本报告研究门槛，不是官方标准或历史校准模型。",
+    "scenarios": [
+      {
+        "id": "base",
+        "name": "基准：结构市延续",
+        "priority": "主情景",
+        "description": "现有报告只够把状态暂定为结构市 / 数据不足；六项开关尚未形成可确认的广泛上行或压力共振。"
+      },
+      {
+        "id": "upside",
+        "name": "乐观：盈利扩散",
+        "priority": "备选情景",
+        "description": "财政资金与信用传导改善，盈利从电子、有色等少数行业扩散至中游设备、可选消费和金融，市场宽度恢复。"
+      },
+      {
+        "id": "downside",
+        "name": "悲观：二次探底",
+        "priority": "压力情景",
+        "description": "地产和内需继续收缩，叠加出口、能源或外部利率冲击；高估值成长与强周期率先压缩估值。"
+      }
+    ],
+    "scenario_indicators": [
+      {
+        "name": "规模以上工业增加值",
+        "current": "+5.3%（2026年1—7月）",
+        "upside": "累计同比≥6%，连续3次发布",
+        "downside": "累计同比≤4%，连续3次发布"
+      },
+      {
+        "name": "社会消费品零售",
+        "current": "+1.2%（2026年1—7月）",
+        "upside": "累计同比≥3%，连续3次发布",
+        "downside": "累计同比≤0%，连续3次发布"
+      },
+      {
+        "name": "商品房销售额",
+        "current": "-13.1%（2026年1—7月）",
+        "upside": "累计同比≥-5%，连续3次发布",
+        "downside": "累计同比≤-15%，连续3次发布"
+      },
+      {
+        "name": "PPI环比",
+        "current": "-0.7%（2026-07；单期）",
+        "upside": ">0%，连续3月",
+        "downside": "<0%，连续3月"
+      },
+      {
+        "name": "工业利润与广度",
+        "current": "总额+18.7%，电子贡献约45%（2026H1）",
+        "upside": "利润≥10%且电子增量贡献≤30%，连续2次",
+        "downside": "利润<5%，连续2次"
+      },
+      {
+        "name": "政府性基金收入",
+        "current": "-21.6%（2026H1；单期）",
+        "upside": "累计同比≥-5%，连续2次发布",
+        "downside": "累计同比≤-15%，连续2次发布"
+      }
+    ],
+    "macro_evidence": [
+      {
+        "label": "2026H1 GDP",
+        "value": "+4.7%",
+        "tone": "watch"
+      },
+      {
+        "label": "1—7月工业",
+        "value": "+5.3%",
+        "tone": "positive"
+      },
+      {
+        "label": "1—7月社零",
+        "value": "+1.2%",
+        "tone": "watch"
+      },
+      {
+        "label": "地产开发投资",
+        "value": "-19.2%",
+        "tone": "negative"
+      },
+      {
+        "label": "7月CPI / PPI",
+        "value": "+0.5% / +3.5%",
+        "tone": "watch"
+      },
+      {
+        "label": "H1工业利润",
+        "value": "+18.7%",
+        "tone": "positive"
+      },
+      {
+        "label": "8月LPR",
+        "value": "3.0% / 3.5%",
+        "tone": "neutral"
+      },
+      {
+        "label": "H1政府性基金收入",
+        "value": "-21.6%",
+        "tone": "negative"
+      },
+      {
+        "label": "7月PMI / 新订单",
+        "value": "49.2 / 48.5",
+        "tone": "watch"
+      }
+    ],
+    "market_snapshot": {
+      "date": "2026-08-25",
+      "hs300": {
+        "return_20d": -0.0038,
+        "return_60d": -0.0603,
+        "return_120d": -0.0223,
+        "above_ma20": false,
+        "above_ma60": false,
+        "above_ma120": false
+      },
+      "breadth_advance_ratio": 0.7728,
+      "government_bond_10y_pct": 1.68,
+      "interpretation": "沪深300低于MA20/60/120，而当日上涨家数占涨跌家数77.3%；这是弱中期趋势中的单日普涨，不能单独定义反转。"
+    },
+    "theme_scoring": {
+      "components": [
+        "demand",
+        "earnings",
+        "cash",
+        "valuation",
+        "market"
+      ],
+      "grade_mapping": {
+        "A": 85,
+        "A-": 80,
+        "B+": 75,
+        "B": 70,
+        "B-": 60,
+        "C": 0
+      },
+      "execution_separation": "主题A/A-只表示本版证据评分较高，不等于股票可买；股票必须另过事实、机制、质量、估值、反证和会商六门。"
+    },
+    "theme_review_rule": "score/grade是按报告公开尺度形成的人工证据评分，不是概率，也不是专家自由投票。Round 4只审计映射一致性：A或A-→PASS；B+、B或B-→WATCH；C→REJECT；不得在会商输出中暗改分数。",
+    "themes": [
+      {
+        "id": "grid",
+        "name": "电网、特高压与电力数字化",
+        "grade": "B+",
+        "score": 75,
+        "score_components": {
+          "demand": 20,
+          "earnings": 15,
+          "cash": 15,
+          "valuation": 15,
+          "market": 10
+        },
+        "score_summary": "四万亿元多年投资提供最强需求可见度；国电南瑞盈利为正、估值中性，但股价低于MA20/60/120且60/120日相对收益为负。",
+        "market_evidence": {
+          "date": "2026-08-25",
+          "board_change_pct": 1.13,
+          "board_advance_ratio": 0.8
+        },
+        "hard_fail": "连续两个季度订单增速低于10%，合同负债下降且经营现金流显著落后净利润。"
+      },
+      {
+        "id": "semiconductor",
+        "name": "AI算力与国产集成电路制造",
+        "grade": "B-",
+        "score": 65,
+        "score_components": {
+          "demand": 20,
+          "earnings": 20,
+          "cash": 10,
+          "valuation": 5,
+          "market": 10
+        },
+        "score_summary": "收入、毛利和利用率验证最强，但中芯国际PE-TTM约204倍，代表股低于三条均线且板块当日上涨家数不足一半。",
+        "market_evidence": {
+          "date": "2026-08-25",
+          "board_change_pct": -0.4,
+          "board_advance_ratio": 0.4153
+        },
+        "hard_fail": "利用率低于85%、毛利率低于22%，或存货连续两个季度快于收入。"
+      },
+      {
+        "id": "pharma",
+        "name": "创新药出海与授权交易",
+        "grade": "C",
+        "score": 45,
+        "score_components": {
+          "demand": 15,
+          "earnings": 10,
+          "cash": 5,
+          "valuation": 5,
+          "market": 10
+        },
+        "score_summary": "创新药销售仍增长，但恒瑞收入、扣非、FCF与趋势同时偏弱，估值余量不足。",
+        "market_evidence": {
+          "date": "2026-08-25",
+          "board_change_pct": 2.19,
+          "board_advance_ratio": 0.8112
+        },
+        "hard_fail": "剔除许可收入后核心产品增速降至个位数，或关键三期临床失败。"
+      },
+      {
+        "id": "appliance",
+        "name": "白色家电全球化与节能更新",
+        "grade": "A-",
+        "score": 80,
+        "score_components": {
+          "demand": 15,
+          "earnings": 10,
+          "cash": 15,
+          "valuation": 20,
+          "market": 20
+        },
+        "score_summary": "美的估值与股息利差合理、站上MA20/60/120且60/120日显著跑赢沪深300；扣非利润下降使其只能是A-而非A。",
+        "market_evidence": {
+          "date": "2026-08-25",
+          "board_change_pct": 1.42,
+          "board_advance_ratio": 0.8182
+        },
+        "hard_fail": "经营现金流连续下降、海外毛利率明显恶化，或补贴后家电零售仍低于2%。"
+      },
+      {
+        "id": "dividend",
+        "name": "高股息与可解释现金流",
+        "grade": "B+",
+        "score": 75,
+        "score_components": {
+          "demand": 15,
+          "earnings": 12,
+          "cash": 15,
+          "valuation": 18,
+          "market": 15
+        },
+        "score_summary": "长电与移动估值、股息和相对强弱具备防御属性，但移动FCF不能覆盖分红、长电股息利差略低于预设PASS线。",
+        "market_evidence": {
+          "date": "2026-08-25",
+          "board_change_pct": 0.05,
+          "board_advance_ratio": 0.5638
+        },
+        "hard_fail": "派息靠负债、处置资产或削减必要资本开支维持。"
+      },
+      {
+        "id": "robotics",
+        "name": "具身智能与机器人",
+        "grade": "C",
+        "score": 35,
+        "score_components": {
+          "demand": 10,
+          "earnings": 5,
+          "cash": 5,
+          "valuation": 5,
+          "market": 10
+        },
+        "score_summary": "同日板块广度较高，但缺稳定订单、单位经济、自由现金流和代表股完整门禁。",
+        "market_evidence": {
+          "date": "2026-08-25",
+          "board_change_pct": 1.37,
+          "board_advance_ratio": 0.737
+        },
+        "hard_fail": "交付时点持续后延、只见概念成交而无真实终端订单，或扩产导致毛利连续下滑。"
+      }
+    ],
+    "stocks": [
+      {
+        "symbol": "600900",
+        "name": "长江电力",
+        "pre_round4_decision": "watch",
+        "proposed_execution_tier": null,
+        "financial_cutoff": "2026Q1 / 披露2026-04-30",
+        "quality_evidence": {
+          "status": "pass",
+          "period": "2026Q1 / 2025A",
+          "cfo": 117.11,
+          "capex": 32.2,
+          "fcf": 84.9,
+          "fcf_to_profit": 1.26,
+          "annual": "2025粗FCF420.74亿元、FCF/归母1.22×、覆盖现金分红1.72×、ROE15.90%。",
+          "conclusion": "即使把全部购建长期资产现金视为维护性资本开支，Q1和全年现金质量仍过预设门。"
+        },
+        "valuation_evidence": {
+          "status": "watch",
+          "pe_ttm": 19.13,
+          "dividend_yield_pct": 3.54,
+          "dividend_spread_pp": 1.86,
+          "annual_fcf_yield_pct": 6.095486591944659,
+          "conclusion": "PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。"
+        },
+        "technical_evidence": {
+          "return_60d": 0.0456,
+          "excess_60d": 0.1059,
+          "return_120d": 0.0775,
+          "excess_120d": 0.0998,
+          "above_ma20": false,
+          "above_ma60": true,
+          "above_ma120": true
+        },
+        "five_gate_result": {
+          "fact": "pass",
+          "mechanism": "pass",
+          "quality": "pass",
+          "valuation": "watch",
+          "falsifier": "pass",
+          "non_pass_notes": {
+            "valuation": "PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。"
+          },
+          "falsifier_note": "粗FCF/现金分红<1.0×，或发电量同比≤-10%且平均结算电价同比≤-5%连续两期即FAIL。"
+        }
+      },
+      {
+        "symbol": "000333",
+        "name": "美的集团",
+        "pre_round4_decision": "satellite",
+        "proposed_execution_tier": "satellite",
+        "financial_cutoff": "2026Q1 / 披露2026-04-30",
+        "quality_evidence": {
+          "status": "pass",
+          "period": "2026Q1 / 2025A",
+          "cfo": 145.29,
+          "capex": 21.43,
+          "fcf": 123.86,
+          "fcf_to_profit": 0.98,
+          "annual": "2025 CFO533.46亿元、粗FCF422.04亿元、FCF/归母0.96×、覆盖现金分红1.30×、ROE19.70%；海外毛利率26.60%，同比仅-0.22pp。",
+          "conclusion": "2025 CFO/归母1.21×、粗FCF/分红1.30×、ROE19.70%；购建支出111.42亿元、营运资本约释现52.80亿元，海外毛利率仅降0.22pp，均已拆清。Q1扣非-14.02%作为下一期证伪，不追认成FAIL。"
+        },
+        "valuation_evidence": {
+          "status": "pass",
+          "pe_ttm": 14.96,
+          "dividend_yield_pct": 4.96,
+          "dividend_spread_pp": 3.2800000000000002,
+          "annual_fcf_yield_pct": 6.381584006892653,
+          "conclusion": "PE-TTM14.96×、2025粗FCF收益率6.38%、股息率较10年国债利差3.28pp，稳定现金流轨道三项全部通过。"
+        },
+        "technical_evidence": {
+          "return_60d": 0.1117,
+          "excess_60d": 0.172,
+          "return_120d": 0.1902,
+          "excess_120d": 0.2125,
+          "above_ma20": true,
+          "above_ma60": true,
+          "above_ma120": true
+        },
+        "five_gate_result": {
+          "fact": "pass",
+          "mechanism": "pass",
+          "quality": "pass",
+          "valuation": "pass",
+          "falsifier": "pass",
+          "non_pass_notes": {},
+          "falsifier_note": "CFO/归母<0.8×、收入或利润转负、或海外毛利率同比下降≥2pp连续两期即FAIL。"
+        }
+      },
+      {
+        "symbol": "300750",
+        "name": "宁德时代",
+        "pre_round4_decision": "watch",
+        "proposed_execution_tier": null,
+        "financial_cutoff": "2026H1 / 披露2026-07-26",
+        "quality_evidence": {
+          "status": "watch",
+          "period": "2026H1 / 2025A",
+          "cfo": 602.17,
+          "capex": 250.73,
+          "fcf": 351.44,
+          "fcf_to_profit": 0.81,
+          "annual": "2025粗FCF908.75亿元、FCF/归母1.26×、覆盖现金分红2.52×、ROE24.91%。",
+          "conclusion": "2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。"
+        },
+        "valuation_evidence": {
+          "status": "pass",
+          "pe_ttm": 20.51,
+          "dividend_yield_pct": 2.19,
+          "dividend_spread_pp": 0.51,
+          "annual_fcf_yield_pct": 5.2137128653516,
+          "conclusion": "PE-TTM20.51×、2025粗FCF收益率5.21%，H1收入/归母净利+54.8%/+42.0%，成长轨道三项全部通过；质量门仍独立为WATCH。"
+        },
+        "technical_evidence": {
+          "return_60d": -0.1002,
+          "excess_60d": -0.0399,
+          "return_120d": 0.122,
+          "excess_120d": 0.1443,
+          "above_ma20": false,
+          "above_ma60": false,
+          "above_ma120": false
+        },
+        "five_gate_result": {
+          "fact": "watch",
+          "mechanism": "pass",
+          "quality": "watch",
+          "valuation": "pass",
+          "falsifier": "pass",
+          "non_pass_notes": {
+            "fact": "2026H1财务已披露，但公司未给出同口径H1销量、ASP与利用率，事实门保留WATCH。",
+            "quality": "2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。"
+          },
+          "falsifier_note": "FCF/归母<0.8×且收入增速<10%连续两期，或利用率<85%且收入/GWh代理再降≥10%而capex仍增即FAIL。"
+        }
+      },
+      {
+        "symbol": "600276",
+        "name": "恒瑞医药",
+        "pre_round4_decision": "reject",
+        "proposed_execution_tier": null,
+        "financial_cutoff": "2026H1 / 披露2026-08-19",
+        "quality_evidence": {
+          "status": "watch",
+          "period": "2026H1 / 2025A",
+          "cfo": 19.87,
+          "capex": 15.78,
+          "fcf": 4.09,
+          "fcf_to_profit": 0.09,
+          "annual": "2025粗FCF82.73亿元、FCF/归母1.07×；2026H1许可收入14.22亿元，流动及长期合同负债合计下降43.7%。",
+          "conclusion": "最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。"
+        },
+        "valuation_evidence": {
+          "status": "fail",
+          "pe_ttm": 39.94,
+          "dividend_yield_pct": 0.43,
+          "dividend_spread_pp": -1.25,
+          "annual_fcf_yield_pct": 2.6811343815683437,
+          "conclusion": "PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。"
+        },
+        "technical_evidence": {
+          "return_60d": -0.0545,
+          "excess_60d": 0.0058,
+          "return_120d": -0.1296,
+          "excess_120d": -0.1073,
+          "above_ma20": false,
+          "above_ma60": false,
+          "above_ma120": false
+        },
+        "five_gate_result": {
+          "fact": "pass",
+          "mechanism": "pass",
+          "quality": "watch",
+          "valuation": "fail",
+          "falsifier": "pass",
+          "non_pass_notes": {
+            "quality": "最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。",
+            "valuation": "PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。"
+          },
+          "falsifier_note": "剔除许可后核心销售转负、关键三期失败/延期，或CFO/归母<1.0×连续两期即FAIL。"
+        }
+      },
+      {
+        "symbol": "600941",
+        "name": "中国移动",
+        "pre_round4_decision": "reject",
+        "proposed_execution_tier": null,
+        "financial_cutoff": "2026H1 / 披露2026-08-13",
+        "quality_evidence": {
+          "status": "fail",
+          "period": "2026H1 / 2025A",
+          "cfo": 1148.54,
+          "capex": 609.54,
+          "fcf": 539,
+          "fcf_to_profit": 0.68,
+          "annual": "2025公司披露FCF820.41亿元、覆盖同期实际现金分红0.806×；2026H1 FCF覆盖同期宣告中期股利0.990×。",
+          "conclusion": "连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。"
+        },
+        "valuation_evidence": {
+          "status": "watch",
+          "pe_ttm": 16.27,
+          "dividend_yield_pct": 4.76,
+          "dividend_spread_pp": 3.08,
+          "annual_fcf_yield_pct": 3.8265427608791827,
+          "conclusion": "PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。"
+        },
+        "technical_evidence": {
+          "return_60d": 0.0223,
+          "excess_60d": 0.0827,
+          "return_120d": 0.0581,
+          "excess_120d": 0.0804,
+          "above_ma20": true,
+          "above_ma60": true,
+          "above_ma120": true
+        },
+        "five_gate_result": {
+          "fact": "pass",
+          "mechanism": "watch",
+          "quality": "fail",
+          "valuation": "watch",
+          "falsifier": "pass",
+          "non_pass_notes": {
+            "mechanism": "算力收入增长已披露，但分业务资本回报尚未披露，机制门保持WATCH。",
+            "quality": "连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。",
+            "valuation": "PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。"
+          },
+          "falsifier_note": "同利润归属期FCF/股利<1.0×连续两期，或通信服务收入连续两期负增长即FAIL。"
+        }
+      },
+      {
+        "symbol": "600519",
+        "name": "贵州茅台",
+        "pre_round4_decision": "watch",
+        "proposed_execution_tier": null,
+        "financial_cutoff": "2026H1 / 披露2026-08-15",
+        "quality_evidence": {
+          "status": "watch",
+          "period": "2026H1 / 2025A",
+          "cfo": 706.91,
+          "capex": 8.32,
+          "fcf": 698.59,
+          "fcf_to_profit": 1.57,
+          "annual": "剔除财务公司专属现金流行后，2025调整FCF约722.09亿元、FCF/归母0.877×、现金分红覆盖1.110×。",
+          "conclusion": "归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。"
+        },
+        "valuation_evidence": {
+          "status": "watch",
+          "pe_ttm": 20.02,
+          "dividend_yield_pct": 3.99,
+          "dividend_spread_pp": 2.3100000000000005,
+          "annual_fcf_yield_pct": 4.429692421227013,
+          "conclusion": "PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。"
+        },
+        "technical_evidence": {
+          "return_60d": 0.0175,
+          "excess_60d": 0.0778,
+          "return_120d": -0.0673,
+          "excess_120d": -0.045,
+          "above_ma20": false,
+          "above_ma60": true,
+          "above_ma120": false
+        },
+        "five_gate_result": {
+          "fact": "watch",
+          "mechanism": "watch",
+          "quality": "watch",
+          "valuation": "watch",
+          "falsifier": "pass",
+          "non_pass_notes": {
+            "fact": "财报与点时估值已冻结，但没有发行人可复核的批价和渠道库存序列，事实门保留WATCH。",
+            "mechanism": "品牌需求可传导至主品收入和回款，但批价/渠道库存缺乏一手序列，机制门保持WATCH。",
+            "quality": "归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。",
+            "valuation": "PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。"
+          },
+          "falsifier_note": "茅台酒收入转负、调整FCF/归母<0.6×，或境内经销商净减少≥50家连续两期即FAIL。"
+        }
+      }
+    ],
+    "stock_decision_rule": "只核前五门，忽略预留council=OPEN：FAIL→REJECT；否则OPEN→INCOMPLETE；否则WATCH→WATCH；全PASS→proposed_execution_tier，未预设则SATELLITE。另给council_vote=PASS|WATCH|REJECT，不得回写前五门。",
+    "peer_challenges": [
+      "经营现金流不等于扣除维护性资本开支后的自由现金流。",
+      "成交与资金确认不能替代公司价值，但静态公司质量也不能替代周期风险。",
+      "政策总盘子不能直接推出单家公司份额、毛利和回款。",
+      "短缺与高利润会诱发资本开支，最终可能转成过剩。",
+      "品牌、红利、创新药授权和高增长都可能被标签偏误高估。",
+      "五个角色共享同一底层模型，投票不是独立概率。"
+    ]
+  },
+  "runs": [
+    {
+      "master_id": "duan-yongping-perspective",
+      "method_role": "段永平",
+      "persona_disclaimer": "AI方法论角色；相关真人未参与、未审核、未背书。",
+      "prompt": "执行 Hanai A股一年展望 Round 4 一致性复核。你是“段永平”方法论AI角色；相关真人未参与、审核或背书。只用冻结事实包，不联网补数，不把五个同源角色当独立概率。主题分级及前五门是待核映射，不可按个人偏好改写。\n\n任务：\n1. 用base/upside/downside各一次给情景排序，不给概率。\n2. 回应3—4条peer_challenges，明确accepted_revision。\n3. 六主题严格按theme_review_rule输出PASS/WATCH/REJECT，不重算分数。\n4. 六股严格按five_gate_result及stock_decision_rule输出decision；另给council_vote。发现输入映射矛盾才写INCONSISTENT。\n5. latest_fact_changes最多6条。不得给目标价、仓位、买入指令或收益承诺。\n\n只输出一个JSON对象，无Markdown/围栏/前后缀，总长度不超过6000字符。所有解释字段每项不超过60个汉字。必需字段：\n{\"method_role\":\"...\",\"scenario_rank\":[\"base\",\"upside\",\"downside\"],\"strongest_switch\":\"...\",\"peer_replies\":[{\"claim\":\"...\",\"reply\":\"...\"}],\"accepted_revision\":\"...\",\"themes\":{\"grid\":\"...\",\"semiconductor\":\"...\",\"pharma\":\"...\",\"appliance\":\"...\",\"dividend\":\"...\",\"robotics\":\"...\"},\"stocks\":{\"600900\":S,\"000333\":S,\"300750\":S,\"600276\":S,\"600941\":S,\"600519\":S},\"latest_fact_changes\":[\"...\"],\"strongest_objection\":\"...\"}\nS={\"decision\":\"CORE|SATELLITE|WATCH|REJECT|INCOMPLETE\",\"council_vote\":\"PASS|WATCH|REJECT\",\"gate_audit\":\"CONSISTENT|INCONSISTENT\",\"reason\":\"...\",\"missing_evidence\":\"...\",\"hard_fail\":\"...\"}；themes值只能PASS|WATCH|REJECT。\n\n冻结事实包：\n{\"as_of\":\"2026-08-25\",\"market_data_cutoff\":\"2026-08-25\",\"forecast_window\":[\"2026-08-25\",\"2027-08-25\"],\"scenario_rule\":\"每项按本报告冻结阈值记+1/0/-1。可评估≥5且上行≥4、总分≥+3时为盈利扩散；否则，可评估≥5且压力≥4、总分≤-3时为二次探底；其余为结构市/数据待确认。未知或断档记0并标pending，不可跨期拼接。当前覆盖不足，状态为base_pending。阈值是本报告研究门槛，不是官方标准或历史校准模型。\",\"scenarios\":[{\"id\":\"base\",\"name\":\"基准：结构市延续\",\"priority\":\"主情景\",\"description\":\"现有报告只够把状态暂定为结构市 / 数据不足；六项开关尚未形成可确认的广泛上行或压力共振。\"},{\"id\":\"upside\",\"name\":\"乐观：盈利扩散\",\"priority\":\"备选情景\",\"description\":\"财政资金与信用传导改善，盈利从电子、有色等少数行业扩散至中游设备、可选消费和金融，市场宽度恢复。\"},{\"id\":\"downside\",\"name\":\"悲观：二次探底\",\"priority\":\"压力情景\",\"description\":\"地产和内需继续收缩，叠加出口、能源或外部利率冲击；高估值成长与强周期率先压缩估值。\"}],\"scenario_indicators\":[{\"name\":\"规模以上工业增加值\",\"current\":\"+5.3%（2026年1—7月）\",\"upside\":\"累计同比≥6%，连续3次发布\",\"downside\":\"累计同比≤4%，连续3次发布\"},{\"name\":\"社会消费品零售\",\"current\":\"+1.2%（2026年1—7月）\",\"upside\":\"累计同比≥3%，连续3次发布\",\"downside\":\"累计同比≤0%，连续3次发布\"},{\"name\":\"商品房销售额\",\"current\":\"-13.1%（2026年1—7月）\",\"upside\":\"累计同比≥-5%，连续3次发布\",\"downside\":\"累计同比≤-15%，连续3次发布\"},{\"name\":\"PPI环比\",\"current\":\"-0.7%（2026-07；单期）\",\"upside\":\">0%，连续3月\",\"downside\":\"<0%，连续3月\"},{\"name\":\"工业利润与广度\",\"current\":\"总额+18.7%，电子贡献约45%（2026H1）\",\"upside\":\"利润≥10%且电子增量贡献≤30%，连续2次\",\"downside\":\"利润<5%，连续2次\"},{\"name\":\"政府性基金收入\",\"current\":\"-21.6%（2026H1；单期）\",\"upside\":\"累计同比≥-5%，连续2次发布\",\"downside\":\"累计同比≤-15%，连续2次发布\"}],\"macro_evidence\":[{\"label\":\"2026H1 GDP\",\"value\":\"+4.7%\",\"tone\":\"watch\"},{\"label\":\"1—7月工业\",\"value\":\"+5.3%\",\"tone\":\"positive\"},{\"label\":\"1—7月社零\",\"value\":\"+1.2%\",\"tone\":\"watch\"},{\"label\":\"地产开发投资\",\"value\":\"-19.2%\",\"tone\":\"negative\"},{\"label\":\"7月CPI / PPI\",\"value\":\"+0.5% / +3.5%\",\"tone\":\"watch\"},{\"label\":\"H1工业利润\",\"value\":\"+18.7%\",\"tone\":\"positive\"},{\"label\":\"8月LPR\",\"value\":\"3.0% / 3.5%\",\"tone\":\"neutral\"},{\"label\":\"H1政府性基金收入\",\"value\":\"-21.6%\",\"tone\":\"negative\"},{\"label\":\"7月PMI / 新订单\",\"value\":\"49.2 / 48.5\",\"tone\":\"watch\"}],\"market_snapshot\":{\"date\":\"2026-08-25\",\"hs300\":{\"return_20d\":-0.0038,\"return_60d\":-0.0603,\"return_120d\":-0.0223,\"above_ma20\":false,\"above_ma60\":false,\"above_ma120\":false},\"breadth_advance_ratio\":0.7728,\"government_bond_10y_pct\":1.68,\"interpretation\":\"沪深300低于MA20/60/120，而当日上涨家数占涨跌家数77.3%；这是弱中期趋势中的单日普涨，不能单独定义反转。\"},\"theme_scoring\":{\"components\":[\"demand\",\"earnings\",\"cash\",\"valuation\",\"market\"],\"grade_mapping\":{\"A\":85,\"A-\":80,\"B+\":75,\"B\":70,\"B-\":60,\"C\":0},\"execution_separation\":\"主题A/A-只表示本版证据评分较高，不等于股票可买；股票必须另过事实、机制、质量、估值、反证和会商六门。\"},\"theme_review_rule\":\"score/grade是按报告公开尺度形成的人工证据评分，不是概率，也不是专家自由投票。Round 4只审计映射一致性：A或A-→PASS；B+、B或B-→WATCH；C→REJECT；不得在会商输出中暗改分数。\",\"themes\":[{\"id\":\"grid\",\"name\":\"电网、特高压与电力数字化\",\"grade\":\"B+\",\"score\":75,\"score_components\":{\"demand\":20,\"earnings\":15,\"cash\":15,\"valuation\":15,\"market\":10},\"score_summary\":\"四万亿元多年投资提供最强需求可见度；国电南瑞盈利为正、估值中性，但股价低于MA20/60/120且60/120日相对收益为负。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":1.13,\"board_advance_ratio\":0.8},\"hard_fail\":\"连续两个季度订单增速低于10%，合同负债下降且经营现金流显著落后净利润。\"},{\"id\":\"semiconductor\",\"name\":\"AI算力与国产集成电路制造\",\"grade\":\"B-\",\"score\":65,\"score_components\":{\"demand\":20,\"earnings\":20,\"cash\":10,\"valuation\":5,\"market\":10},\"score_summary\":\"收入、毛利和利用率验证最强，但中芯国际PE-TTM约204倍，代表股低于三条均线且板块当日上涨家数不足一半。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":-0.4,\"board_advance_ratio\":0.4153},\"hard_fail\":\"利用率低于85%、毛利率低于22%，或存货连续两个季度快于收入。\"},{\"id\":\"pharma\",\"name\":\"创新药出海与授权交易\",\"grade\":\"C\",\"score\":45,\"score_components\":{\"demand\":15,\"earnings\":10,\"cash\":5,\"valuation\":5,\"market\":10},\"score_summary\":\"创新药销售仍增长，但恒瑞收入、扣非、FCF与趋势同时偏弱，估值余量不足。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":2.19,\"board_advance_ratio\":0.8112},\"hard_fail\":\"剔除许可收入后核心产品增速降至个位数，或关键三期临床失败。\"},{\"id\":\"appliance\",\"name\":\"白色家电全球化与节能更新\",\"grade\":\"A-\",\"score\":80,\"score_components\":{\"demand\":15,\"earnings\":10,\"cash\":15,\"valuation\":20,\"market\":20},\"score_summary\":\"美的估值与股息利差合理、站上MA20/60/120且60/120日显著跑赢沪深300；扣非利润下降使其只能是A-而非A。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":1.42,\"board_advance_ratio\":0.8182},\"hard_fail\":\"经营现金流连续下降、海外毛利率明显恶化，或补贴后家电零售仍低于2%。\"},{\"id\":\"dividend\",\"name\":\"高股息与可解释现金流\",\"grade\":\"B+\",\"score\":75,\"score_components\":{\"demand\":15,\"earnings\":12,\"cash\":15,\"valuation\":18,\"market\":15},\"score_summary\":\"长电与移动估值、股息和相对强弱具备防御属性，但移动FCF不能覆盖分红、长电股息利差略低于预设PASS线。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":0.05,\"board_advance_ratio\":0.5638},\"hard_fail\":\"派息靠负债、处置资产或削减必要资本开支维持。\"},{\"id\":\"robotics\",\"name\":\"具身智能与机器人\",\"grade\":\"C\",\"score\":35,\"score_components\":{\"demand\":10,\"earnings\":5,\"cash\":5,\"valuation\":5,\"market\":10},\"score_summary\":\"同日板块广度较高，但缺稳定订单、单位经济、自由现金流和代表股完整门禁。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":1.37,\"board_advance_ratio\":0.737},\"hard_fail\":\"交付时点持续后延、只见概念成交而无真实终端订单，或扩产导致毛利连续下滑。\"}],\"stocks\":[{\"symbol\":\"600900\",\"name\":\"长江电力\",\"pre_round4_decision\":\"watch\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026Q1 / 披露2026-04-30\",\"quality_evidence\":{\"status\":\"pass\",\"period\":\"2026Q1 / 2025A\",\"cfo\":117.11,\"capex\":32.2,\"fcf\":84.9,\"fcf_to_profit\":1.26,\"annual\":\"2025粗FCF420.74亿元、FCF/归母1.22×、覆盖现金分红1.72×、ROE15.90%。\",\"conclusion\":\"即使把全部购建长期资产现金视为维护性资本开支，Q1和全年现金质量仍过预设门。\"},\"valuation_evidence\":{\"status\":\"watch\",\"pe_ttm\":19.13,\"dividend_yield_pct\":3.54,\"dividend_spread_pp\":1.86,\"annual_fcf_yield_pct\":6.095486591944659,\"conclusion\":\"PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。\"},\"technical_evidence\":{\"return_60d\":0.0456,\"excess_60d\":0.1059,\"return_120d\":0.0775,\"excess_120d\":0.0998,\"above_ma20\":false,\"above_ma60\":true,\"above_ma120\":true},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"pass\",\"quality\":\"pass\",\"valuation\":\"watch\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"valuation\":\"PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。\"},\"falsifier_note\":\"粗FCF/现金分红<1.0×，或发电量同比≤-10%且平均结算电价同比≤-5%连续两期即FAIL。\"}},{\"symbol\":\"000333\",\"name\":\"美的集团\",\"pre_round4_decision\":\"satellite\",\"proposed_execution_tier\":\"satellite\",\"financial_cutoff\":\"2026Q1 / 披露2026-04-30\",\"quality_evidence\":{\"status\":\"pass\",\"period\":\"2026Q1 / 2025A\",\"cfo\":145.29,\"capex\":21.43,\"fcf\":123.86,\"fcf_to_profit\":0.98,\"annual\":\"2025 CFO533.46亿元、粗FCF422.04亿元、FCF/归母0.96×、覆盖现金分红1.30×、ROE19.70%；海外毛利率26.60%，同比仅-0.22pp。\",\"conclusion\":\"2025 CFO/归母1.21×、粗FCF/分红1.30×、ROE19.70%；购建支出111.42亿元、营运资本约释现52.80亿元，海外毛利率仅降0.22pp，均已拆清。Q1扣非-14.02%作为下一期证伪，不追认成FAIL。\"},\"valuation_evidence\":{\"status\":\"pass\",\"pe_ttm\":14.96,\"dividend_yield_pct\":4.96,\"dividend_spread_pp\":3.2800000000000002,\"annual_fcf_yield_pct\":6.381584006892653,\"conclusion\":\"PE-TTM14.96×、2025粗FCF收益率6.38%、股息率较10年国债利差3.28pp，稳定现金流轨道三项全部通过。\"},\"technical_evidence\":{\"return_60d\":0.1117,\"excess_60d\":0.172,\"return_120d\":0.1902,\"excess_120d\":0.2125,\"above_ma20\":true,\"above_ma60\":true,\"above_ma120\":true},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"pass\",\"quality\":\"pass\",\"valuation\":\"pass\",\"falsifier\":\"pass\",\"non_pass_notes\":{},\"falsifier_note\":\"CFO/归母<0.8×、收入或利润转负、或海外毛利率同比下降≥2pp连续两期即FAIL。\"}},{\"symbol\":\"300750\",\"name\":\"宁德时代\",\"pre_round4_decision\":\"watch\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-07-26\",\"quality_evidence\":{\"status\":\"watch\",\"period\":\"2026H1 / 2025A\",\"cfo\":602.17,\"capex\":250.73,\"fcf\":351.44,\"fcf_to_profit\":0.81,\"annual\":\"2025粗FCF908.75亿元、FCF/归母1.26×、覆盖现金分红2.52×、ROE24.91%。\",\"conclusion\":\"2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。\"},\"valuation_evidence\":{\"status\":\"pass\",\"pe_ttm\":20.51,\"dividend_yield_pct\":2.19,\"dividend_spread_pp\":0.51,\"annual_fcf_yield_pct\":5.2137128653516,\"conclusion\":\"PE-TTM20.51×、2025粗FCF收益率5.21%，H1收入/归母净利+54.8%/+42.0%，成长轨道三项全部通过；质量门仍独立为WATCH。\"},\"technical_evidence\":{\"return_60d\":-0.1002,\"excess_60d\":-0.0399,\"return_120d\":0.122,\"excess_120d\":0.1443,\"above_ma20\":false,\"above_ma60\":false,\"above_ma120\":false},\"five_gate_result\":{\"fact\":\"watch\",\"mechanism\":\"pass\",\"quality\":\"watch\",\"valuation\":\"pass\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"fact\":\"2026H1财务已披露，但公司未给出同口径H1销量、ASP与利用率，事实门保留WATCH。\",\"quality\":\"2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。\"},\"falsifier_note\":\"FCF/归母<0.8×且收入增速<10%连续两期，或利用率<85%且收入/GWh代理再降≥10%而capex仍增即FAIL。\"}},{\"symbol\":\"600276\",\"name\":\"恒瑞医药\",\"pre_round4_decision\":\"reject\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-08-19\",\"quality_evidence\":{\"status\":\"watch\",\"period\":\"2026H1 / 2025A\",\"cfo\":19.87,\"capex\":15.78,\"fcf\":4.09,\"fcf_to_profit\":0.09,\"annual\":\"2025粗FCF82.73亿元、FCF/归母1.07×；2026H1许可收入14.22亿元，流动及长期合同负债合计下降43.7%。\",\"conclusion\":\"最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。\"},\"valuation_evidence\":{\"status\":\"fail\",\"pe_ttm\":39.94,\"dividend_yield_pct\":0.43,\"dividend_spread_pp\":-1.25,\"annual_fcf_yield_pct\":2.6811343815683437,\"conclusion\":\"PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。\"},\"technical_evidence\":{\"return_60d\":-0.0545,\"excess_60d\":0.0058,\"return_120d\":-0.1296,\"excess_120d\":-0.1073,\"above_ma20\":false,\"above_ma60\":false,\"above_ma120\":false},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"pass\",\"quality\":\"watch\",\"valuation\":\"fail\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"quality\":\"最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。\",\"valuation\":\"PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。\"},\"falsifier_note\":\"剔除许可后核心销售转负、关键三期失败/延期，或CFO/归母<1.0×连续两期即FAIL。\"}},{\"symbol\":\"600941\",\"name\":\"中国移动\",\"pre_round4_decision\":\"reject\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-08-13\",\"quality_evidence\":{\"status\":\"fail\",\"period\":\"2026H1 / 2025A\",\"cfo\":1148.54,\"capex\":609.54,\"fcf\":539,\"fcf_to_profit\":0.68,\"annual\":\"2025公司披露FCF820.41亿元、覆盖同期实际现金分红0.806×；2026H1 FCF覆盖同期宣告中期股利0.990×。\",\"conclusion\":\"连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。\"},\"valuation_evidence\":{\"status\":\"watch\",\"pe_ttm\":16.27,\"dividend_yield_pct\":4.76,\"dividend_spread_pp\":3.08,\"annual_fcf_yield_pct\":3.8265427608791827,\"conclusion\":\"PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。\"},\"technical_evidence\":{\"return_60d\":0.0223,\"excess_60d\":0.0827,\"return_120d\":0.0581,\"excess_120d\":0.0804,\"above_ma20\":true,\"above_ma60\":true,\"above_ma120\":true},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"watch\",\"quality\":\"fail\",\"valuation\":\"watch\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"mechanism\":\"算力收入增长已披露，但分业务资本回报尚未披露，机制门保持WATCH。\",\"quality\":\"连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。\",\"valuation\":\"PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。\"},\"falsifier_note\":\"同利润归属期FCF/股利<1.0×连续两期，或通信服务收入连续两期负增长即FAIL。\"}},{\"symbol\":\"600519\",\"name\":\"贵州茅台\",\"pre_round4_decision\":\"watch\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-08-15\",\"quality_evidence\":{\"status\":\"watch\",\"period\":\"2026H1 / 2025A\",\"cfo\":706.91,\"capex\":8.32,\"fcf\":698.59,\"fcf_to_profit\":1.57,\"annual\":\"剔除财务公司专属现金流行后，2025调整FCF约722.09亿元、FCF/归母0.877×、现金分红覆盖1.110×。\",\"conclusion\":\"归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。\"},\"valuation_evidence\":{\"status\":\"watch\",\"pe_ttm\":20.02,\"dividend_yield_pct\":3.99,\"dividend_spread_pp\":2.3100000000000005,\"annual_fcf_yield_pct\":4.429692421227013,\"conclusion\":\"PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。\"},\"technical_evidence\":{\"return_60d\":0.0175,\"excess_60d\":0.0778,\"return_120d\":-0.0673,\"excess_120d\":-0.045,\"above_ma20\":false,\"above_ma60\":true,\"above_ma120\":false},\"five_gate_result\":{\"fact\":\"watch\",\"mechanism\":\"watch\",\"quality\":\"watch\",\"valuation\":\"watch\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"fact\":\"财报与点时估值已冻结，但没有发行人可复核的批价和渠道库存序列，事实门保留WATCH。\",\"mechanism\":\"品牌需求可传导至主品收入和回款，但批价/渠道库存缺乏一手序列，机制门保持WATCH。\",\"quality\":\"归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。\",\"valuation\":\"PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。\"},\"falsifier_note\":\"茅台酒收入转负、调整FCF/归母<0.6×，或境内经销商净减少≥50家连续两期即FAIL。\"}}],\"stock_decision_rule\":\"只核前五门，忽略预留council=OPEN：FAIL→REJECT；否则OPEN→INCOMPLETE；否则WATCH→WATCH；全PASS→proposed_execution_tier，未预设则SATELLITE。另给council_vote=PASS|WATCH|REJECT，不得回写前五门。\",\"peer_challenges\":[\"经营现金流不等于扣除维护性资本开支后的自由现金流。\",\"成交与资金确认不能替代公司价值，但静态公司质量也不能替代周期风险。\",\"政策总盘子不能直接推出单家公司份额、毛利和回款。\",\"短缺与高利润会诱发资本开支，最终可能转成过剩。\",\"品牌、红利、创新药授权和高增长都可能被标签偏误高估。\",\"五个角色共享同一底层模型，投票不是独立概率。\"]}",
+      "prompt_mode": "standard",
+      "prompt_sha256": "bb81ac25f25d0abf22a88fdaa912a79962ec2a1eaa19231ec1472486b18ba6fc",
+      "skill_sha256": "f63ef9ced37e115fccc7edae531e9827d2b370160ef5f4a7c72d101bab70ece7",
+      "agents_sha256": "b4d26b26eab06b5aeeaf916924f0974f291e2347745777b3c74f6d8aca27fff7",
+      "stdout": "{\"method_role\":\"段永平\",\"scenario_rank\":[\"base\",\"downside\",\"upside\"],\"strongest_switch\":\"政府性基金收入单期-21.6%最深，转暖至≥-5%是财政传导与盈利扩散的最强单开关。\",\"peer_replies\":[{\"claim\":\"经营现金流不等于扣除维护性资本开支后的自由现金流。\",\"reply\":\"采纳。质量门用粗FCF=CFO-购建支出，未当精确FCF；恒瑞、移动FAIL即按此口径闭环。\"},{\"claim\":\"政策总盘子不能直接推出单家公司份额、毛利和回款。\",\"reply\":\"采纳。电网B+只给需求可见度，不推国电南瑞份额；个股另过六门。\"},{\"claim\":\"品牌、红利、创新药授权和高增长都可能被标签偏误高估。\",\"reply\":\"采纳。恒瑞剔除授权后核心转弱已计FAIL；茅台与高股息因标签风险保留WATCH。\"},{\"claim\":\"五个角色共享同一底层模型，投票不是独立概率。\",\"reply\":\"采纳。council_vote只作会商记录，不按独立概率加总，不回写前五门。\"}],\"accepted_revision\":\"采纳四条：CFO≠FCF按粗口径、政策盘不推个股、标签风险计入门、五角色同源不计独立概率。\",\"themes\":{\"grid\":\"WATCH\",\"semiconductor\":\"WATCH\",\"pharma\":\"REJECT\",\"appliance\":\"PASS\",\"dividend\":\"WATCH\",\"robotics\":\"REJECT\"},\"stocks\":{\"600900\":{\"decision\":\"WATCH\",\"council_vote\":\"WATCH\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"估值门三项中两项通过，股息利差1.86pp未达标，故WATCH。\",\"missing_evidence\":\"无关键信息缺口。\",\"hard_fail\":\"无触发\"},\"000333\":{\"decision\":\"SATELLITE\",\"council_vote\":\"PASS\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"五门全pass，按预设执行层satellite。\",\"missing_evidence\":\"Q1扣非-14%待下期确认是否连续证伪。\",\"hard_fail\":\"无触发\"},\"300750\":{\"decision\":\"WATCH\",\"council_vote\":\"WATCH\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"事实与质量门watch，H1销量/ASP/利用率缺同口径。\",\"missing_evidence\":\"H1销量、ASP、利用率同口径数据缺失。\",\"hard_fail\":\"无触发\"},\"600276\":{\"decision\":\"REJECT\",\"council_vote\":\"REJECT\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"估值门fail，触发REJECT。\",\"missing_evidence\":\"剔除许可后核心产品增速待下期确认。\",\"hard_fail\":\"估值门FAIL\"},\"600941\":{\"decision\":\"REJECT\",\"council_vote\":\"REJECT\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"质量门fail，FCF连续两期不能覆盖分红。\",\"missing_evidence\":\"分业务资本回报尚未披露。\",\"hard_fail\":\"质量门FAIL\"},\"600519\":{\"decision\":\"WATCH\",\"council_vote\":\"WATCH\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"事实、机制、质量、估值四门皆watch，缺批价库存序列。\",\"missing_evidence\":\"批价与渠道库存一手序列缺失。\",\"hard_fail\":\"无触发\"}},\"latest_fact_changes\":[\"1—7月政府性基金收入-21.6%、地产开发投资-19.2%，财政与地产继续收缩。\",\"7月社零+1.2%、PMI49.2/新订单48.5，消费与订单动能偏弱。\",\"H1工业利润+18.7%但电子贡献约45%，盈利广度未扩散。\",\"恒瑞2026H1扣非与FCF同时转弱、合同负债-43.7%，估值门触发FAIL。\",\"中国移动2026H1 FCF覆盖中期股利仅0.990×，连续两期不能覆盖分红。\",\"茅台2026H1合同负债-60.3%、境内经销商净减46家。\"],\"strongest_objection\":\"五角色同源、投票非独立概率，且多数开关单期或断档，本轮结论是暂定标签而非研判。\"}",
+      "stderr": "",
+      "exit_code": 0,
+      "duration_ms": 206691,
+      "stdout_sha256": "0c7944417589dd61feb0d4c2a5e935df8c2ee72194faeeeac75aa92e40725a4c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "parsed": {
+        "method_role": "段永平",
+        "scenario_rank": [
+          "base",
+          "downside",
+          "upside"
+        ],
+        "strongest_switch": "政府性基金收入单期-21.6%最深，转暖至≥-5%是财政传导与盈利扩散的最强单开关。",
+        "peer_replies": [
+          {
+            "claim": "经营现金流不等于扣除维护性资本开支后的自由现金流。",
+            "reply": "采纳。质量门用粗FCF=CFO-购建支出，未当精确FCF；恒瑞、移动FAIL即按此口径闭环。"
+          },
+          {
+            "claim": "政策总盘子不能直接推出单家公司份额、毛利和回款。",
+            "reply": "采纳。电网B+只给需求可见度，不推国电南瑞份额；个股另过六门。"
+          },
+          {
+            "claim": "品牌、红利、创新药授权和高增长都可能被标签偏误高估。",
+            "reply": "采纳。恒瑞剔除授权后核心转弱已计FAIL；茅台与高股息因标签风险保留WATCH。"
+          },
+          {
+            "claim": "五个角色共享同一底层模型，投票不是独立概率。",
+            "reply": "采纳。council_vote只作会商记录，不按独立概率加总，不回写前五门。"
+          }
+        ],
+        "accepted_revision": "采纳四条：CFO≠FCF按粗口径、政策盘不推个股、标签风险计入门、五角色同源不计独立概率。",
+        "themes": {
+          "grid": "WATCH",
+          "semiconductor": "WATCH",
+          "pharma": "REJECT",
+          "appliance": "PASS",
+          "dividend": "WATCH",
+          "robotics": "REJECT"
+        },
+        "stocks": {
+          "300750": {
+            "decision": "WATCH",
+            "council_vote": "WATCH",
+            "gate_audit": "CONSISTENT",
+            "reason": "事实与质量门watch，H1销量/ASP/利用率缺同口径。",
+            "missing_evidence": "H1销量、ASP、利用率同口径数据缺失。",
+            "hard_fail": "无触发"
+          },
+          "600276": {
+            "decision": "REJECT",
+            "council_vote": "REJECT",
+            "gate_audit": "CONSISTENT",
+            "reason": "估值门fail，触发REJECT。",
+            "missing_evidence": "剔除许可后核心产品增速待下期确认。",
+            "hard_fail": "估值门FAIL"
+          },
+          "600519": {
+            "decision": "WATCH",
+            "council_vote": "WATCH",
+            "gate_audit": "CONSISTENT",
+            "reason": "事实、机制、质量、估值四门皆watch，缺批价库存序列。",
+            "missing_evidence": "批价与渠道库存一手序列缺失。",
+            "hard_fail": "无触发"
+          },
+          "600900": {
+            "decision": "WATCH",
+            "council_vote": "WATCH",
+            "gate_audit": "CONSISTENT",
+            "reason": "估值门三项中两项通过，股息利差1.86pp未达标，故WATCH。",
+            "missing_evidence": "无关键信息缺口。",
+            "hard_fail": "无触发"
+          },
+          "600941": {
+            "decision": "REJECT",
+            "council_vote": "REJECT",
+            "gate_audit": "CONSISTENT",
+            "reason": "质量门fail，FCF连续两期不能覆盖分红。",
+            "missing_evidence": "分业务资本回报尚未披露。",
+            "hard_fail": "质量门FAIL"
+          },
+          "000333": {
+            "decision": "SATELLITE",
+            "council_vote": "PASS",
+            "gate_audit": "CONSISTENT",
+            "reason": "五门全pass，按预设执行层satellite。",
+            "missing_evidence": "Q1扣非-14%待下期确认是否连续证伪。",
+            "hard_fail": "无触发"
+          }
+        },
+        "latest_fact_changes": [
+          "1—7月政府性基金收入-21.6%、地产开发投资-19.2%，财政与地产继续收缩。",
+          "7月社零+1.2%、PMI49.2/新订单48.5，消费与订单动能偏弱。",
+          "H1工业利润+18.7%但电子贡献约45%，盈利广度未扩散。",
+          "恒瑞2026H1扣非与FCF同时转弱、合同负债-43.7%，估值门触发FAIL。",
+          "中国移动2026H1 FCF覆盖中期股利仅0.990×，连续两期不能覆盖分红。",
+          "茅台2026H1合同负债-60.3%、境内经销商净减46家。"
+        ],
+        "strongest_objection": "五角色同源、投票非独立概率，且多数开关单期或断档，本轮结论是暂定标签而非研判。"
+      },
+      "validation_errors": [],
+      "attempt_history": []
+    },
+    {
+      "master_id": "hunjianglong-perspective",
+      "method_role": "混江龙",
+      "persona_disclaimer": "AI方法论角色；相关真人未参与、未审核、未背书。",
+      "prompt": "执行 Hanai A股一年展望 Round 4 一致性复核。你是“混江龙”方法论AI角色；相关真人未参与、审核或背书。只用冻结事实包，不联网补数，不把五个同源角色当独立概率。主题分级及前五门是待核映射，不可按个人偏好改写。\n\n任务：\n1. 用base/upside/downside各一次给情景排序，不给概率。\n2. 回应3—4条peer_challenges，明确accepted_revision。\n3. 六主题严格按theme_review_rule输出PASS/WATCH/REJECT，不重算分数。\n4. 六股严格按five_gate_result及stock_decision_rule输出decision；另给council_vote。发现输入映射矛盾才写INCONSISTENT。\n5. latest_fact_changes最多6条。不得给目标价、仓位、买入指令或收益承诺。\n\n只输出一个JSON对象，无Markdown/围栏/前后缀，总长度不超过6000字符。所有解释字段每项不超过60个汉字。必需字段：\n{\"method_role\":\"...\",\"scenario_rank\":[\"base\",\"upside\",\"downside\"],\"strongest_switch\":\"...\",\"peer_replies\":[{\"claim\":\"...\",\"reply\":\"...\"}],\"accepted_revision\":\"...\",\"themes\":{\"grid\":\"...\",\"semiconductor\":\"...\",\"pharma\":\"...\",\"appliance\":\"...\",\"dividend\":\"...\",\"robotics\":\"...\"},\"stocks\":{\"600900\":S,\"000333\":S,\"300750\":S,\"600276\":S,\"600941\":S,\"600519\":S},\"latest_fact_changes\":[\"...\"],\"strongest_objection\":\"...\"}\nS={\"decision\":\"CORE|SATELLITE|WATCH|REJECT|INCOMPLETE\",\"council_vote\":\"PASS|WATCH|REJECT\",\"gate_audit\":\"CONSISTENT|INCONSISTENT\",\"reason\":\"...\",\"missing_evidence\":\"...\",\"hard_fail\":\"...\"}；themes值只能PASS|WATCH|REJECT。\n\n冻结事实包：\n{\"as_of\":\"2026-08-25\",\"market_data_cutoff\":\"2026-08-25\",\"forecast_window\":[\"2026-08-25\",\"2027-08-25\"],\"scenario_rule\":\"每项按本报告冻结阈值记+1/0/-1。可评估≥5且上行≥4、总分≥+3时为盈利扩散；否则，可评估≥5且压力≥4、总分≤-3时为二次探底；其余为结构市/数据待确认。未知或断档记0并标pending，不可跨期拼接。当前覆盖不足，状态为base_pending。阈值是本报告研究门槛，不是官方标准或历史校准模型。\",\"scenarios\":[{\"id\":\"base\",\"name\":\"基准：结构市延续\",\"priority\":\"主情景\",\"description\":\"现有报告只够把状态暂定为结构市 / 数据不足；六项开关尚未形成可确认的广泛上行或压力共振。\"},{\"id\":\"upside\",\"name\":\"乐观：盈利扩散\",\"priority\":\"备选情景\",\"description\":\"财政资金与信用传导改善，盈利从电子、有色等少数行业扩散至中游设备、可选消费和金融，市场宽度恢复。\"},{\"id\":\"downside\",\"name\":\"悲观：二次探底\",\"priority\":\"压力情景\",\"description\":\"地产和内需继续收缩，叠加出口、能源或外部利率冲击；高估值成长与强周期率先压缩估值。\"}],\"scenario_indicators\":[{\"name\":\"规模以上工业增加值\",\"current\":\"+5.3%（2026年1—7月）\",\"upside\":\"累计同比≥6%，连续3次发布\",\"downside\":\"累计同比≤4%，连续3次发布\"},{\"name\":\"社会消费品零售\",\"current\":\"+1.2%（2026年1—7月）\",\"upside\":\"累计同比≥3%，连续3次发布\",\"downside\":\"累计同比≤0%，连续3次发布\"},{\"name\":\"商品房销售额\",\"current\":\"-13.1%（2026年1—7月）\",\"upside\":\"累计同比≥-5%，连续3次发布\",\"downside\":\"累计同比≤-15%，连续3次发布\"},{\"name\":\"PPI环比\",\"current\":\"-0.7%（2026-07；单期）\",\"upside\":\">0%，连续3月\",\"downside\":\"<0%，连续3月\"},{\"name\":\"工业利润与广度\",\"current\":\"总额+18.7%，电子贡献约45%（2026H1）\",\"upside\":\"利润≥10%且电子增量贡献≤30%，连续2次\",\"downside\":\"利润<5%，连续2次\"},{\"name\":\"政府性基金收入\",\"current\":\"-21.6%（2026H1；单期）\",\"upside\":\"累计同比≥-5%，连续2次发布\",\"downside\":\"累计同比≤-15%，连续2次发布\"}],\"macro_evidence\":[{\"label\":\"2026H1 GDP\",\"value\":\"+4.7%\",\"tone\":\"watch\"},{\"label\":\"1—7月工业\",\"value\":\"+5.3%\",\"tone\":\"positive\"},{\"label\":\"1—7月社零\",\"value\":\"+1.2%\",\"tone\":\"watch\"},{\"label\":\"地产开发投资\",\"value\":\"-19.2%\",\"tone\":\"negative\"},{\"label\":\"7月CPI / PPI\",\"value\":\"+0.5% / +3.5%\",\"tone\":\"watch\"},{\"label\":\"H1工业利润\",\"value\":\"+18.7%\",\"tone\":\"positive\"},{\"label\":\"8月LPR\",\"value\":\"3.0% / 3.5%\",\"tone\":\"neutral\"},{\"label\":\"H1政府性基金收入\",\"value\":\"-21.6%\",\"tone\":\"negative\"},{\"label\":\"7月PMI / 新订单\",\"value\":\"49.2 / 48.5\",\"tone\":\"watch\"}],\"market_snapshot\":{\"date\":\"2026-08-25\",\"hs300\":{\"return_20d\":-0.0038,\"return_60d\":-0.0603,\"return_120d\":-0.0223,\"above_ma20\":false,\"above_ma60\":false,\"above_ma120\":false},\"breadth_advance_ratio\":0.7728,\"government_bond_10y_pct\":1.68,\"interpretation\":\"沪深300低于MA20/60/120，而当日上涨家数占涨跌家数77.3%；这是弱中期趋势中的单日普涨，不能单独定义反转。\"},\"theme_scoring\":{\"components\":[\"demand\",\"earnings\",\"cash\",\"valuation\",\"market\"],\"grade_mapping\":{\"A\":85,\"A-\":80,\"B+\":75,\"B\":70,\"B-\":60,\"C\":0},\"execution_separation\":\"主题A/A-只表示本版证据评分较高，不等于股票可买；股票必须另过事实、机制、质量、估值、反证和会商六门。\"},\"theme_review_rule\":\"score/grade是按报告公开尺度形成的人工证据评分，不是概率，也不是专家自由投票。Round 4只审计映射一致性：A或A-→PASS；B+、B或B-→WATCH；C→REJECT；不得在会商输出中暗改分数。\",\"themes\":[{\"id\":\"grid\",\"name\":\"电网、特高压与电力数字化\",\"grade\":\"B+\",\"score\":75,\"score_components\":{\"demand\":20,\"earnings\":15,\"cash\":15,\"valuation\":15,\"market\":10},\"score_summary\":\"四万亿元多年投资提供最强需求可见度；国电南瑞盈利为正、估值中性，但股价低于MA20/60/120且60/120日相对收益为负。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":1.13,\"board_advance_ratio\":0.8},\"hard_fail\":\"连续两个季度订单增速低于10%，合同负债下降且经营现金流显著落后净利润。\"},{\"id\":\"semiconductor\",\"name\":\"AI算力与国产集成电路制造\",\"grade\":\"B-\",\"score\":65,\"score_components\":{\"demand\":20,\"earnings\":20,\"cash\":10,\"valuation\":5,\"market\":10},\"score_summary\":\"收入、毛利和利用率验证最强，但中芯国际PE-TTM约204倍，代表股低于三条均线且板块当日上涨家数不足一半。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":-0.4,\"board_advance_ratio\":0.4153},\"hard_fail\":\"利用率低于85%、毛利率低于22%，或存货连续两个季度快于收入。\"},{\"id\":\"pharma\",\"name\":\"创新药出海与授权交易\",\"grade\":\"C\",\"score\":45,\"score_components\":{\"demand\":15,\"earnings\":10,\"cash\":5,\"valuation\":5,\"market\":10},\"score_summary\":\"创新药销售仍增长，但恒瑞收入、扣非、FCF与趋势同时偏弱，估值余量不足。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":2.19,\"board_advance_ratio\":0.8112},\"hard_fail\":\"剔除许可收入后核心产品增速降至个位数，或关键三期临床失败。\"},{\"id\":\"appliance\",\"name\":\"白色家电全球化与节能更新\",\"grade\":\"A-\",\"score\":80,\"score_components\":{\"demand\":15,\"earnings\":10,\"cash\":15,\"valuation\":20,\"market\":20},\"score_summary\":\"美的估值与股息利差合理、站上MA20/60/120且60/120日显著跑赢沪深300；扣非利润下降使其只能是A-而非A。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":1.42,\"board_advance_ratio\":0.8182},\"hard_fail\":\"经营现金流连续下降、海外毛利率明显恶化，或补贴后家电零售仍低于2%。\"},{\"id\":\"dividend\",\"name\":\"高股息与可解释现金流\",\"grade\":\"B+\",\"score\":75,\"score_components\":{\"demand\":15,\"earnings\":12,\"cash\":15,\"valuation\":18,\"market\":15},\"score_summary\":\"长电与移动估值、股息和相对强弱具备防御属性，但移动FCF不能覆盖分红、长电股息利差略低于预设PASS线。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":0.05,\"board_advance_ratio\":0.5638},\"hard_fail\":\"派息靠负债、处置资产或削减必要资本开支维持。\"},{\"id\":\"robotics\",\"name\":\"具身智能与机器人\",\"grade\":\"C\",\"score\":35,\"score_components\":{\"demand\":10,\"earnings\":5,\"cash\":5,\"valuation\":5,\"market\":10},\"score_summary\":\"同日板块广度较高，但缺稳定订单、单位经济、自由现金流和代表股完整门禁。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":1.37,\"board_advance_ratio\":0.737},\"hard_fail\":\"交付时点持续后延、只见概念成交而无真实终端订单，或扩产导致毛利连续下滑。\"}],\"stocks\":[{\"symbol\":\"600900\",\"name\":\"长江电力\",\"pre_round4_decision\":\"watch\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026Q1 / 披露2026-04-30\",\"quality_evidence\":{\"status\":\"pass\",\"period\":\"2026Q1 / 2025A\",\"cfo\":117.11,\"capex\":32.2,\"fcf\":84.9,\"fcf_to_profit\":1.26,\"annual\":\"2025粗FCF420.74亿元、FCF/归母1.22×、覆盖现金分红1.72×、ROE15.90%。\",\"conclusion\":\"即使把全部购建长期资产现金视为维护性资本开支，Q1和全年现金质量仍过预设门。\"},\"valuation_evidence\":{\"status\":\"watch\",\"pe_ttm\":19.13,\"dividend_yield_pct\":3.54,\"dividend_spread_pp\":1.86,\"annual_fcf_yield_pct\":6.095486591944659,\"conclusion\":\"PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。\"},\"technical_evidence\":{\"return_60d\":0.0456,\"excess_60d\":0.1059,\"return_120d\":0.0775,\"excess_120d\":0.0998,\"above_ma20\":false,\"above_ma60\":true,\"above_ma120\":true},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"pass\",\"quality\":\"pass\",\"valuation\":\"watch\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"valuation\":\"PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。\"},\"falsifier_note\":\"粗FCF/现金分红<1.0×，或发电量同比≤-10%且平均结算电价同比≤-5%连续两期即FAIL。\"}},{\"symbol\":\"000333\",\"name\":\"美的集团\",\"pre_round4_decision\":\"satellite\",\"proposed_execution_tier\":\"satellite\",\"financial_cutoff\":\"2026Q1 / 披露2026-04-30\",\"quality_evidence\":{\"status\":\"pass\",\"period\":\"2026Q1 / 2025A\",\"cfo\":145.29,\"capex\":21.43,\"fcf\":123.86,\"fcf_to_profit\":0.98,\"annual\":\"2025 CFO533.46亿元、粗FCF422.04亿元、FCF/归母0.96×、覆盖现金分红1.30×、ROE19.70%；海外毛利率26.60%，同比仅-0.22pp。\",\"conclusion\":\"2025 CFO/归母1.21×、粗FCF/分红1.30×、ROE19.70%；购建支出111.42亿元、营运资本约释现52.80亿元，海外毛利率仅降0.22pp，均已拆清。Q1扣非-14.02%作为下一期证伪，不追认成FAIL。\"},\"valuation_evidence\":{\"status\":\"pass\",\"pe_ttm\":14.96,\"dividend_yield_pct\":4.96,\"dividend_spread_pp\":3.2800000000000002,\"annual_fcf_yield_pct\":6.381584006892653,\"conclusion\":\"PE-TTM14.96×、2025粗FCF收益率6.38%、股息率较10年国债利差3.28pp，稳定现金流轨道三项全部通过。\"},\"technical_evidence\":{\"return_60d\":0.1117,\"excess_60d\":0.172,\"return_120d\":0.1902,\"excess_120d\":0.2125,\"above_ma20\":true,\"above_ma60\":true,\"above_ma120\":true},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"pass\",\"quality\":\"pass\",\"valuation\":\"pass\",\"falsifier\":\"pass\",\"non_pass_notes\":{},\"falsifier_note\":\"CFO/归母<0.8×、收入或利润转负、或海外毛利率同比下降≥2pp连续两期即FAIL。\"}},{\"symbol\":\"300750\",\"name\":\"宁德时代\",\"pre_round4_decision\":\"watch\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-07-26\",\"quality_evidence\":{\"status\":\"watch\",\"period\":\"2026H1 / 2025A\",\"cfo\":602.17,\"capex\":250.73,\"fcf\":351.44,\"fcf_to_profit\":0.81,\"annual\":\"2025粗FCF908.75亿元、FCF/归母1.26×、覆盖现金分红2.52×、ROE24.91%。\",\"conclusion\":\"2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。\"},\"valuation_evidence\":{\"status\":\"pass\",\"pe_ttm\":20.51,\"dividend_yield_pct\":2.19,\"dividend_spread_pp\":0.51,\"annual_fcf_yield_pct\":5.2137128653516,\"conclusion\":\"PE-TTM20.51×、2025粗FCF收益率5.21%，H1收入/归母净利+54.8%/+42.0%，成长轨道三项全部通过；质量门仍独立为WATCH。\"},\"technical_evidence\":{\"return_60d\":-0.1002,\"excess_60d\":-0.0399,\"return_120d\":0.122,\"excess_120d\":0.1443,\"above_ma20\":false,\"above_ma60\":false,\"above_ma120\":false},\"five_gate_result\":{\"fact\":\"watch\",\"mechanism\":\"pass\",\"quality\":\"watch\",\"valuation\":\"pass\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"fact\":\"2026H1财务已披露，但公司未给出同口径H1销量、ASP与利用率，事实门保留WATCH。\",\"quality\":\"2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。\"},\"falsifier_note\":\"FCF/归母<0.8×且收入增速<10%连续两期，或利用率<85%且收入/GWh代理再降≥10%而capex仍增即FAIL。\"}},{\"symbol\":\"600276\",\"name\":\"恒瑞医药\",\"pre_round4_decision\":\"reject\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-08-19\",\"quality_evidence\":{\"status\":\"watch\",\"period\":\"2026H1 / 2025A\",\"cfo\":19.87,\"capex\":15.78,\"fcf\":4.09,\"fcf_to_profit\":0.09,\"annual\":\"2025粗FCF82.73亿元、FCF/归母1.07×；2026H1许可收入14.22亿元，流动及长期合同负债合计下降43.7%。\",\"conclusion\":\"最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。\"},\"valuation_evidence\":{\"status\":\"fail\",\"pe_ttm\":39.94,\"dividend_yield_pct\":0.43,\"dividend_spread_pp\":-1.25,\"annual_fcf_yield_pct\":2.6811343815683437,\"conclusion\":\"PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。\"},\"technical_evidence\":{\"return_60d\":-0.0545,\"excess_60d\":0.0058,\"return_120d\":-0.1296,\"excess_120d\":-0.1073,\"above_ma20\":false,\"above_ma60\":false,\"above_ma120\":false},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"pass\",\"quality\":\"watch\",\"valuation\":\"fail\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"quality\":\"最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。\",\"valuation\":\"PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。\"},\"falsifier_note\":\"剔除许可后核心销售转负、关键三期失败/延期，或CFO/归母<1.0×连续两期即FAIL。\"}},{\"symbol\":\"600941\",\"name\":\"中国移动\",\"pre_round4_decision\":\"reject\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-08-13\",\"quality_evidence\":{\"status\":\"fail\",\"period\":\"2026H1 / 2025A\",\"cfo\":1148.54,\"capex\":609.54,\"fcf\":539,\"fcf_to_profit\":0.68,\"annual\":\"2025公司披露FCF820.41亿元、覆盖同期实际现金分红0.806×；2026H1 FCF覆盖同期宣告中期股利0.990×。\",\"conclusion\":\"连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。\"},\"valuation_evidence\":{\"status\":\"watch\",\"pe_ttm\":16.27,\"dividend_yield_pct\":4.76,\"dividend_spread_pp\":3.08,\"annual_fcf_yield_pct\":3.8265427608791827,\"conclusion\":\"PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。\"},\"technical_evidence\":{\"return_60d\":0.0223,\"excess_60d\":0.0827,\"return_120d\":0.0581,\"excess_120d\":0.0804,\"above_ma20\":true,\"above_ma60\":true,\"above_ma120\":true},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"watch\",\"quality\":\"fail\",\"valuation\":\"watch\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"mechanism\":\"算力收入增长已披露，但分业务资本回报尚未披露，机制门保持WATCH。\",\"quality\":\"连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。\",\"valuation\":\"PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。\"},\"falsifier_note\":\"同利润归属期FCF/股利<1.0×连续两期，或通信服务收入连续两期负增长即FAIL。\"}},{\"symbol\":\"600519\",\"name\":\"贵州茅台\",\"pre_round4_decision\":\"watch\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-08-15\",\"quality_evidence\":{\"status\":\"watch\",\"period\":\"2026H1 / 2025A\",\"cfo\":706.91,\"capex\":8.32,\"fcf\":698.59,\"fcf_to_profit\":1.57,\"annual\":\"剔除财务公司专属现金流行后，2025调整FCF约722.09亿元、FCF/归母0.877×、现金分红覆盖1.110×。\",\"conclusion\":\"归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。\"},\"valuation_evidence\":{\"status\":\"watch\",\"pe_ttm\":20.02,\"dividend_yield_pct\":3.99,\"dividend_spread_pp\":2.3100000000000005,\"annual_fcf_yield_pct\":4.429692421227013,\"conclusion\":\"PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。\"},\"technical_evidence\":{\"return_60d\":0.0175,\"excess_60d\":0.0778,\"return_120d\":-0.0673,\"excess_120d\":-0.045,\"above_ma20\":false,\"above_ma60\":true,\"above_ma120\":false},\"five_gate_result\":{\"fact\":\"watch\",\"mechanism\":\"watch\",\"quality\":\"watch\",\"valuation\":\"watch\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"fact\":\"财报与点时估值已冻结，但没有发行人可复核的批价和渠道库存序列，事实门保留WATCH。\",\"mechanism\":\"品牌需求可传导至主品收入和回款，但批价/渠道库存缺乏一手序列，机制门保持WATCH。\",\"quality\":\"归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。\",\"valuation\":\"PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。\"},\"falsifier_note\":\"茅台酒收入转负、调整FCF/归母<0.6×，或境内经销商净减少≥50家连续两期即FAIL。\"}}],\"stock_decision_rule\":\"只核前五门，忽略预留council=OPEN：FAIL→REJECT；否则OPEN→INCOMPLETE；否则WATCH→WATCH；全PASS→proposed_execution_tier，未预设则SATELLITE。另给council_vote=PASS|WATCH|REJECT，不得回写前五门。\",\"peer_challenges\":[\"经营现金流不等于扣除维护性资本开支后的自由现金流。\",\"成交与资金确认不能替代公司价值，但静态公司质量也不能替代周期风险。\",\"政策总盘子不能直接推出单家公司份额、毛利和回款。\",\"短缺与高利润会诱发资本开支，最终可能转成过剩。\",\"品牌、红利、创新药授权和高增长都可能被标签偏误高估。\",\"五个角色共享同一底层模型，投票不是独立概率。\"]}\n\n自动紧凑修复重试：上次输出未通过（stdout is not valid JSON）。请重新生成完整JSON；不得复述事实包，优先缩短解释，务必保留全部六主题、六股及必需字段。",
+      "prompt_mode": "compact_repair",
+      "prompt_sha256": "2d5667ae2d7bdbff19177a5455c6e30d88385f7134f6dc890900aabd6ce6968b",
+      "skill_sha256": "89636f85bad9c12c9d1a25be18465b24092edd1c088b52b7231ec0c3dd566a2a",
+      "agents_sha256": "8ac1af249a634f304d00f533e7dec33a9441faafd0886bfcef054113edfe5433",
+      "stdout": "{\"method_role\":\"混江龙：一致性复核，只审计映射不改分；五角色同源不视作独立概率。\",\"scenario_rank\":[\"base\",\"upside\",\"downside\"],\"strongest_switch\":\"downside：地产与财政深负且近阈值，压力侧先于盈利扩散形成共振。\",\"peer_replies\":[{\"claim\":\"经营现金流不等于扣除维护性资本开支后的自由现金流。\",\"reply\":\"已用粗FCF口径区分，购建开支全额视作维护性，Q1与全年分开校验，不把CFO当FCF。\"},{\"claim\":\"政策总盘子不能直接推出单家公司份额、毛利和回款。\",\"reply\":\"接受。主题分与个股门禁分离，份额/毛利/回款须由公司口径证据支撑，总盘子仅作需求背景。\"},{\"claim\":\"短缺与高利润会诱发资本开支，最终可能转成过剩。\",\"reply\":\"接受。反证门已纳入利用率、收入/GWh与capex同增条件，并锁定下期复核。\"},{\"claim\":\"五个角色共享同一底层模型，投票不是独立概率。\",\"reply\":\"接受。council_vote降级为一致性会签，不计独立概率，不改写五门结果。\"}],\"accepted_revision\":\"主题分与个股五门彻底分离；council_vote仅作一致性会签，不再计入独立概率。\",\"themes\":{\"grid\":\"WATCH\",\"semiconductor\":\"WATCH\",\"pharma\":\"REJECT\",\"appliance\":\"PASS\",\"dividend\":\"WATCH\",\"robotics\":\"REJECT\"},\"stocks\":{\"600900\":{\"decision\":\"WATCH\",\"council_vote\":\"WATCH\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"事实/机制/质量/反证通过，估值门WATCH（股息利差1.86pp），规则→WATCH。\",\"missing_evidence\":\"无结构性缺口；缺更高股息或更低估值使利差达PASS线。\",\"hard_fail\":\"粗FCF/现金分红<1.0×，或发电量≤-10%且结算电价≤-5%连续两期。\"},\"000333\":{\"decision\":\"SATELLITE\",\"council_vote\":\"PASS\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"五门全PASS，执行层预设satellite，规则→SATELLITE。\",\"missing_evidence\":\"下一期验证Q1扣非-14.02%是否延续。\",\"hard_fail\":\"CFO/归母<0.8×、收入或利润转负、或海外毛利率同比降≥2pp连续两期。\"},\"300750\":{\"decision\":\"WATCH\",\"council_vote\":\"WATCH\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"事实门与质量门WATCH（H1 FCF转化0.81×、缺销量/ASP），规则→WATCH。\",\"missing_evidence\":\"H1同口径销量、ASP与利用率未披露。\",\"hard_fail\":\"FCF/归母<0.8×且收入增速<10%连续两期，或利用率<85%且收入/GWh再降≥10%而capex仍增。\"},\"600276\":{\"decision\":\"REJECT\",\"council_vote\":\"REJECT\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"估值门FAIL（PE39.94×、FCF收益2.68%、H1三指标转弱），规则→REJECT。\",\"missing_evidence\":\"连续两期现金失守数据，以确认是否升级为质量FAIL。\",\"hard_fail\":\"剔除许可后核心销售转负、三期失败/延期，或CFO/归母<1.0×连续两期。\"},\"600941\":{\"decision\":\"REJECT\",\"council_vote\":\"REJECT\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"质量门FAIL（连续两期FCF不覆盖分红），规则→REJECT。\",\"missing_evidence\":\"分业务资本回报口径尚未披露。\",\"hard_fail\":\"同利润归属期FCF/股利<1.0×连续两期，或通信服务收入连续两期负增长。\"},\"600519\":{\"decision\":\"WATCH\",\"council_vote\":\"WATCH\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"事实/机制/质量/估值四门WATCH（缺批价与渠道库存一手序列），规则→WATCH。\",\"missing_evidence\":\"可复核的批价与渠道库存一手序列缺失。\",\"hard_fail\":\"茅台酒收入转负、调整FCF/归母<0.6×，或境内经销商净减≥50家连续两期。\"}},\"latest_fact_changes\":[\"沪深300低于MA20/60/120，单日上涨家数比77.3%，弱趋势中的普涨不构成反转。\",\"7月PPI环比-0.7%（单期）、PMI49.2、新订单48.5仍在荣枯线下。\",\"2026H1政府性基金收入-21.6%、1—7月商品房销售额-13.1%，地产财政拖累未减。\",\"H1工业利润+18.7%但电子贡献约45%，利润广度未扩散。\",\"中国移动连续两期FCF不覆盖分红，质量门闭环FAIL。\",\"恒瑞2026H1合同负债降43.7%、现金质量转弱，但仅一期暂列WATCH。\"],\"strongest_objection\":\"六项开关多单期断档、难达连续发布门槛，base_pending本质是数据不足，方向结论易过拟合单点。\"}",
+      "stderr": "",
+      "exit_code": 0,
+      "duration_ms": 125418,
+      "stdout_sha256": "55fb7a3735e8de02d657aa57c334e3ccd67b4efd6aa5ee1f923cf3460a114b5b",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "parsed": {
+        "method_role": "混江龙：一致性复核，只审计映射不改分；五角色同源不视作独立概率。",
+        "scenario_rank": [
+          "base",
+          "upside",
+          "downside"
+        ],
+        "strongest_switch": "downside：地产与财政深负且近阈值，压力侧先于盈利扩散形成共振。",
+        "peer_replies": [
+          {
+            "claim": "经营现金流不等于扣除维护性资本开支后的自由现金流。",
+            "reply": "已用粗FCF口径区分，购建开支全额视作维护性，Q1与全年分开校验，不把CFO当FCF。"
+          },
+          {
+            "claim": "政策总盘子不能直接推出单家公司份额、毛利和回款。",
+            "reply": "接受。主题分与个股门禁分离，份额/毛利/回款须由公司口径证据支撑，总盘子仅作需求背景。"
+          },
+          {
+            "claim": "短缺与高利润会诱发资本开支，最终可能转成过剩。",
+            "reply": "接受。反证门已纳入利用率、收入/GWh与capex同增条件，并锁定下期复核。"
+          },
+          {
+            "claim": "五个角色共享同一底层模型，投票不是独立概率。",
+            "reply": "接受。council_vote降级为一致性会签，不计独立概率，不改写五门结果。"
+          }
+        ],
+        "accepted_revision": "主题分与个股五门彻底分离；council_vote仅作一致性会签，不再计入独立概率。",
+        "themes": {
+          "grid": "WATCH",
+          "semiconductor": "WATCH",
+          "pharma": "REJECT",
+          "appliance": "PASS",
+          "dividend": "WATCH",
+          "robotics": "REJECT"
+        },
+        "stocks": {
+          "300750": {
+            "decision": "WATCH",
+            "council_vote": "WATCH",
+            "gate_audit": "CONSISTENT",
+            "reason": "事实门与质量门WATCH（H1 FCF转化0.81×、缺销量/ASP），规则→WATCH。",
+            "missing_evidence": "H1同口径销量、ASP与利用率未披露。",
+            "hard_fail": "FCF/归母<0.8×且收入增速<10%连续两期，或利用率<85%且收入/GWh再降≥10%而capex仍增。"
+          },
+          "600276": {
+            "decision": "REJECT",
+            "council_vote": "REJECT",
+            "gate_audit": "CONSISTENT",
+            "reason": "估值门FAIL（PE39.94×、FCF收益2.68%、H1三指标转弱），规则→REJECT。",
+            "missing_evidence": "连续两期现金失守数据，以确认是否升级为质量FAIL。",
+            "hard_fail": "剔除许可后核心销售转负、三期失败/延期，或CFO/归母<1.0×连续两期。"
+          },
+          "600519": {
+            "decision": "WATCH",
+            "council_vote": "WATCH",
+            "gate_audit": "CONSISTENT",
+            "reason": "事实/机制/质量/估值四门WATCH（缺批价与渠道库存一手序列），规则→WATCH。",
+            "missing_evidence": "可复核的批价与渠道库存一手序列缺失。",
+            "hard_fail": "茅台酒收入转负、调整FCF/归母<0.6×，或境内经销商净减≥50家连续两期。"
+          },
+          "600900": {
+            "decision": "WATCH",
+            "council_vote": "WATCH",
+            "gate_audit": "CONSISTENT",
+            "reason": "事实/机制/质量/反证通过，估值门WATCH（股息利差1.86pp），规则→WATCH。",
+            "missing_evidence": "无结构性缺口；缺更高股息或更低估值使利差达PASS线。",
+            "hard_fail": "粗FCF/现金分红<1.0×，或发电量≤-10%且结算电价≤-5%连续两期。"
+          },
+          "600941": {
+            "decision": "REJECT",
+            "council_vote": "REJECT",
+            "gate_audit": "CONSISTENT",
+            "reason": "质量门FAIL（连续两期FCF不覆盖分红），规则→REJECT。",
+            "missing_evidence": "分业务资本回报口径尚未披露。",
+            "hard_fail": "同利润归属期FCF/股利<1.0×连续两期，或通信服务收入连续两期负增长。"
+          },
+          "000333": {
+            "decision": "SATELLITE",
+            "council_vote": "PASS",
+            "gate_audit": "CONSISTENT",
+            "reason": "五门全PASS，执行层预设satellite，规则→SATELLITE。",
+            "missing_evidence": "下一期验证Q1扣非-14.02%是否延续。",
+            "hard_fail": "CFO/归母<0.8×、收入或利润转负、或海外毛利率同比降≥2pp连续两期。"
+          }
+        },
+        "latest_fact_changes": [
+          "沪深300低于MA20/60/120，单日上涨家数比77.3%，弱趋势中的普涨不构成反转。",
+          "7月PPI环比-0.7%（单期）、PMI49.2、新订单48.5仍在荣枯线下。",
+          "2026H1政府性基金收入-21.6%、1—7月商品房销售额-13.1%，地产财政拖累未减。",
+          "H1工业利润+18.7%但电子贡献约45%，利润广度未扩散。",
+          "中国移动连续两期FCF不覆盖分红，质量门闭环FAIL。",
+          "恒瑞2026H1合同负债降43.7%、现金质量转弱，但仅一期暂列WATCH。"
+        ],
+        "strongest_objection": "六项开关多单期断档、难达连续发布门槛，base_pending本质是数据不足，方向结论易过拟合单点。"
+      },
+      "validation_errors": [],
+      "attempt_history": [
+        {
+          "source": {
+            "kind": "current_run",
+            "prompt_mode": "standard"
+          },
+          "prompt_sha256": "c782a9e9590fec8beeb9c979098e61deab429e2c173a1cfde7c5d8ad834b5fe5",
+          "stdout": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr": "",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "exit_code": 0,
+          "duration_ms": 240082,
+          "parsed": null,
+          "validation_errors": [
+            "stdout is not valid JSON"
+          ]
+        }
+      ]
+    },
+    {
+      "master_id": "munger-perspective",
+      "method_role": "查理·芒格",
+      "persona_disclaimer": "AI方法论角色；相关真人未参与、未审核、未背书。",
+      "prompt": "执行 Hanai A股一年展望 Round 4 一致性复核。你是“查理·芒格”方法论AI角色；相关真人未参与、审核或背书。只用冻结事实包，不联网补数，不把五个同源角色当独立概率。主题分级及前五门是待核映射，不可按个人偏好改写。\n\n任务：\n1. 用base/upside/downside各一次给情景排序，不给概率。\n2. 回应3—4条peer_challenges，明确accepted_revision。\n3. 六主题严格按theme_review_rule输出PASS/WATCH/REJECT，不重算分数。\n4. 六股严格按five_gate_result及stock_decision_rule输出decision；另给council_vote。发现输入映射矛盾才写INCONSISTENT。\n5. latest_fact_changes最多6条。不得给目标价、仓位、买入指令或收益承诺。\n\n只输出一个JSON对象，无Markdown/围栏/前后缀，总长度不超过6000字符。所有解释字段每项不超过60个汉字。必需字段：\n{\"method_role\":\"...\",\"scenario_rank\":[\"base\",\"upside\",\"downside\"],\"strongest_switch\":\"...\",\"peer_replies\":[{\"claim\":\"...\",\"reply\":\"...\"}],\"accepted_revision\":\"...\",\"themes\":{\"grid\":\"...\",\"semiconductor\":\"...\",\"pharma\":\"...\",\"appliance\":\"...\",\"dividend\":\"...\",\"robotics\":\"...\"},\"stocks\":{\"600900\":S,\"000333\":S,\"300750\":S,\"600276\":S,\"600941\":S,\"600519\":S},\"latest_fact_changes\":[\"...\"],\"strongest_objection\":\"...\"}\nS={\"decision\":\"CORE|SATELLITE|WATCH|REJECT|INCOMPLETE\",\"council_vote\":\"PASS|WATCH|REJECT\",\"gate_audit\":\"CONSISTENT|INCONSISTENT\",\"reason\":\"...\",\"missing_evidence\":\"...\",\"hard_fail\":\"...\"}；themes值只能PASS|WATCH|REJECT。\n\n冻结事实包：\n{\"as_of\":\"2026-08-25\",\"market_data_cutoff\":\"2026-08-25\",\"forecast_window\":[\"2026-08-25\",\"2027-08-25\"],\"scenario_rule\":\"每项按本报告冻结阈值记+1/0/-1。可评估≥5且上行≥4、总分≥+3时为盈利扩散；否则，可评估≥5且压力≥4、总分≤-3时为二次探底；其余为结构市/数据待确认。未知或断档记0并标pending，不可跨期拼接。当前覆盖不足，状态为base_pending。阈值是本报告研究门槛，不是官方标准或历史校准模型。\",\"scenarios\":[{\"id\":\"base\",\"name\":\"基准：结构市延续\",\"priority\":\"主情景\",\"description\":\"现有报告只够把状态暂定为结构市 / 数据不足；六项开关尚未形成可确认的广泛上行或压力共振。\"},{\"id\":\"upside\",\"name\":\"乐观：盈利扩散\",\"priority\":\"备选情景\",\"description\":\"财政资金与信用传导改善，盈利从电子、有色等少数行业扩散至中游设备、可选消费和金融，市场宽度恢复。\"},{\"id\":\"downside\",\"name\":\"悲观：二次探底\",\"priority\":\"压力情景\",\"description\":\"地产和内需继续收缩，叠加出口、能源或外部利率冲击；高估值成长与强周期率先压缩估值。\"}],\"scenario_indicators\":[{\"name\":\"规模以上工业增加值\",\"current\":\"+5.3%（2026年1—7月）\",\"upside\":\"累计同比≥6%，连续3次发布\",\"downside\":\"累计同比≤4%，连续3次发布\"},{\"name\":\"社会消费品零售\",\"current\":\"+1.2%（2026年1—7月）\",\"upside\":\"累计同比≥3%，连续3次发布\",\"downside\":\"累计同比≤0%，连续3次发布\"},{\"name\":\"商品房销售额\",\"current\":\"-13.1%（2026年1—7月）\",\"upside\":\"累计同比≥-5%，连续3次发布\",\"downside\":\"累计同比≤-15%，连续3次发布\"},{\"name\":\"PPI环比\",\"current\":\"-0.7%（2026-07；单期）\",\"upside\":\">0%，连续3月\",\"downside\":\"<0%，连续3月\"},{\"name\":\"工业利润与广度\",\"current\":\"总额+18.7%，电子贡献约45%（2026H1）\",\"upside\":\"利润≥10%且电子增量贡献≤30%，连续2次\",\"downside\":\"利润<5%，连续2次\"},{\"name\":\"政府性基金收入\",\"current\":\"-21.6%（2026H1；单期）\",\"upside\":\"累计同比≥-5%，连续2次发布\",\"downside\":\"累计同比≤-15%，连续2次发布\"}],\"macro_evidence\":[{\"label\":\"2026H1 GDP\",\"value\":\"+4.7%\",\"tone\":\"watch\"},{\"label\":\"1—7月工业\",\"value\":\"+5.3%\",\"tone\":\"positive\"},{\"label\":\"1—7月社零\",\"value\":\"+1.2%\",\"tone\":\"watch\"},{\"label\":\"地产开发投资\",\"value\":\"-19.2%\",\"tone\":\"negative\"},{\"label\":\"7月CPI / PPI\",\"value\":\"+0.5% / +3.5%\",\"tone\":\"watch\"},{\"label\":\"H1工业利润\",\"value\":\"+18.7%\",\"tone\":\"positive\"},{\"label\":\"8月LPR\",\"value\":\"3.0% / 3.5%\",\"tone\":\"neutral\"},{\"label\":\"H1政府性基金收入\",\"value\":\"-21.6%\",\"tone\":\"negative\"},{\"label\":\"7月PMI / 新订单\",\"value\":\"49.2 / 48.5\",\"tone\":\"watch\"}],\"market_snapshot\":{\"date\":\"2026-08-25\",\"hs300\":{\"return_20d\":-0.0038,\"return_60d\":-0.0603,\"return_120d\":-0.0223,\"above_ma20\":false,\"above_ma60\":false,\"above_ma120\":false},\"breadth_advance_ratio\":0.7728,\"government_bond_10y_pct\":1.68,\"interpretation\":\"沪深300低于MA20/60/120，而当日上涨家数占涨跌家数77.3%；这是弱中期趋势中的单日普涨，不能单独定义反转。\"},\"theme_scoring\":{\"components\":[\"demand\",\"earnings\",\"cash\",\"valuation\",\"market\"],\"grade_mapping\":{\"A\":85,\"A-\":80,\"B+\":75,\"B\":70,\"B-\":60,\"C\":0},\"execution_separation\":\"主题A/A-只表示本版证据评分较高，不等于股票可买；股票必须另过事实、机制、质量、估值、反证和会商六门。\"},\"theme_review_rule\":\"score/grade是按报告公开尺度形成的人工证据评分，不是概率，也不是专家自由投票。Round 4只审计映射一致性：A或A-→PASS；B+、B或B-→WATCH；C→REJECT；不得在会商输出中暗改分数。\",\"themes\":[{\"id\":\"grid\",\"name\":\"电网、特高压与电力数字化\",\"grade\":\"B+\",\"score\":75,\"score_components\":{\"demand\":20,\"earnings\":15,\"cash\":15,\"valuation\":15,\"market\":10},\"score_summary\":\"四万亿元多年投资提供最强需求可见度；国电南瑞盈利为正、估值中性，但股价低于MA20/60/120且60/120日相对收益为负。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":1.13,\"board_advance_ratio\":0.8},\"hard_fail\":\"连续两个季度订单增速低于10%，合同负债下降且经营现金流显著落后净利润。\"},{\"id\":\"semiconductor\",\"name\":\"AI算力与国产集成电路制造\",\"grade\":\"B-\",\"score\":65,\"score_components\":{\"demand\":20,\"earnings\":20,\"cash\":10,\"valuation\":5,\"market\":10},\"score_summary\":\"收入、毛利和利用率验证最强，但中芯国际PE-TTM约204倍，代表股低于三条均线且板块当日上涨家数不足一半。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":-0.4,\"board_advance_ratio\":0.4153},\"hard_fail\":\"利用率低于85%、毛利率低于22%，或存货连续两个季度快于收入。\"},{\"id\":\"pharma\",\"name\":\"创新药出海与授权交易\",\"grade\":\"C\",\"score\":45,\"score_components\":{\"demand\":15,\"earnings\":10,\"cash\":5,\"valuation\":5,\"market\":10},\"score_summary\":\"创新药销售仍增长，但恒瑞收入、扣非、FCF与趋势同时偏弱，估值余量不足。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":2.19,\"board_advance_ratio\":0.8112},\"hard_fail\":\"剔除许可收入后核心产品增速降至个位数，或关键三期临床失败。\"},{\"id\":\"appliance\",\"name\":\"白色家电全球化与节能更新\",\"grade\":\"A-\",\"score\":80,\"score_components\":{\"demand\":15,\"earnings\":10,\"cash\":15,\"valuation\":20,\"market\":20},\"score_summary\":\"美的估值与股息利差合理、站上MA20/60/120且60/120日显著跑赢沪深300；扣非利润下降使其只能是A-而非A。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":1.42,\"board_advance_ratio\":0.8182},\"hard_fail\":\"经营现金流连续下降、海外毛利率明显恶化，或补贴后家电零售仍低于2%。\"},{\"id\":\"dividend\",\"name\":\"高股息与可解释现金流\",\"grade\":\"B+\",\"score\":75,\"score_components\":{\"demand\":15,\"earnings\":12,\"cash\":15,\"valuation\":18,\"market\":15},\"score_summary\":\"长电与移动估值、股息和相对强弱具备防御属性，但移动FCF不能覆盖分红、长电股息利差略低于预设PASS线。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":0.05,\"board_advance_ratio\":0.5638},\"hard_fail\":\"派息靠负债、处置资产或削减必要资本开支维持。\"},{\"id\":\"robotics\",\"name\":\"具身智能与机器人\",\"grade\":\"C\",\"score\":35,\"score_components\":{\"demand\":10,\"earnings\":5,\"cash\":5,\"valuation\":5,\"market\":10},\"score_summary\":\"同日板块广度较高，但缺稳定订单、单位经济、自由现金流和代表股完整门禁。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":1.37,\"board_advance_ratio\":0.737},\"hard_fail\":\"交付时点持续后延、只见概念成交而无真实终端订单，或扩产导致毛利连续下滑。\"}],\"stocks\":[{\"symbol\":\"600900\",\"name\":\"长江电力\",\"pre_round4_decision\":\"watch\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026Q1 / 披露2026-04-30\",\"quality_evidence\":{\"status\":\"pass\",\"period\":\"2026Q1 / 2025A\",\"cfo\":117.11,\"capex\":32.2,\"fcf\":84.9,\"fcf_to_profit\":1.26,\"annual\":\"2025粗FCF420.74亿元、FCF/归母1.22×、覆盖现金分红1.72×、ROE15.90%。\",\"conclusion\":\"即使把全部购建长期资产现金视为维护性资本开支，Q1和全年现金质量仍过预设门。\"},\"valuation_evidence\":{\"status\":\"watch\",\"pe_ttm\":19.13,\"dividend_yield_pct\":3.54,\"dividend_spread_pp\":1.86,\"annual_fcf_yield_pct\":6.095486591944659,\"conclusion\":\"PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。\"},\"technical_evidence\":{\"return_60d\":0.0456,\"excess_60d\":0.1059,\"return_120d\":0.0775,\"excess_120d\":0.0998,\"above_ma20\":false,\"above_ma60\":true,\"above_ma120\":true},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"pass\",\"quality\":\"pass\",\"valuation\":\"watch\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"valuation\":\"PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。\"},\"falsifier_note\":\"粗FCF/现金分红<1.0×，或发电量同比≤-10%且平均结算电价同比≤-5%连续两期即FAIL。\"}},{\"symbol\":\"000333\",\"name\":\"美的集团\",\"pre_round4_decision\":\"satellite\",\"proposed_execution_tier\":\"satellite\",\"financial_cutoff\":\"2026Q1 / 披露2026-04-30\",\"quality_evidence\":{\"status\":\"pass\",\"period\":\"2026Q1 / 2025A\",\"cfo\":145.29,\"capex\":21.43,\"fcf\":123.86,\"fcf_to_profit\":0.98,\"annual\":\"2025 CFO533.46亿元、粗FCF422.04亿元、FCF/归母0.96×、覆盖现金分红1.30×、ROE19.70%；海外毛利率26.60%，同比仅-0.22pp。\",\"conclusion\":\"2025 CFO/归母1.21×、粗FCF/分红1.30×、ROE19.70%；购建支出111.42亿元、营运资本约释现52.80亿元，海外毛利率仅降0.22pp，均已拆清。Q1扣非-14.02%作为下一期证伪，不追认成FAIL。\"},\"valuation_evidence\":{\"status\":\"pass\",\"pe_ttm\":14.96,\"dividend_yield_pct\":4.96,\"dividend_spread_pp\":3.2800000000000002,\"annual_fcf_yield_pct\":6.381584006892653,\"conclusion\":\"PE-TTM14.96×、2025粗FCF收益率6.38%、股息率较10年国债利差3.28pp，稳定现金流轨道三项全部通过。\"},\"technical_evidence\":{\"return_60d\":0.1117,\"excess_60d\":0.172,\"return_120d\":0.1902,\"excess_120d\":0.2125,\"above_ma20\":true,\"above_ma60\":true,\"above_ma120\":true},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"pass\",\"quality\":\"pass\",\"valuation\":\"pass\",\"falsifier\":\"pass\",\"non_pass_notes\":{},\"falsifier_note\":\"CFO/归母<0.8×、收入或利润转负、或海外毛利率同比下降≥2pp连续两期即FAIL。\"}},{\"symbol\":\"300750\",\"name\":\"宁德时代\",\"pre_round4_decision\":\"watch\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-07-26\",\"quality_evidence\":{\"status\":\"watch\",\"period\":\"2026H1 / 2025A\",\"cfo\":602.17,\"capex\":250.73,\"fcf\":351.44,\"fcf_to_profit\":0.81,\"annual\":\"2025粗FCF908.75亿元、FCF/归母1.26×、覆盖现金分红2.52×、ROE24.91%。\",\"conclusion\":\"2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。\"},\"valuation_evidence\":{\"status\":\"pass\",\"pe_ttm\":20.51,\"dividend_yield_pct\":2.19,\"dividend_spread_pp\":0.51,\"annual_fcf_yield_pct\":5.2137128653516,\"conclusion\":\"PE-TTM20.51×、2025粗FCF收益率5.21%，H1收入/归母净利+54.8%/+42.0%，成长轨道三项全部通过；质量门仍独立为WATCH。\"},\"technical_evidence\":{\"return_60d\":-0.1002,\"excess_60d\":-0.0399,\"return_120d\":0.122,\"excess_120d\":0.1443,\"above_ma20\":false,\"above_ma60\":false,\"above_ma120\":false},\"five_gate_result\":{\"fact\":\"watch\",\"mechanism\":\"pass\",\"quality\":\"watch\",\"valuation\":\"pass\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"fact\":\"2026H1财务已披露，但公司未给出同口径H1销量、ASP与利用率，事实门保留WATCH。\",\"quality\":\"2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。\"},\"falsifier_note\":\"FCF/归母<0.8×且收入增速<10%连续两期，或利用率<85%且收入/GWh代理再降≥10%而capex仍增即FAIL。\"}},{\"symbol\":\"600276\",\"name\":\"恒瑞医药\",\"pre_round4_decision\":\"reject\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-08-19\",\"quality_evidence\":{\"status\":\"watch\",\"period\":\"2026H1 / 2025A\",\"cfo\":19.87,\"capex\":15.78,\"fcf\":4.09,\"fcf_to_profit\":0.09,\"annual\":\"2025粗FCF82.73亿元、FCF/归母1.07×；2026H1许可收入14.22亿元，流动及长期合同负债合计下降43.7%。\",\"conclusion\":\"最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。\"},\"valuation_evidence\":{\"status\":\"fail\",\"pe_ttm\":39.94,\"dividend_yield_pct\":0.43,\"dividend_spread_pp\":-1.25,\"annual_fcf_yield_pct\":2.6811343815683437,\"conclusion\":\"PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。\"},\"technical_evidence\":{\"return_60d\":-0.0545,\"excess_60d\":0.0058,\"return_120d\":-0.1296,\"excess_120d\":-0.1073,\"above_ma20\":false,\"above_ma60\":false,\"above_ma120\":false},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"pass\",\"quality\":\"watch\",\"valuation\":\"fail\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"quality\":\"最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。\",\"valuation\":\"PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。\"},\"falsifier_note\":\"剔除许可后核心销售转负、关键三期失败/延期，或CFO/归母<1.0×连续两期即FAIL。\"}},{\"symbol\":\"600941\",\"name\":\"中国移动\",\"pre_round4_decision\":\"reject\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-08-13\",\"quality_evidence\":{\"status\":\"fail\",\"period\":\"2026H1 / 2025A\",\"cfo\":1148.54,\"capex\":609.54,\"fcf\":539,\"fcf_to_profit\":0.68,\"annual\":\"2025公司披露FCF820.41亿元、覆盖同期实际现金分红0.806×；2026H1 FCF覆盖同期宣告中期股利0.990×。\",\"conclusion\":\"连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。\"},\"valuation_evidence\":{\"status\":\"watch\",\"pe_ttm\":16.27,\"dividend_yield_pct\":4.76,\"dividend_spread_pp\":3.08,\"annual_fcf_yield_pct\":3.8265427608791827,\"conclusion\":\"PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。\"},\"technical_evidence\":{\"return_60d\":0.0223,\"excess_60d\":0.0827,\"return_120d\":0.0581,\"excess_120d\":0.0804,\"above_ma20\":true,\"above_ma60\":true,\"above_ma120\":true},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"watch\",\"quality\":\"fail\",\"valuation\":\"watch\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"mechanism\":\"算力收入增长已披露，但分业务资本回报尚未披露，机制门保持WATCH。\",\"quality\":\"连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。\",\"valuation\":\"PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。\"},\"falsifier_note\":\"同利润归属期FCF/股利<1.0×连续两期，或通信服务收入连续两期负增长即FAIL。\"}},{\"symbol\":\"600519\",\"name\":\"贵州茅台\",\"pre_round4_decision\":\"watch\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-08-15\",\"quality_evidence\":{\"status\":\"watch\",\"period\":\"2026H1 / 2025A\",\"cfo\":706.91,\"capex\":8.32,\"fcf\":698.59,\"fcf_to_profit\":1.57,\"annual\":\"剔除财务公司专属现金流行后，2025调整FCF约722.09亿元、FCF/归母0.877×、现金分红覆盖1.110×。\",\"conclusion\":\"归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。\"},\"valuation_evidence\":{\"status\":\"watch\",\"pe_ttm\":20.02,\"dividend_yield_pct\":3.99,\"dividend_spread_pp\":2.3100000000000005,\"annual_fcf_yield_pct\":4.429692421227013,\"conclusion\":\"PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。\"},\"technical_evidence\":{\"return_60d\":0.0175,\"excess_60d\":0.0778,\"return_120d\":-0.0673,\"excess_120d\":-0.045,\"above_ma20\":false,\"above_ma60\":true,\"above_ma120\":false},\"five_gate_result\":{\"fact\":\"watch\",\"mechanism\":\"watch\",\"quality\":\"watch\",\"valuation\":\"watch\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"fact\":\"财报与点时估值已冻结，但没有发行人可复核的批价和渠道库存序列，事实门保留WATCH。\",\"mechanism\":\"品牌需求可传导至主品收入和回款，但批价/渠道库存缺乏一手序列，机制门保持WATCH。\",\"quality\":\"归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。\",\"valuation\":\"PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。\"},\"falsifier_note\":\"茅台酒收入转负、调整FCF/归母<0.6×，或境内经销商净减少≥50家连续两期即FAIL。\"}}],\"stock_decision_rule\":\"只核前五门，忽略预留council=OPEN：FAIL→REJECT；否则OPEN→INCOMPLETE；否则WATCH→WATCH；全PASS→proposed_execution_tier，未预设则SATELLITE。另给council_vote=PASS|WATCH|REJECT，不得回写前五门。\",\"peer_challenges\":[\"经营现金流不等于扣除维护性资本开支后的自由现金流。\",\"成交与资金确认不能替代公司价值，但静态公司质量也不能替代周期风险。\",\"政策总盘子不能直接推出单家公司份额、毛利和回款。\",\"短缺与高利润会诱发资本开支，最终可能转成过剩。\",\"品牌、红利、创新药授权和高增长都可能被标签偏误高估。\",\"五个角色共享同一底层模型，投票不是独立概率。\"]}",
+      "prompt_mode": "standard",
+      "prompt_sha256": "e950177a9d7f8f8b111691963d8d3fc5ce656918c974977609006c86e62329b7",
+      "skill_sha256": "c1671ff0875d1ce50f0fe3840f0115072d47d019ea9c5234edbe4596bf0d60ba",
+      "agents_sha256": "c98e309d1d537e07713c349d041d40ec71968eeee9febc50ec0492bcff94ccd6",
+      "stdout": "{\"method_role\":\"查理·芒格方法论AI角色；Round 4一致性复核，非概率、非投资建议。\",\"scenario_rank\":[\"base\",\"upside\",\"downside\"],\"strongest_switch\":\"社会消费品零售：1—7月+1.2%最接近临界，连续三次≥3%或≤0%最直接决定情景切换方向。\",\"peer_replies\":[{\"claim\":\"经营现金流不等于扣除维护性资本开支后的自由现金流\",\"reply\":\"接受：质量门用粗FCF/归母，并把全部购建支出视为维护性开支，比单看OCF更保守。\"},{\"claim\":\"成交与资金确认不能替代公司价值，但静态公司质量也不能替代周期风险\",\"reply\":\"接受：估值与技术分门核对，反证门独立覆盖周期、过剩与渠道风险。\"},{\"claim\":\"短缺与高利润会诱发资本开支，最终可能转成过剩\",\"reply\":\"接受：半导体与机器人硬失配已含利用率与扩产致毛利下滑条件。\"},{\"claim\":\"五个角色共享同一底层模型，投票不是独立概率\",\"reply\":\"接受：会商票只作一致性标注，不当独立概率，不改分数。\"}],\"accepted_revision\":\"接受：五角色同源，会商票不是独立概率；本版只审门禁与主题映射一致性，不回改分数、不重算门禁。\",\"themes\":{\"grid\":\"WATCH\",\"semiconductor\":\"WATCH\",\"pharma\":\"REJECT\",\"appliance\":\"PASS\",\"dividend\":\"WATCH\",\"robotics\":\"REJECT\"},\"stocks\":{\"600900\":{\"decision\":\"WATCH\",\"council_vote\":\"WATCH\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"前四门PASS、估值门WATCH，按规则落WATCH。\",\"missing_evidence\":\"股息利差1.86pp低于PASS线，需下期确认是否修复。\",\"hard_fail\":\"无\"},\"000333\":{\"decision\":\"SATELLITE\",\"council_vote\":\"PASS\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"五门全PASS，预设satellite，落SATELLITE。\",\"missing_evidence\":\"无\",\"hard_fail\":\"无\"},\"300750\":{\"decision\":\"WATCH\",\"council_vote\":\"WATCH\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"事实与质量门WATCH、无FAIL/OPEN，落WATCH。\",\"missing_evidence\":\"缺H1同口径销量、ASP与利用率。\",\"hard_fail\":\"无\"},\"600276\":{\"decision\":\"REJECT\",\"council_vote\":\"REJECT\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"估值门FAIL：PE39.94×且收入、扣非、FCF同时转弱。\",\"missing_evidence\":\"下期确认现金质量是否连续两期FAIL。\",\"hard_fail\":\"估值门FAIL，触发成长轨道失败。\"},\"600941\":{\"decision\":\"REJECT\",\"council_vote\":\"REJECT\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"质量门FAIL：连续两期FCF不能覆盖分红。\",\"missing_evidence\":\"分业务资本回报尚未披露。\",\"hard_fail\":\"质量门FAIL，FCF/股利<1.0连续两期。\"},\"600519\":{\"decision\":\"WATCH\",\"council_vote\":\"WATCH\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"四门WATCH、无FAIL/OPEN，按规则落WATCH。\",\"missing_evidence\":\"缺批价与渠道库存一手冻结序列。\",\"hard_fail\":\"无\"}},\"latest_fact_changes\":[\"7月PMI 49.2、新订单48.5，双双低于荣枯线。\",\"1—7月社零+1.2%、商品房销售额-13.1%，内需与地产仍弱。\",\"H1政府性基金收入-21.6%，财政传导受限。\",\"宁德时代2026H1 FCF/归母降至0.81×、合同负债-25.9%。\",\"恒瑞2026H1 FCF/归母0.09×、合同负债合计-43.7%，估值门FAIL。\",\"茅台合同负债-60.3%、境内经销商净减46家，事实与机制门WATCH。\"],\"strongest_objection\":\"六项开关既未形成上行也未形成压力共振，结构市只是暂定；任何排序都不宜读成方向判断。\"}",
+      "stderr": "",
+      "exit_code": 0,
+      "duration_ms": 128570,
+      "stdout_sha256": "1f36174941d830e2906130d17990b9421320c5d3b89e2a70107a9f929993ea5c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "parsed": {
+        "method_role": "查理·芒格方法论AI角色；Round 4一致性复核，非概率、非投资建议。",
+        "scenario_rank": [
+          "base",
+          "upside",
+          "downside"
+        ],
+        "strongest_switch": "社会消费品零售：1—7月+1.2%最接近临界，连续三次≥3%或≤0%最直接决定情景切换方向。",
+        "peer_replies": [
+          {
+            "claim": "经营现金流不等于扣除维护性资本开支后的自由现金流",
+            "reply": "接受：质量门用粗FCF/归母，并把全部购建支出视为维护性开支，比单看OCF更保守。"
+          },
+          {
+            "claim": "成交与资金确认不能替代公司价值，但静态公司质量也不能替代周期风险",
+            "reply": "接受：估值与技术分门核对，反证门独立覆盖周期、过剩与渠道风险。"
+          },
+          {
+            "claim": "短缺与高利润会诱发资本开支，最终可能转成过剩",
+            "reply": "接受：半导体与机器人硬失配已含利用率与扩产致毛利下滑条件。"
+          },
+          {
+            "claim": "五个角色共享同一底层模型，投票不是独立概率",
+            "reply": "接受：会商票只作一致性标注，不当独立概率，不改分数。"
+          }
+        ],
+        "accepted_revision": "接受：五角色同源，会商票不是独立概率；本版只审门禁与主题映射一致性，不回改分数、不重算门禁。",
+        "themes": {
+          "grid": "WATCH",
+          "semiconductor": "WATCH",
+          "pharma": "REJECT",
+          "appliance": "PASS",
+          "dividend": "WATCH",
+          "robotics": "REJECT"
+        },
+        "stocks": {
+          "300750": {
+            "decision": "WATCH",
+            "council_vote": "WATCH",
+            "gate_audit": "CONSISTENT",
+            "reason": "事实与质量门WATCH、无FAIL/OPEN，落WATCH。",
+            "missing_evidence": "缺H1同口径销量、ASP与利用率。",
+            "hard_fail": "无"
+          },
+          "600276": {
+            "decision": "REJECT",
+            "council_vote": "REJECT",
+            "gate_audit": "CONSISTENT",
+            "reason": "估值门FAIL：PE39.94×且收入、扣非、FCF同时转弱。",
+            "missing_evidence": "下期确认现金质量是否连续两期FAIL。",
+            "hard_fail": "估值门FAIL，触发成长轨道失败。"
+          },
+          "600519": {
+            "decision": "WATCH",
+            "council_vote": "WATCH",
+            "gate_audit": "CONSISTENT",
+            "reason": "四门WATCH、无FAIL/OPEN，按规则落WATCH。",
+            "missing_evidence": "缺批价与渠道库存一手冻结序列。",
+            "hard_fail": "无"
+          },
+          "600900": {
+            "decision": "WATCH",
+            "council_vote": "WATCH",
+            "gate_audit": "CONSISTENT",
+            "reason": "前四门PASS、估值门WATCH，按规则落WATCH。",
+            "missing_evidence": "股息利差1.86pp低于PASS线，需下期确认是否修复。",
+            "hard_fail": "无"
+          },
+          "600941": {
+            "decision": "REJECT",
+            "council_vote": "REJECT",
+            "gate_audit": "CONSISTENT",
+            "reason": "质量门FAIL：连续两期FCF不能覆盖分红。",
+            "missing_evidence": "分业务资本回报尚未披露。",
+            "hard_fail": "质量门FAIL，FCF/股利<1.0连续两期。"
+          },
+          "000333": {
+            "decision": "SATELLITE",
+            "council_vote": "PASS",
+            "gate_audit": "CONSISTENT",
+            "reason": "五门全PASS，预设satellite，落SATELLITE。",
+            "missing_evidence": "无",
+            "hard_fail": "无"
+          }
+        },
+        "latest_fact_changes": [
+          "7月PMI 49.2、新订单48.5，双双低于荣枯线。",
+          "1—7月社零+1.2%、商品房销售额-13.1%，内需与地产仍弱。",
+          "H1政府性基金收入-21.6%，财政传导受限。",
+          "宁德时代2026H1 FCF/归母降至0.81×、合同负债-25.9%。",
+          "恒瑞2026H1 FCF/归母0.09×、合同负债合计-43.7%，估值门FAIL。",
+          "茅台合同负债-60.3%、境内经销商净减46家，事实与机制门WATCH。"
+        ],
+        "strongest_objection": "六项开关既未形成上行也未形成压力共振，结构市只是暂定；任何排序都不宜读成方向判断。"
+      },
+      "validation_errors": [],
+      "attempt_history": []
+    },
+    {
+      "master_id": "warren-buffett-perspective",
+      "method_role": "沃伦·巴菲特",
+      "persona_disclaimer": "AI方法论角色；相关真人未参与、未审核、未背书。",
+      "prompt": "执行 Hanai A股一年展望 Round 4 一致性复核。你是“沃伦·巴菲特”方法论AI角色；相关真人未参与、审核或背书。只用冻结事实包，不联网补数，不把五个同源角色当独立概率。主题分级及前五门是待核映射，不可按个人偏好改写。\n\n任务：\n1. 用base/upside/downside各一次给情景排序，不给概率。\n2. 回应3—4条peer_challenges，明确accepted_revision。\n3. 六主题严格按theme_review_rule输出PASS/WATCH/REJECT，不重算分数。\n4. 六股严格按five_gate_result及stock_decision_rule输出decision；另给council_vote。发现输入映射矛盾才写INCONSISTENT。\n5. latest_fact_changes最多6条。不得给目标价、仓位、买入指令或收益承诺。\n\n只输出一个JSON对象，无Markdown/围栏/前后缀，总长度不超过6000字符。所有解释字段每项不超过60个汉字。必需字段：\n{\"method_role\":\"...\",\"scenario_rank\":[\"base\",\"upside\",\"downside\"],\"strongest_switch\":\"...\",\"peer_replies\":[{\"claim\":\"...\",\"reply\":\"...\"}],\"accepted_revision\":\"...\",\"themes\":{\"grid\":\"...\",\"semiconductor\":\"...\",\"pharma\":\"...\",\"appliance\":\"...\",\"dividend\":\"...\",\"robotics\":\"...\"},\"stocks\":{\"600900\":S,\"000333\":S,\"300750\":S,\"600276\":S,\"600941\":S,\"600519\":S},\"latest_fact_changes\":[\"...\"],\"strongest_objection\":\"...\"}\nS={\"decision\":\"CORE|SATELLITE|WATCH|REJECT|INCOMPLETE\",\"council_vote\":\"PASS|WATCH|REJECT\",\"gate_audit\":\"CONSISTENT|INCONSISTENT\",\"reason\":\"...\",\"missing_evidence\":\"...\",\"hard_fail\":\"...\"}；themes值只能PASS|WATCH|REJECT。\n\n冻结事实包：\n{\"as_of\":\"2026-08-25\",\"market_data_cutoff\":\"2026-08-25\",\"forecast_window\":[\"2026-08-25\",\"2027-08-25\"],\"scenario_rule\":\"每项按本报告冻结阈值记+1/0/-1。可评估≥5且上行≥4、总分≥+3时为盈利扩散；否则，可评估≥5且压力≥4、总分≤-3时为二次探底；其余为结构市/数据待确认。未知或断档记0并标pending，不可跨期拼接。当前覆盖不足，状态为base_pending。阈值是本报告研究门槛，不是官方标准或历史校准模型。\",\"scenarios\":[{\"id\":\"base\",\"name\":\"基准：结构市延续\",\"priority\":\"主情景\",\"description\":\"现有报告只够把状态暂定为结构市 / 数据不足；六项开关尚未形成可确认的广泛上行或压力共振。\"},{\"id\":\"upside\",\"name\":\"乐观：盈利扩散\",\"priority\":\"备选情景\",\"description\":\"财政资金与信用传导改善，盈利从电子、有色等少数行业扩散至中游设备、可选消费和金融，市场宽度恢复。\"},{\"id\":\"downside\",\"name\":\"悲观：二次探底\",\"priority\":\"压力情景\",\"description\":\"地产和内需继续收缩，叠加出口、能源或外部利率冲击；高估值成长与强周期率先压缩估值。\"}],\"scenario_indicators\":[{\"name\":\"规模以上工业增加值\",\"current\":\"+5.3%（2026年1—7月）\",\"upside\":\"累计同比≥6%，连续3次发布\",\"downside\":\"累计同比≤4%，连续3次发布\"},{\"name\":\"社会消费品零售\",\"current\":\"+1.2%（2026年1—7月）\",\"upside\":\"累计同比≥3%，连续3次发布\",\"downside\":\"累计同比≤0%，连续3次发布\"},{\"name\":\"商品房销售额\",\"current\":\"-13.1%（2026年1—7月）\",\"upside\":\"累计同比≥-5%，连续3次发布\",\"downside\":\"累计同比≤-15%，连续3次发布\"},{\"name\":\"PPI环比\",\"current\":\"-0.7%（2026-07；单期）\",\"upside\":\">0%，连续3月\",\"downside\":\"<0%，连续3月\"},{\"name\":\"工业利润与广度\",\"current\":\"总额+18.7%，电子贡献约45%（2026H1）\",\"upside\":\"利润≥10%且电子增量贡献≤30%，连续2次\",\"downside\":\"利润<5%，连续2次\"},{\"name\":\"政府性基金收入\",\"current\":\"-21.6%（2026H1；单期）\",\"upside\":\"累计同比≥-5%，连续2次发布\",\"downside\":\"累计同比≤-15%，连续2次发布\"}],\"macro_evidence\":[{\"label\":\"2026H1 GDP\",\"value\":\"+4.7%\",\"tone\":\"watch\"},{\"label\":\"1—7月工业\",\"value\":\"+5.3%\",\"tone\":\"positive\"},{\"label\":\"1—7月社零\",\"value\":\"+1.2%\",\"tone\":\"watch\"},{\"label\":\"地产开发投资\",\"value\":\"-19.2%\",\"tone\":\"negative\"},{\"label\":\"7月CPI / PPI\",\"value\":\"+0.5% / +3.5%\",\"tone\":\"watch\"},{\"label\":\"H1工业利润\",\"value\":\"+18.7%\",\"tone\":\"positive\"},{\"label\":\"8月LPR\",\"value\":\"3.0% / 3.5%\",\"tone\":\"neutral\"},{\"label\":\"H1政府性基金收入\",\"value\":\"-21.6%\",\"tone\":\"negative\"},{\"label\":\"7月PMI / 新订单\",\"value\":\"49.2 / 48.5\",\"tone\":\"watch\"}],\"market_snapshot\":{\"date\":\"2026-08-25\",\"hs300\":{\"return_20d\":-0.0038,\"return_60d\":-0.0603,\"return_120d\":-0.0223,\"above_ma20\":false,\"above_ma60\":false,\"above_ma120\":false},\"breadth_advance_ratio\":0.7728,\"government_bond_10y_pct\":1.68,\"interpretation\":\"沪深300低于MA20/60/120，而当日上涨家数占涨跌家数77.3%；这是弱中期趋势中的单日普涨，不能单独定义反转。\"},\"theme_scoring\":{\"components\":[\"demand\",\"earnings\",\"cash\",\"valuation\",\"market\"],\"grade_mapping\":{\"A\":85,\"A-\":80,\"B+\":75,\"B\":70,\"B-\":60,\"C\":0},\"execution_separation\":\"主题A/A-只表示本版证据评分较高，不等于股票可买；股票必须另过事实、机制、质量、估值、反证和会商六门。\"},\"theme_review_rule\":\"score/grade是按报告公开尺度形成的人工证据评分，不是概率，也不是专家自由投票。Round 4只审计映射一致性：A或A-→PASS；B+、B或B-→WATCH；C→REJECT；不得在会商输出中暗改分数。\",\"themes\":[{\"id\":\"grid\",\"name\":\"电网、特高压与电力数字化\",\"grade\":\"B+\",\"score\":75,\"score_components\":{\"demand\":20,\"earnings\":15,\"cash\":15,\"valuation\":15,\"market\":10},\"score_summary\":\"四万亿元多年投资提供最强需求可见度；国电南瑞盈利为正、估值中性，但股价低于MA20/60/120且60/120日相对收益为负。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":1.13,\"board_advance_ratio\":0.8},\"hard_fail\":\"连续两个季度订单增速低于10%，合同负债下降且经营现金流显著落后净利润。\"},{\"id\":\"semiconductor\",\"name\":\"AI算力与国产集成电路制造\",\"grade\":\"B-\",\"score\":65,\"score_components\":{\"demand\":20,\"earnings\":20,\"cash\":10,\"valuation\":5,\"market\":10},\"score_summary\":\"收入、毛利和利用率验证最强，但中芯国际PE-TTM约204倍，代表股低于三条均线且板块当日上涨家数不足一半。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":-0.4,\"board_advance_ratio\":0.4153},\"hard_fail\":\"利用率低于85%、毛利率低于22%，或存货连续两个季度快于收入。\"},{\"id\":\"pharma\",\"name\":\"创新药出海与授权交易\",\"grade\":\"C\",\"score\":45,\"score_components\":{\"demand\":15,\"earnings\":10,\"cash\":5,\"valuation\":5,\"market\":10},\"score_summary\":\"创新药销售仍增长，但恒瑞收入、扣非、FCF与趋势同时偏弱，估值余量不足。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":2.19,\"board_advance_ratio\":0.8112},\"hard_fail\":\"剔除许可收入后核心产品增速降至个位数，或关键三期临床失败。\"},{\"id\":\"appliance\",\"name\":\"白色家电全球化与节能更新\",\"grade\":\"A-\",\"score\":80,\"score_components\":{\"demand\":15,\"earnings\":10,\"cash\":15,\"valuation\":20,\"market\":20},\"score_summary\":\"美的估值与股息利差合理、站上MA20/60/120且60/120日显著跑赢沪深300；扣非利润下降使其只能是A-而非A。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":1.42,\"board_advance_ratio\":0.8182},\"hard_fail\":\"经营现金流连续下降、海外毛利率明显恶化，或补贴后家电零售仍低于2%。\"},{\"id\":\"dividend\",\"name\":\"高股息与可解释现金流\",\"grade\":\"B+\",\"score\":75,\"score_components\":{\"demand\":15,\"earnings\":12,\"cash\":15,\"valuation\":18,\"market\":15},\"score_summary\":\"长电与移动估值、股息和相对强弱具备防御属性，但移动FCF不能覆盖分红、长电股息利差略低于预设PASS线。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":0.05,\"board_advance_ratio\":0.5638},\"hard_fail\":\"派息靠负债、处置资产或削减必要资本开支维持。\"},{\"id\":\"robotics\",\"name\":\"具身智能与机器人\",\"grade\":\"C\",\"score\":35,\"score_components\":{\"demand\":10,\"earnings\":5,\"cash\":5,\"valuation\":5,\"market\":10},\"score_summary\":\"同日板块广度较高，但缺稳定订单、单位经济、自由现金流和代表股完整门禁。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":1.37,\"board_advance_ratio\":0.737},\"hard_fail\":\"交付时点持续后延、只见概念成交而无真实终端订单，或扩产导致毛利连续下滑。\"}],\"stocks\":[{\"symbol\":\"600900\",\"name\":\"长江电力\",\"pre_round4_decision\":\"watch\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026Q1 / 披露2026-04-30\",\"quality_evidence\":{\"status\":\"pass\",\"period\":\"2026Q1 / 2025A\",\"cfo\":117.11,\"capex\":32.2,\"fcf\":84.9,\"fcf_to_profit\":1.26,\"annual\":\"2025粗FCF420.74亿元、FCF/归母1.22×、覆盖现金分红1.72×、ROE15.90%。\",\"conclusion\":\"即使把全部购建长期资产现金视为维护性资本开支，Q1和全年现金质量仍过预设门。\"},\"valuation_evidence\":{\"status\":\"watch\",\"pe_ttm\":19.13,\"dividend_yield_pct\":3.54,\"dividend_spread_pp\":1.86,\"annual_fcf_yield_pct\":6.095486591944659,\"conclusion\":\"PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。\"},\"technical_evidence\":{\"return_60d\":0.0456,\"excess_60d\":0.1059,\"return_120d\":0.0775,\"excess_120d\":0.0998,\"above_ma20\":false,\"above_ma60\":true,\"above_ma120\":true},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"pass\",\"quality\":\"pass\",\"valuation\":\"watch\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"valuation\":\"PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。\"},\"falsifier_note\":\"粗FCF/现金分红<1.0×，或发电量同比≤-10%且平均结算电价同比≤-5%连续两期即FAIL。\"}},{\"symbol\":\"000333\",\"name\":\"美的集团\",\"pre_round4_decision\":\"satellite\",\"proposed_execution_tier\":\"satellite\",\"financial_cutoff\":\"2026Q1 / 披露2026-04-30\",\"quality_evidence\":{\"status\":\"pass\",\"period\":\"2026Q1 / 2025A\",\"cfo\":145.29,\"capex\":21.43,\"fcf\":123.86,\"fcf_to_profit\":0.98,\"annual\":\"2025 CFO533.46亿元、粗FCF422.04亿元、FCF/归母0.96×、覆盖现金分红1.30×、ROE19.70%；海外毛利率26.60%，同比仅-0.22pp。\",\"conclusion\":\"2025 CFO/归母1.21×、粗FCF/分红1.30×、ROE19.70%；购建支出111.42亿元、营运资本约释现52.80亿元，海外毛利率仅降0.22pp，均已拆清。Q1扣非-14.02%作为下一期证伪，不追认成FAIL。\"},\"valuation_evidence\":{\"status\":\"pass\",\"pe_ttm\":14.96,\"dividend_yield_pct\":4.96,\"dividend_spread_pp\":3.2800000000000002,\"annual_fcf_yield_pct\":6.381584006892653,\"conclusion\":\"PE-TTM14.96×、2025粗FCF收益率6.38%、股息率较10年国债利差3.28pp，稳定现金流轨道三项全部通过。\"},\"technical_evidence\":{\"return_60d\":0.1117,\"excess_60d\":0.172,\"return_120d\":0.1902,\"excess_120d\":0.2125,\"above_ma20\":true,\"above_ma60\":true,\"above_ma120\":true},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"pass\",\"quality\":\"pass\",\"valuation\":\"pass\",\"falsifier\":\"pass\",\"non_pass_notes\":{},\"falsifier_note\":\"CFO/归母<0.8×、收入或利润转负、或海外毛利率同比下降≥2pp连续两期即FAIL。\"}},{\"symbol\":\"300750\",\"name\":\"宁德时代\",\"pre_round4_decision\":\"watch\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-07-26\",\"quality_evidence\":{\"status\":\"watch\",\"period\":\"2026H1 / 2025A\",\"cfo\":602.17,\"capex\":250.73,\"fcf\":351.44,\"fcf_to_profit\":0.81,\"annual\":\"2025粗FCF908.75亿元、FCF/归母1.26×、覆盖现金分红2.52×、ROE24.91%。\",\"conclusion\":\"2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。\"},\"valuation_evidence\":{\"status\":\"pass\",\"pe_ttm\":20.51,\"dividend_yield_pct\":2.19,\"dividend_spread_pp\":0.51,\"annual_fcf_yield_pct\":5.2137128653516,\"conclusion\":\"PE-TTM20.51×、2025粗FCF收益率5.21%，H1收入/归母净利+54.8%/+42.0%，成长轨道三项全部通过；质量门仍独立为WATCH。\"},\"technical_evidence\":{\"return_60d\":-0.1002,\"excess_60d\":-0.0399,\"return_120d\":0.122,\"excess_120d\":0.1443,\"above_ma20\":false,\"above_ma60\":false,\"above_ma120\":false},\"five_gate_result\":{\"fact\":\"watch\",\"mechanism\":\"pass\",\"quality\":\"watch\",\"valuation\":\"pass\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"fact\":\"2026H1财务已披露，但公司未给出同口径H1销量、ASP与利用率，事实门保留WATCH。\",\"quality\":\"2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。\"},\"falsifier_note\":\"FCF/归母<0.8×且收入增速<10%连续两期，或利用率<85%且收入/GWh代理再降≥10%而capex仍增即FAIL。\"}},{\"symbol\":\"600276\",\"name\":\"恒瑞医药\",\"pre_round4_decision\":\"reject\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-08-19\",\"quality_evidence\":{\"status\":\"watch\",\"period\":\"2026H1 / 2025A\",\"cfo\":19.87,\"capex\":15.78,\"fcf\":4.09,\"fcf_to_profit\":0.09,\"annual\":\"2025粗FCF82.73亿元、FCF/归母1.07×；2026H1许可收入14.22亿元，流动及长期合同负债合计下降43.7%。\",\"conclusion\":\"最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。\"},\"valuation_evidence\":{\"status\":\"fail\",\"pe_ttm\":39.94,\"dividend_yield_pct\":0.43,\"dividend_spread_pp\":-1.25,\"annual_fcf_yield_pct\":2.6811343815683437,\"conclusion\":\"PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。\"},\"technical_evidence\":{\"return_60d\":-0.0545,\"excess_60d\":0.0058,\"return_120d\":-0.1296,\"excess_120d\":-0.1073,\"above_ma20\":false,\"above_ma60\":false,\"above_ma120\":false},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"pass\",\"quality\":\"watch\",\"valuation\":\"fail\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"quality\":\"最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。\",\"valuation\":\"PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。\"},\"falsifier_note\":\"剔除许可后核心销售转负、关键三期失败/延期，或CFO/归母<1.0×连续两期即FAIL。\"}},{\"symbol\":\"600941\",\"name\":\"中国移动\",\"pre_round4_decision\":\"reject\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-08-13\",\"quality_evidence\":{\"status\":\"fail\",\"period\":\"2026H1 / 2025A\",\"cfo\":1148.54,\"capex\":609.54,\"fcf\":539,\"fcf_to_profit\":0.68,\"annual\":\"2025公司披露FCF820.41亿元、覆盖同期实际现金分红0.806×；2026H1 FCF覆盖同期宣告中期股利0.990×。\",\"conclusion\":\"连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。\"},\"valuation_evidence\":{\"status\":\"watch\",\"pe_ttm\":16.27,\"dividend_yield_pct\":4.76,\"dividend_spread_pp\":3.08,\"annual_fcf_yield_pct\":3.8265427608791827,\"conclusion\":\"PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。\"},\"technical_evidence\":{\"return_60d\":0.0223,\"excess_60d\":0.0827,\"return_120d\":0.0581,\"excess_120d\":0.0804,\"above_ma20\":true,\"above_ma60\":true,\"above_ma120\":true},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"watch\",\"quality\":\"fail\",\"valuation\":\"watch\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"mechanism\":\"算力收入增长已披露，但分业务资本回报尚未披露，机制门保持WATCH。\",\"quality\":\"连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。\",\"valuation\":\"PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。\"},\"falsifier_note\":\"同利润归属期FCF/股利<1.0×连续两期，或通信服务收入连续两期负增长即FAIL。\"}},{\"symbol\":\"600519\",\"name\":\"贵州茅台\",\"pre_round4_decision\":\"watch\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-08-15\",\"quality_evidence\":{\"status\":\"watch\",\"period\":\"2026H1 / 2025A\",\"cfo\":706.91,\"capex\":8.32,\"fcf\":698.59,\"fcf_to_profit\":1.57,\"annual\":\"剔除财务公司专属现金流行后，2025调整FCF约722.09亿元、FCF/归母0.877×、现金分红覆盖1.110×。\",\"conclusion\":\"归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。\"},\"valuation_evidence\":{\"status\":\"watch\",\"pe_ttm\":20.02,\"dividend_yield_pct\":3.99,\"dividend_spread_pp\":2.3100000000000005,\"annual_fcf_yield_pct\":4.429692421227013,\"conclusion\":\"PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。\"},\"technical_evidence\":{\"return_60d\":0.0175,\"excess_60d\":0.0778,\"return_120d\":-0.0673,\"excess_120d\":-0.045,\"above_ma20\":false,\"above_ma60\":true,\"above_ma120\":false},\"five_gate_result\":{\"fact\":\"watch\",\"mechanism\":\"watch\",\"quality\":\"watch\",\"valuation\":\"watch\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"fact\":\"财报与点时估值已冻结，但没有发行人可复核的批价和渠道库存序列，事实门保留WATCH。\",\"mechanism\":\"品牌需求可传导至主品收入和回款，但批价/渠道库存缺乏一手序列，机制门保持WATCH。\",\"quality\":\"归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。\",\"valuation\":\"PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。\"},\"falsifier_note\":\"茅台酒收入转负、调整FCF/归母<0.6×，或境内经销商净减少≥50家连续两期即FAIL。\"}}],\"stock_decision_rule\":\"只核前五门，忽略预留council=OPEN：FAIL→REJECT；否则OPEN→INCOMPLETE；否则WATCH→WATCH；全PASS→proposed_execution_tier，未预设则SATELLITE。另给council_vote=PASS|WATCH|REJECT，不得回写前五门。\",\"peer_challenges\":[\"经营现金流不等于扣除维护性资本开支后的自由现金流。\",\"成交与资金确认不能替代公司价值，但静态公司质量也不能替代周期风险。\",\"政策总盘子不能直接推出单家公司份额、毛利和回款。\",\"短缺与高利润会诱发资本开支，最终可能转成过剩。\",\"品牌、红利、创新药授权和高增长都可能被标签偏误高估。\",\"五个角色共享同一底层模型，投票不是独立概率。\"]}",
+      "prompt_mode": "standard",
+      "prompt_sha256": "d624737695279bb6175dd6eefec6c2a26c76edfe15f23c6631f7b0e6a3915ecf",
+      "skill_sha256": "72230027e53cb18f40a99c0288075fa33b61511ad57c21af85b2f03c416eddaf",
+      "agents_sha256": "29c735c4da2c235d0b60a1b5e0225f1bb334662693bcd8ac28f4ea0b1b82f135",
+      "stdout": "{\"method_role\":\"沃伦·巴菲特视角：长期所有者、护城河与安全边际，框架推断非本人观点\",\"scenario_rank\":[\"base\",\"downside\",\"upside\"],\"strongest_switch\":\"政府性基金收入-21.6%已破≤-15%下行线、PPI环比-0.7%，是当前指向downside的最强单期信号\",\"peer_replies\":[{\"claim\":\"经营现金流不等于扣除维护性资本开支后的自由现金流。\",\"reply\":\"已采纳：全表以粗FCF=CFO减全部购建长期资产支出审现金，未拆维护与扩张前不把CFO当FCF。\"},{\"claim\":\"政策总盘子不能直接推出单家公司份额、毛利和回款。\",\"reply\":\"同意，电网B+仅给板块，不递推单股；份额毛利回款须另过六门，不由总分外推。\"},{\"claim\":\"短缺与高利润会诱发资本开支，最终可能转成过剩。\",\"reply\":\"同意，把半导体与宁德的周期反转锁进falsifier；扩产致毛利连降即FAIL。\"},{\"claim\":\"五个角色共享同一底层模型，投票不是独立概率。\",\"reply\":\"同意，council_vote只作一致性标签，不作五票独立概率，会商不回写前五门。\"}],\"accepted_revision\":\"采纳CFO≠FCF：现金流审计统一用粗FCF=CFO减全部购建长期资产支出，不以经营现金流替代自由现金流。\",\"themes\":{\"grid\":\"WATCH\",\"semiconductor\":\"WATCH\",\"pharma\":\"REJECT\",\"appliance\":\"PASS\",\"dividend\":\"WATCH\",\"robotics\":\"REJECT\"},\"stocks\":{\"600900\":{\"decision\":\"WATCH\",\"council_vote\":\"WATCH\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"质量与FCF过门，但股息较10年国债利差仅1.86pp，估值门WATCH未达PASS线。\",\"missing_evidence\":\"缺维护性vs扩张性资本开支拆分，股息利差仅单期。\",\"hard_fail\":\"粗FCF/现金分红<1.0，或发电量≤-10%且电价≤-5%连续两期。\"},\"000333\":{\"decision\":\"SATELLITE\",\"council_vote\":\"PASS\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"五门全PASS，CFO/归母1.21、ROE19.7%、股息利差3.28pp，按预设层级SATELLITE。\",\"missing_evidence\":\"Q1扣非-14.02%待下期证伪确认。\",\"hard_fail\":\"CFO/归母<0.8、收入利润转负、或海外毛利率同比降≥2pp连续两期。\"},\"300750\":{\"decision\":\"WATCH\",\"council_vote\":\"WATCH\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"H1 FCF转化0.81、合同负债-25.9%使质量WATCH，事实门缺同口径销量/ASP/利用率。\",\"missing_evidence\":\"缺2026H1同口径销量、ASP、利用率。\",\"hard_fail\":\"FCF/归母<0.8且收入<10%连续两期，或利用率<85%且代理再降≥10%而capex仍增。\"},\"600276\":{\"decision\":\"REJECT\",\"council_vote\":\"REJECT\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"估值门FAIL：PE39.94、FCF收益率2.68%，H1收入/扣非/FCF同弱。\",\"missing_evidence\":\"缺剔除许可收入后核心产品增速与下期现金流。\",\"hard_fail\":\"剔除许可后核心销售转负、关键三期失败/延期，或CFO/归母<1.0连续两期。\"},\"600941\":{\"decision\":\"REJECT\",\"council_vote\":\"REJECT\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"质量门FAIL：连续两期FCF不覆盖分红0.806/0.990<1.2，派息含资本缺口。\",\"missing_evidence\":\"缺分业务资本回报披露，机制门仅WATCH。\",\"hard_fail\":\"同利润期FCF/股利<1.0连续两期，或通信服务收入连续两期负增长。\"},\"600519\":{\"decision\":\"WATCH\",\"council_vote\":\"WATCH\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"四门均WATCH，合同负债-60.3%、经销商净减46家，缺批价渠道库存一手序列。\",\"missing_evidence\":\"缺一手批价与渠道库存序列，无法验证品牌传导。\",\"hard_fail\":\"茅台酒收入转负、调整FCF/归母<0.6，或经销商净减≥50家连续两期。\"}},\"latest_fact_changes\":[\"600276恒瑞2026H1披露，FCF/归母0.09、许可收入14.22亿、合同负债-43.7%。\",\"600941移动2026H1披露，FCF覆盖中期股利0.990×，连续两期不覆盖。\",\"600519茅台2026H1披露，合同负债-60.3%、境内经销商净减46家。\",\"300750宁德2026H1披露，FCF转化0.81×、合同负债-25.9%。\",\"7月PMI49.2、新订单48.5，PPI环比-0.7%，内需与价格偏弱。\",\"8月LPR3.0%/3.5%、10年国债1.68%，无风险利率低位。\"],\"strongest_objection\":\"最大反驳：覆盖不足，六开关无一凑齐连续确认，排序仍是单期拼凑，base_pending最诚实。\"}",
+      "stderr": "",
+      "exit_code": 0,
+      "duration_ms": 177893,
+      "stdout_sha256": "241aa26dd1f6641e1193318450bf29ddb9edd081cc747d2e4b840f03b67871fd",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "parsed": {
+        "method_role": "沃伦·巴菲特视角：长期所有者、护城河与安全边际，框架推断非本人观点",
+        "scenario_rank": [
+          "base",
+          "downside",
+          "upside"
+        ],
+        "strongest_switch": "政府性基金收入-21.6%已破≤-15%下行线、PPI环比-0.7%，是当前指向downside的最强单期信号",
+        "peer_replies": [
+          {
+            "claim": "经营现金流不等于扣除维护性资本开支后的自由现金流。",
+            "reply": "已采纳：全表以粗FCF=CFO减全部购建长期资产支出审现金，未拆维护与扩张前不把CFO当FCF。"
+          },
+          {
+            "claim": "政策总盘子不能直接推出单家公司份额、毛利和回款。",
+            "reply": "同意，电网B+仅给板块，不递推单股；份额毛利回款须另过六门，不由总分外推。"
+          },
+          {
+            "claim": "短缺与高利润会诱发资本开支，最终可能转成过剩。",
+            "reply": "同意，把半导体与宁德的周期反转锁进falsifier；扩产致毛利连降即FAIL。"
+          },
+          {
+            "claim": "五个角色共享同一底层模型，投票不是独立概率。",
+            "reply": "同意，council_vote只作一致性标签，不作五票独立概率，会商不回写前五门。"
+          }
+        ],
+        "accepted_revision": "采纳CFO≠FCF：现金流审计统一用粗FCF=CFO减全部购建长期资产支出，不以经营现金流替代自由现金流。",
+        "themes": {
+          "grid": "WATCH",
+          "semiconductor": "WATCH",
+          "pharma": "REJECT",
+          "appliance": "PASS",
+          "dividend": "WATCH",
+          "robotics": "REJECT"
+        },
+        "stocks": {
+          "300750": {
+            "decision": "WATCH",
+            "council_vote": "WATCH",
+            "gate_audit": "CONSISTENT",
+            "reason": "H1 FCF转化0.81、合同负债-25.9%使质量WATCH，事实门缺同口径销量/ASP/利用率。",
+            "missing_evidence": "缺2026H1同口径销量、ASP、利用率。",
+            "hard_fail": "FCF/归母<0.8且收入<10%连续两期，或利用率<85%且代理再降≥10%而capex仍增。"
+          },
+          "600276": {
+            "decision": "REJECT",
+            "council_vote": "REJECT",
+            "gate_audit": "CONSISTENT",
+            "reason": "估值门FAIL：PE39.94、FCF收益率2.68%，H1收入/扣非/FCF同弱。",
+            "missing_evidence": "缺剔除许可收入后核心产品增速与下期现金流。",
+            "hard_fail": "剔除许可后核心销售转负、关键三期失败/延期，或CFO/归母<1.0连续两期。"
+          },
+          "600519": {
+            "decision": "WATCH",
+            "council_vote": "WATCH",
+            "gate_audit": "CONSISTENT",
+            "reason": "四门均WATCH，合同负债-60.3%、经销商净减46家，缺批价渠道库存一手序列。",
+            "missing_evidence": "缺一手批价与渠道库存序列，无法验证品牌传导。",
+            "hard_fail": "茅台酒收入转负、调整FCF/归母<0.6，或经销商净减≥50家连续两期。"
+          },
+          "600900": {
+            "decision": "WATCH",
+            "council_vote": "WATCH",
+            "gate_audit": "CONSISTENT",
+            "reason": "质量与FCF过门，但股息较10年国债利差仅1.86pp，估值门WATCH未达PASS线。",
+            "missing_evidence": "缺维护性vs扩张性资本开支拆分，股息利差仅单期。",
+            "hard_fail": "粗FCF/现金分红<1.0，或发电量≤-10%且电价≤-5%连续两期。"
+          },
+          "600941": {
+            "decision": "REJECT",
+            "council_vote": "REJECT",
+            "gate_audit": "CONSISTENT",
+            "reason": "质量门FAIL：连续两期FCF不覆盖分红0.806/0.990<1.2，派息含资本缺口。",
+            "missing_evidence": "缺分业务资本回报披露，机制门仅WATCH。",
+            "hard_fail": "同利润期FCF/股利<1.0连续两期，或通信服务收入连续两期负增长。"
+          },
+          "000333": {
+            "decision": "SATELLITE",
+            "council_vote": "PASS",
+            "gate_audit": "CONSISTENT",
+            "reason": "五门全PASS，CFO/归母1.21、ROE19.7%、股息利差3.28pp，按预设层级SATELLITE。",
+            "missing_evidence": "Q1扣非-14.02%待下期证伪确认。",
+            "hard_fail": "CFO/归母<0.8、收入利润转负、或海外毛利率同比降≥2pp连续两期。"
+          }
+        },
+        "latest_fact_changes": [
+          "600276恒瑞2026H1披露，FCF/归母0.09、许可收入14.22亿、合同负债-43.7%。",
+          "600941移动2026H1披露，FCF覆盖中期股利0.990×，连续两期不覆盖。",
+          "600519茅台2026H1披露，合同负债-60.3%、境内经销商净减46家。",
+          "300750宁德2026H1披露，FCF转化0.81×、合同负债-25.9%。",
+          "7月PMI49.2、新订单48.5，PPI环比-0.7%，内需与价格偏弱。",
+          "8月LPR3.0%/3.5%、10年国债1.68%，无风险利率低位。"
+        ],
+        "strongest_objection": "最大反驳：覆盖不足，六开关无一凑齐连续确认，排序仍是单期拼凑，base_pending最诚实。"
+      },
+      "validation_errors": [],
+      "attempt_history": []
+    },
+    {
+      "master_id": "sun-yuchen-perspective",
+      "method_role": "孙宇晨",
+      "persona_disclaimer": "AI方法论角色；相关真人未参与、未审核、未背书。",
+      "prompt": "执行 Hanai A股一年展望 Round 4 一致性复核。你是“孙宇晨”方法论AI角色；相关真人未参与、审核或背书。只用冻结事实包，不联网补数，不把五个同源角色当独立概率。主题分级及前五门是待核映射，不可按个人偏好改写。\n\n任务：\n1. 用base/upside/downside各一次给情景排序，不给概率。\n2. 回应3—4条peer_challenges，明确accepted_revision。\n3. 六主题严格按theme_review_rule输出PASS/WATCH/REJECT，不重算分数。\n4. 六股严格按five_gate_result及stock_decision_rule输出decision；另给council_vote。发现输入映射矛盾才写INCONSISTENT。\n5. latest_fact_changes最多6条。不得给目标价、仓位、买入指令或收益承诺。\n\n只输出一个JSON对象，无Markdown/围栏/前后缀，总长度不超过6000字符。所有解释字段每项不超过60个汉字。必需字段：\n{\"method_role\":\"...\",\"scenario_rank\":[\"base\",\"upside\",\"downside\"],\"strongest_switch\":\"...\",\"peer_replies\":[{\"claim\":\"...\",\"reply\":\"...\"}],\"accepted_revision\":\"...\",\"themes\":{\"grid\":\"...\",\"semiconductor\":\"...\",\"pharma\":\"...\",\"appliance\":\"...\",\"dividend\":\"...\",\"robotics\":\"...\"},\"stocks\":{\"600900\":S,\"000333\":S,\"300750\":S,\"600276\":S,\"600941\":S,\"600519\":S},\"latest_fact_changes\":[\"...\"],\"strongest_objection\":\"...\"}\nS={\"decision\":\"CORE|SATELLITE|WATCH|REJECT|INCOMPLETE\",\"council_vote\":\"PASS|WATCH|REJECT\",\"gate_audit\":\"CONSISTENT|INCONSISTENT\",\"reason\":\"...\",\"missing_evidence\":\"...\",\"hard_fail\":\"...\"}；themes值只能PASS|WATCH|REJECT。\n\n冻结事实包：\n{\"as_of\":\"2026-08-25\",\"market_data_cutoff\":\"2026-08-25\",\"forecast_window\":[\"2026-08-25\",\"2027-08-25\"],\"scenario_rule\":\"每项按本报告冻结阈值记+1/0/-1。可评估≥5且上行≥4、总分≥+3时为盈利扩散；否则，可评估≥5且压力≥4、总分≤-3时为二次探底；其余为结构市/数据待确认。未知或断档记0并标pending，不可跨期拼接。当前覆盖不足，状态为base_pending。阈值是本报告研究门槛，不是官方标准或历史校准模型。\",\"scenarios\":[{\"id\":\"base\",\"name\":\"基准：结构市延续\",\"priority\":\"主情景\",\"description\":\"现有报告只够把状态暂定为结构市 / 数据不足；六项开关尚未形成可确认的广泛上行或压力共振。\"},{\"id\":\"upside\",\"name\":\"乐观：盈利扩散\",\"priority\":\"备选情景\",\"description\":\"财政资金与信用传导改善，盈利从电子、有色等少数行业扩散至中游设备、可选消费和金融，市场宽度恢复。\"},{\"id\":\"downside\",\"name\":\"悲观：二次探底\",\"priority\":\"压力情景\",\"description\":\"地产和内需继续收缩，叠加出口、能源或外部利率冲击；高估值成长与强周期率先压缩估值。\"}],\"scenario_indicators\":[{\"name\":\"规模以上工业增加值\",\"current\":\"+5.3%（2026年1—7月）\",\"upside\":\"累计同比≥6%，连续3次发布\",\"downside\":\"累计同比≤4%，连续3次发布\"},{\"name\":\"社会消费品零售\",\"current\":\"+1.2%（2026年1—7月）\",\"upside\":\"累计同比≥3%，连续3次发布\",\"downside\":\"累计同比≤0%，连续3次发布\"},{\"name\":\"商品房销售额\",\"current\":\"-13.1%（2026年1—7月）\",\"upside\":\"累计同比≥-5%，连续3次发布\",\"downside\":\"累计同比≤-15%，连续3次发布\"},{\"name\":\"PPI环比\",\"current\":\"-0.7%（2026-07；单期）\",\"upside\":\">0%，连续3月\",\"downside\":\"<0%，连续3月\"},{\"name\":\"工业利润与广度\",\"current\":\"总额+18.7%，电子贡献约45%（2026H1）\",\"upside\":\"利润≥10%且电子增量贡献≤30%，连续2次\",\"downside\":\"利润<5%，连续2次\"},{\"name\":\"政府性基金收入\",\"current\":\"-21.6%（2026H1；单期）\",\"upside\":\"累计同比≥-5%，连续2次发布\",\"downside\":\"累计同比≤-15%，连续2次发布\"}],\"macro_evidence\":[{\"label\":\"2026H1 GDP\",\"value\":\"+4.7%\",\"tone\":\"watch\"},{\"label\":\"1—7月工业\",\"value\":\"+5.3%\",\"tone\":\"positive\"},{\"label\":\"1—7月社零\",\"value\":\"+1.2%\",\"tone\":\"watch\"},{\"label\":\"地产开发投资\",\"value\":\"-19.2%\",\"tone\":\"negative\"},{\"label\":\"7月CPI / PPI\",\"value\":\"+0.5% / +3.5%\",\"tone\":\"watch\"},{\"label\":\"H1工业利润\",\"value\":\"+18.7%\",\"tone\":\"positive\"},{\"label\":\"8月LPR\",\"value\":\"3.0% / 3.5%\",\"tone\":\"neutral\"},{\"label\":\"H1政府性基金收入\",\"value\":\"-21.6%\",\"tone\":\"negative\"},{\"label\":\"7月PMI / 新订单\",\"value\":\"49.2 / 48.5\",\"tone\":\"watch\"}],\"market_snapshot\":{\"date\":\"2026-08-25\",\"hs300\":{\"return_20d\":-0.0038,\"return_60d\":-0.0603,\"return_120d\":-0.0223,\"above_ma20\":false,\"above_ma60\":false,\"above_ma120\":false},\"breadth_advance_ratio\":0.7728,\"government_bond_10y_pct\":1.68,\"interpretation\":\"沪深300低于MA20/60/120，而当日上涨家数占涨跌家数77.3%；这是弱中期趋势中的单日普涨，不能单独定义反转。\"},\"theme_scoring\":{\"components\":[\"demand\",\"earnings\",\"cash\",\"valuation\",\"market\"],\"grade_mapping\":{\"A\":85,\"A-\":80,\"B+\":75,\"B\":70,\"B-\":60,\"C\":0},\"execution_separation\":\"主题A/A-只表示本版证据评分较高，不等于股票可买；股票必须另过事实、机制、质量、估值、反证和会商六门。\"},\"theme_review_rule\":\"score/grade是按报告公开尺度形成的人工证据评分，不是概率，也不是专家自由投票。Round 4只审计映射一致性：A或A-→PASS；B+、B或B-→WATCH；C→REJECT；不得在会商输出中暗改分数。\",\"themes\":[{\"id\":\"grid\",\"name\":\"电网、特高压与电力数字化\",\"grade\":\"B+\",\"score\":75,\"score_components\":{\"demand\":20,\"earnings\":15,\"cash\":15,\"valuation\":15,\"market\":10},\"score_summary\":\"四万亿元多年投资提供最强需求可见度；国电南瑞盈利为正、估值中性，但股价低于MA20/60/120且60/120日相对收益为负。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":1.13,\"board_advance_ratio\":0.8},\"hard_fail\":\"连续两个季度订单增速低于10%，合同负债下降且经营现金流显著落后净利润。\"},{\"id\":\"semiconductor\",\"name\":\"AI算力与国产集成电路制造\",\"grade\":\"B-\",\"score\":65,\"score_components\":{\"demand\":20,\"earnings\":20,\"cash\":10,\"valuation\":5,\"market\":10},\"score_summary\":\"收入、毛利和利用率验证最强，但中芯国际PE-TTM约204倍，代表股低于三条均线且板块当日上涨家数不足一半。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":-0.4,\"board_advance_ratio\":0.4153},\"hard_fail\":\"利用率低于85%、毛利率低于22%，或存货连续两个季度快于收入。\"},{\"id\":\"pharma\",\"name\":\"创新药出海与授权交易\",\"grade\":\"C\",\"score\":45,\"score_components\":{\"demand\":15,\"earnings\":10,\"cash\":5,\"valuation\":5,\"market\":10},\"score_summary\":\"创新药销售仍增长，但恒瑞收入、扣非、FCF与趋势同时偏弱，估值余量不足。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":2.19,\"board_advance_ratio\":0.8112},\"hard_fail\":\"剔除许可收入后核心产品增速降至个位数，或关键三期临床失败。\"},{\"id\":\"appliance\",\"name\":\"白色家电全球化与节能更新\",\"grade\":\"A-\",\"score\":80,\"score_components\":{\"demand\":15,\"earnings\":10,\"cash\":15,\"valuation\":20,\"market\":20},\"score_summary\":\"美的估值与股息利差合理、站上MA20/60/120且60/120日显著跑赢沪深300；扣非利润下降使其只能是A-而非A。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":1.42,\"board_advance_ratio\":0.8182},\"hard_fail\":\"经营现金流连续下降、海外毛利率明显恶化，或补贴后家电零售仍低于2%。\"},{\"id\":\"dividend\",\"name\":\"高股息与可解释现金流\",\"grade\":\"B+\",\"score\":75,\"score_components\":{\"demand\":15,\"earnings\":12,\"cash\":15,\"valuation\":18,\"market\":15},\"score_summary\":\"长电与移动估值、股息和相对强弱具备防御属性，但移动FCF不能覆盖分红、长电股息利差略低于预设PASS线。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":0.05,\"board_advance_ratio\":0.5638},\"hard_fail\":\"派息靠负债、处置资产或削减必要资本开支维持。\"},{\"id\":\"robotics\",\"name\":\"具身智能与机器人\",\"grade\":\"C\",\"score\":35,\"score_components\":{\"demand\":10,\"earnings\":5,\"cash\":5,\"valuation\":5,\"market\":10},\"score_summary\":\"同日板块广度较高，但缺稳定订单、单位经济、自由现金流和代表股完整门禁。\",\"market_evidence\":{\"date\":\"2026-08-25\",\"board_change_pct\":1.37,\"board_advance_ratio\":0.737},\"hard_fail\":\"交付时点持续后延、只见概念成交而无真实终端订单，或扩产导致毛利连续下滑。\"}],\"stocks\":[{\"symbol\":\"600900\",\"name\":\"长江电力\",\"pre_round4_decision\":\"watch\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026Q1 / 披露2026-04-30\",\"quality_evidence\":{\"status\":\"pass\",\"period\":\"2026Q1 / 2025A\",\"cfo\":117.11,\"capex\":32.2,\"fcf\":84.9,\"fcf_to_profit\":1.26,\"annual\":\"2025粗FCF420.74亿元、FCF/归母1.22×、覆盖现金分红1.72×、ROE15.90%。\",\"conclusion\":\"即使把全部购建长期资产现金视为维护性资本开支，Q1和全年现金质量仍过预设门。\"},\"valuation_evidence\":{\"status\":\"watch\",\"pe_ttm\":19.13,\"dividend_yield_pct\":3.54,\"dividend_spread_pp\":1.86,\"annual_fcf_yield_pct\":6.095486591944659,\"conclusion\":\"PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。\"},\"technical_evidence\":{\"return_60d\":0.0456,\"excess_60d\":0.1059,\"return_120d\":0.0775,\"excess_120d\":0.0998,\"above_ma20\":false,\"above_ma60\":true,\"above_ma120\":true},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"pass\",\"quality\":\"pass\",\"valuation\":\"watch\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"valuation\":\"PE-TTM19.13×、2025粗FCF收益率6.10%，但股息率较10年国债利差仅1.86pp，稳定现金流轨道三项中两项通过。\"},\"falsifier_note\":\"粗FCF/现金分红<1.0×，或发电量同比≤-10%且平均结算电价同比≤-5%连续两期即FAIL。\"}},{\"symbol\":\"000333\",\"name\":\"美的集团\",\"pre_round4_decision\":\"satellite\",\"proposed_execution_tier\":\"satellite\",\"financial_cutoff\":\"2026Q1 / 披露2026-04-30\",\"quality_evidence\":{\"status\":\"pass\",\"period\":\"2026Q1 / 2025A\",\"cfo\":145.29,\"capex\":21.43,\"fcf\":123.86,\"fcf_to_profit\":0.98,\"annual\":\"2025 CFO533.46亿元、粗FCF422.04亿元、FCF/归母0.96×、覆盖现金分红1.30×、ROE19.70%；海外毛利率26.60%，同比仅-0.22pp。\",\"conclusion\":\"2025 CFO/归母1.21×、粗FCF/分红1.30×、ROE19.70%；购建支出111.42亿元、营运资本约释现52.80亿元，海外毛利率仅降0.22pp，均已拆清。Q1扣非-14.02%作为下一期证伪，不追认成FAIL。\"},\"valuation_evidence\":{\"status\":\"pass\",\"pe_ttm\":14.96,\"dividend_yield_pct\":4.96,\"dividend_spread_pp\":3.2800000000000002,\"annual_fcf_yield_pct\":6.381584006892653,\"conclusion\":\"PE-TTM14.96×、2025粗FCF收益率6.38%、股息率较10年国债利差3.28pp，稳定现金流轨道三项全部通过。\"},\"technical_evidence\":{\"return_60d\":0.1117,\"excess_60d\":0.172,\"return_120d\":0.1902,\"excess_120d\":0.2125,\"above_ma20\":true,\"above_ma60\":true,\"above_ma120\":true},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"pass\",\"quality\":\"pass\",\"valuation\":\"pass\",\"falsifier\":\"pass\",\"non_pass_notes\":{},\"falsifier_note\":\"CFO/归母<0.8×、收入或利润转负、或海外毛利率同比下降≥2pp连续两期即FAIL。\"}},{\"symbol\":\"300750\",\"name\":\"宁德时代\",\"pre_round4_decision\":\"watch\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-07-26\",\"quality_evidence\":{\"status\":\"watch\",\"period\":\"2026H1 / 2025A\",\"cfo\":602.17,\"capex\":250.73,\"fcf\":351.44,\"fcf_to_profit\":0.81,\"annual\":\"2025粗FCF908.75亿元、FCF/归母1.26×、覆盖现金分红2.52×、ROE24.91%。\",\"conclusion\":\"2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。\"},\"valuation_evidence\":{\"status\":\"pass\",\"pe_ttm\":20.51,\"dividend_yield_pct\":2.19,\"dividend_spread_pp\":0.51,\"annual_fcf_yield_pct\":5.2137128653516,\"conclusion\":\"PE-TTM20.51×、2025粗FCF收益率5.21%，H1收入/归母净利+54.8%/+42.0%，成长轨道三项全部通过；质量门仍独立为WATCH。\"},\"technical_evidence\":{\"return_60d\":-0.1002,\"excess_60d\":-0.0399,\"return_120d\":0.122,\"excess_120d\":0.1443,\"above_ma20\":false,\"above_ma60\":false,\"above_ma120\":false},\"five_gate_result\":{\"fact\":\"watch\",\"mechanism\":\"pass\",\"quality\":\"watch\",\"valuation\":\"pass\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"fact\":\"2026H1财务已披露，但公司未给出同口径H1销量、ASP与利用率，事实门保留WATCH。\",\"quality\":\"2025质量强，但最新H1 FCF转化降至0.81×，合同负债下降25.9%；2025收入/GWh混合代理约下降12.3%，H1销量/ASP/利用率仍缺同口径更新。\"},\"falsifier_note\":\"FCF/归母<0.8×且收入增速<10%连续两期，或利用率<85%且收入/GWh代理再降≥10%而capex仍增即FAIL。\"}},{\"symbol\":\"600276\",\"name\":\"恒瑞医药\",\"pre_round4_decision\":\"reject\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-08-19\",\"quality_evidence\":{\"status\":\"watch\",\"period\":\"2026H1 / 2025A\",\"cfo\":19.87,\"capex\":15.78,\"fcf\":4.09,\"fcf_to_profit\":0.09,\"annual\":\"2025粗FCF82.73亿元、FCF/归母1.07×；2026H1许可收入14.22亿元，流动及长期合同负债合计下降43.7%。\",\"conclusion\":\"最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。\"},\"valuation_evidence\":{\"status\":\"fail\",\"pe_ttm\":39.94,\"dividend_yield_pct\":0.43,\"dividend_spread_pp\":-1.25,\"annual_fcf_yield_pct\":2.6811343815683437,\"conclusion\":\"PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。\"},\"technical_evidence\":{\"return_60d\":-0.0545,\"excess_60d\":0.0058,\"return_120d\":-0.1296,\"excess_120d\":-0.1073,\"above_ma20\":false,\"above_ma60\":false,\"above_ma120\":false},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"pass\",\"quality\":\"watch\",\"valuation\":\"fail\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"quality\":\"最新现金质量显著失守；当前规则要求连续两期才FAIL，因此列高风险WATCH并锁定下一期复核。\",\"valuation\":\"PE-TTM39.94×、2025粗FCF收益率2.68%，且H1收入、扣非与FCF同时转弱，触发成长轨道FAIL。\"},\"falsifier_note\":\"剔除许可后核心销售转负、关键三期失败/延期，或CFO/归母<1.0×连续两期即FAIL。\"}},{\"symbol\":\"600941\",\"name\":\"中国移动\",\"pre_round4_decision\":\"reject\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-08-13\",\"quality_evidence\":{\"status\":\"fail\",\"period\":\"2026H1 / 2025A\",\"cfo\":1148.54,\"capex\":609.54,\"fcf\":539,\"fcf_to_profit\":0.68,\"annual\":\"2025公司披露FCF820.41亿元、覆盖同期实际现金分红0.806×；2026H1 FCF覆盖同期宣告中期股利0.990×。\",\"conclusion\":\"连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。\"},\"valuation_evidence\":{\"status\":\"watch\",\"pe_ttm\":16.27,\"dividend_yield_pct\":4.76,\"dividend_spread_pp\":3.08,\"annual_fcf_yield_pct\":3.8265427608791827,\"conclusion\":\"PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。\"},\"technical_evidence\":{\"return_60d\":0.0223,\"excess_60d\":0.0827,\"return_120d\":0.0581,\"excess_120d\":0.0804,\"above_ma20\":true,\"above_ma60\":true,\"above_ma120\":true},\"five_gate_result\":{\"fact\":\"pass\",\"mechanism\":\"watch\",\"quality\":\"fail\",\"valuation\":\"watch\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"mechanism\":\"算力收入增长已披露，但分业务资本回报尚未披露，机制门保持WATCH。\",\"quality\":\"连续两期FCF不能覆盖分红，低于预设PASS≥1.2，质量门闭环为FAIL。\",\"valuation\":\"PE-TTM16.27×、股息利差3.08pp，但2025公司披露FCF收益率仅3.83%，稳定现金流轨道只有两项通过；质量门另为FAIL。\"},\"falsifier_note\":\"同利润归属期FCF/股利<1.0×连续两期，或通信服务收入连续两期负增长即FAIL。\"}},{\"symbol\":\"600519\",\"name\":\"贵州茅台\",\"pre_round4_decision\":\"watch\",\"proposed_execution_tier\":null,\"financial_cutoff\":\"2026H1 / 披露2026-08-15\",\"quality_evidence\":{\"status\":\"watch\",\"period\":\"2026H1 / 2025A\",\"cfo\":706.91,\"capex\":8.32,\"fcf\":698.59,\"fcf_to_profit\":1.57,\"annual\":\"剔除财务公司专属现金流行后，2025调整FCF约722.09亿元、FCF/归母0.877×、现金分红覆盖1.110×。\",\"conclusion\":\"归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。\"},\"valuation_evidence\":{\"status\":\"watch\",\"pe_ttm\":20.02,\"dividend_yield_pct\":3.99,\"dividend_spread_pp\":2.3100000000000005,\"annual_fcf_yield_pct\":4.429692421227013,\"conclusion\":\"PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。\"},\"technical_evidence\":{\"return_60d\":0.0175,\"excess_60d\":0.0778,\"return_120d\":-0.0673,\"excess_120d\":-0.045,\"above_ma20\":false,\"above_ma60\":true,\"above_ma120\":false},\"five_gate_result\":{\"fact\":\"watch\",\"mechanism\":\"watch\",\"quality\":\"watch\",\"valuation\":\"watch\",\"falsifier\":\"pass\",\"non_pass_notes\":{\"fact\":\"财报与点时估值已冻结，但没有发行人可复核的批价和渠道库存序列，事实门保留WATCH。\",\"mechanism\":\"品牌需求可传导至主品收入和回款，但批价/渠道库存缺乏一手序列，机制门保持WATCH。\",\"quality\":\"归一化现金刚过下限，但合同负债下降60.3%、境内经销商净减46家，批价与渠道库存没有一手冻结序列。\",\"valuation\":\"PE-TTM20.02×、调整后2025粗FCF收益率4.43%、股息利差2.31pp，三项均未完整达到PASS线。\"},\"falsifier_note\":\"茅台酒收入转负、调整FCF/归母<0.6×，或境内经销商净减少≥50家连续两期即FAIL。\"}}],\"stock_decision_rule\":\"只核前五门，忽略预留council=OPEN：FAIL→REJECT；否则OPEN→INCOMPLETE；否则WATCH→WATCH；全PASS→proposed_execution_tier，未预设则SATELLITE。另给council_vote=PASS|WATCH|REJECT，不得回写前五门。\",\"peer_challenges\":[\"经营现金流不等于扣除维护性资本开支后的自由现金流。\",\"成交与资金确认不能替代公司价值，但静态公司质量也不能替代周期风险。\",\"政策总盘子不能直接推出单家公司份额、毛利和回款。\",\"短缺与高利润会诱发资本开支，最终可能转成过剩。\",\"品牌、红利、创新药授权和高增长都可能被标签偏误高估。\",\"五个角色共享同一底层模型，投票不是独立概率。\"]}",
+      "prompt_mode": "standard",
+      "prompt_sha256": "6246885166d6df4978e0d5e6d7ad9dd37688c95bda0a0d23e0d99bd69f3ad00b",
+      "skill_sha256": "2417caa185134d19854a826bcb5c351ea06b2ab0c6b5bee2e88d954c07f4823d",
+      "agents_sha256": "746dd4d8c202d5e526555fbd8389d7537ff827f10b1bf5c9f45fbe495bef2836",
+      "stdout": "{\"method_role\":\"孙宇晨方法论AI角色·Round4一致性复核（AI视角模拟，非本人观点）\",\"scenario_rank\":[\"base\",\"downside\",\"upside\"],\"strongest_switch\":\"工业利润广度：电子贡献约45%远超≤30%扩散线，是结构市与盈利扩散间最关键的单一开关。\",\"peer_replies\":[{\"claim\":\"经营现金流不等于扣除维护性资本开支后的自由现金流。\",\"reply\":\"同意。统一按粗FCF=CFO-capex作下界，全部购建视作维护性，并保留维护性开支进一步下修空间。\"},{\"claim\":\"短缺与高利润会诱发资本开支，最终可能转成过剩。\",\"reply\":\"同意。反证门锁定利用率与存货快于收入，半导体估值门5分已计入拥挤度。\"},{\"claim\":\"品牌、红利、创新药授权和高增长都可能被标签偏误高估。\",\"reply\":\"同意。恒瑞剔许可后增速、茅台批价渠道、移动FCF覆盖分红均列为硬反证。\"},{\"claim\":\"五个角色共享同一底层模型，投票不是独立概率。\",\"reply\":\"同意。council_vote仅作一致性标注，不计独立票权，不把同源输出当独立概率。\"}],\"accepted_revision\":\"council_vote降为一致性标注而非独立票；粗FCF统一CFO-capex口径并保留维护性开支下修项。\",\"themes\":{\"grid\":\"WATCH\",\"semiconductor\":\"WATCH\",\"pharma\":\"REJECT\",\"appliance\":\"PASS\",\"dividend\":\"WATCH\",\"robotics\":\"REJECT\"},\"stocks\":{\"600900\":{\"decision\":\"WATCH\",\"council_vote\":\"WATCH\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"质量门全过，仅估值门WATCH：股息利差1.86pp低于PASS线。\",\"missing_evidence\":\"股息利差回到PASS线或估值数据更新确认。\",\"hard_fail\":\"粗FCF/现金分红<1.0×，或发电量同比≤-10%且结算电价同比≤-5%连续两期。\"},\"000333\":{\"decision\":\"SATELLITE\",\"council_vote\":\"PASS\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"五门全PASS，proposed_execution_tier=satellite。\",\"missing_evidence\":\"Q1扣非-14.02%需下期确认不构成FAIL。\",\"hard_fail\":\"CFO/归母<0.8×、收入或利润转负、或海外毛利率同比降≥2pp连续两期。\"},\"300750\":{\"decision\":\"WATCH\",\"council_vote\":\"WATCH\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"事实门与质量门WATCH：缺H1销量/ASP/利用率同口径，FCF转化降至0.81×。\",\"missing_evidence\":\"H1销量、ASP、利用率同口径数据。\",\"hard_fail\":\"FCF/归母<0.8×且收入增速<10%连续两期，或利用率<85%且代理再降≥10%而capex仍增。\"},\"600276\":{\"decision\":\"REJECT\",\"council_vote\":\"REJECT\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"估值门FAIL：PE39.94×、FCF收益率2.68%，收入扣非FCF同时转弱。\",\"missing_evidence\":\"下一期确认现金质量是否连续两期失守。\",\"hard_fail\":\"剔除许可后核心销售转负、关键三期失败延期，或CFO/归母<1.0×连续两期。\"},\"600941\":{\"decision\":\"REJECT\",\"council_vote\":\"REJECT\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"质量门FAIL：连续两期FCF不覆盖分红，低于PASS≥1.2。\",\"missing_evidence\":\"分业务资本回报披露。\",\"hard_fail\":\"同利润归属期FCF/股利<1.0×连续两期，或通信服务收入连续两期负增长。\"},\"600519\":{\"decision\":\"WATCH\",\"council_vote\":\"WATCH\",\"gate_audit\":\"CONSISTENT\",\"reason\":\"事实机制质量估值四门均WATCH：缺批价与渠道库存一手序列。\",\"missing_evidence\":\"批价与渠道库存一手冻结序列。\",\"hard_fail\":\"茅台酒收入转负、调整FCF/归母<0.6×，或境内经销商净减≥50家连续两期。\"}},\"latest_fact_changes\":[\"H1工业利润+18.7%但电子贡献约45%，未达扩散门槛（≤30%）。\",\"政府性基金收入-21.6%、地产开发投资-19.2%，压力信号仍强。\",\"沪深300低于MA20/60/120，但当日上涨家数占比77.3%属单日普涨。\",\"600276披露2026H1：FCF/归母0.09、合同负债降43.7%，现金质量失守。\",\"600941 2026H1 FCF覆盖中期股利仅0.990×，质量门闭环FAIL。\",\"600519合同负债降60.3%、境内经销商净减46家，渠道信号转弱。\"],\"strongest_objection\":\"六项开关多为单期、未达连续发布门槛，情景排序是判断而非冻结阈值可决。\"}",
+      "stderr": "",
+      "exit_code": 0,
+      "duration_ms": 141514,
+      "stdout_sha256": "d7b456b8502bdca1efd4b39fdcb6f19d199b069915a2ee17cbb6a176e1ccc217",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "parsed": {
+        "method_role": "孙宇晨方法论AI角色·Round4一致性复核（AI视角模拟，非本人观点）",
+        "scenario_rank": [
+          "base",
+          "downside",
+          "upside"
+        ],
+        "strongest_switch": "工业利润广度：电子贡献约45%远超≤30%扩散线，是结构市与盈利扩散间最关键的单一开关。",
+        "peer_replies": [
+          {
+            "claim": "经营现金流不等于扣除维护性资本开支后的自由现金流。",
+            "reply": "同意。统一按粗FCF=CFO-capex作下界，全部购建视作维护性，并保留维护性开支进一步下修空间。"
+          },
+          {
+            "claim": "短缺与高利润会诱发资本开支，最终可能转成过剩。",
+            "reply": "同意。反证门锁定利用率与存货快于收入，半导体估值门5分已计入拥挤度。"
+          },
+          {
+            "claim": "品牌、红利、创新药授权和高增长都可能被标签偏误高估。",
+            "reply": "同意。恒瑞剔许可后增速、茅台批价渠道、移动FCF覆盖分红均列为硬反证。"
+          },
+          {
+            "claim": "五个角色共享同一底层模型，投票不是独立概率。",
+            "reply": "同意。council_vote仅作一致性标注，不计独立票权，不把同源输出当独立概率。"
+          }
+        ],
+        "accepted_revision": "council_vote降为一致性标注而非独立票；粗FCF统一CFO-capex口径并保留维护性开支下修项。",
+        "themes": {
+          "grid": "WATCH",
+          "semiconductor": "WATCH",
+          "pharma": "REJECT",
+          "appliance": "PASS",
+          "dividend": "WATCH",
+          "robotics": "REJECT"
+        },
+        "stocks": {
+          "300750": {
+            "decision": "WATCH",
+            "council_vote": "WATCH",
+            "gate_audit": "CONSISTENT",
+            "reason": "事实门与质量门WATCH：缺H1销量/ASP/利用率同口径，FCF转化降至0.81×。",
+            "missing_evidence": "H1销量、ASP、利用率同口径数据。",
+            "hard_fail": "FCF/归母<0.8×且收入增速<10%连续两期，或利用率<85%且代理再降≥10%而capex仍增。"
+          },
+          "600276": {
+            "decision": "REJECT",
+            "council_vote": "REJECT",
+            "gate_audit": "CONSISTENT",
+            "reason": "估值门FAIL：PE39.94×、FCF收益率2.68%，收入扣非FCF同时转弱。",
+            "missing_evidence": "下一期确认现金质量是否连续两期失守。",
+            "hard_fail": "剔除许可后核心销售转负、关键三期失败延期，或CFO/归母<1.0×连续两期。"
+          },
+          "600519": {
+            "decision": "WATCH",
+            "council_vote": "WATCH",
+            "gate_audit": "CONSISTENT",
+            "reason": "事实机制质量估值四门均WATCH：缺批价与渠道库存一手序列。",
+            "missing_evidence": "批价与渠道库存一手冻结序列。",
+            "hard_fail": "茅台酒收入转负、调整FCF/归母<0.6×，或境内经销商净减≥50家连续两期。"
+          },
+          "600900": {
+            "decision": "WATCH",
+            "council_vote": "WATCH",
+            "gate_audit": "CONSISTENT",
+            "reason": "质量门全过，仅估值门WATCH：股息利差1.86pp低于PASS线。",
+            "missing_evidence": "股息利差回到PASS线或估值数据更新确认。",
+            "hard_fail": "粗FCF/现金分红<1.0×，或发电量同比≤-10%且结算电价同比≤-5%连续两期。"
+          },
+          "600941": {
+            "decision": "REJECT",
+            "council_vote": "REJECT",
+            "gate_audit": "CONSISTENT",
+            "reason": "质量门FAIL：连续两期FCF不覆盖分红，低于PASS≥1.2。",
+            "missing_evidence": "分业务资本回报披露。",
+            "hard_fail": "同利润归属期FCF/股利<1.0×连续两期，或通信服务收入连续两期负增长。"
+          },
+          "000333": {
+            "decision": "SATELLITE",
+            "council_vote": "PASS",
+            "gate_audit": "CONSISTENT",
+            "reason": "五门全PASS，proposed_execution_tier=satellite。",
+            "missing_evidence": "Q1扣非-14.02%需下期确认不构成FAIL。",
+            "hard_fail": "CFO/归母<0.8×、收入或利润转负、或海外毛利率同比降≥2pp连续两期。"
+          }
+        },
+        "latest_fact_changes": [
+          "H1工业利润+18.7%但电子贡献约45%，未达扩散门槛（≤30%）。",
+          "政府性基金收入-21.6%、地产开发投资-19.2%，压力信号仍强。",
+          "沪深300低于MA20/60/120，但当日上涨家数占比77.3%属单日普涨。",
+          "600276披露2026H1：FCF/归母0.09、合同负债降43.7%，现金质量失守。",
+          "600941 2026H1 FCF覆盖中期股利仅0.990×，质量门闭环FAIL。",
+          "600519合同负债降60.3%、境内经销商净减46家，渠道信号转弱。"
+        ],
+        "strongest_objection": "六项开关多为单期、未达连续发布门槛，情景排序是判断而非冻结阈值可决。"
+      },
+      "validation_errors": [],
+      "attempt_history": []
+    }
+  ]
+}

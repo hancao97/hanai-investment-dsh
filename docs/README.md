@@ -5,13 +5,17 @@
 GitHub Pages 研究站点：<https://hancao97.github.io/hanai-investment-dsh/>
 
 - [变盘点能力审计](https://hancao97.github.io/hanai-investment-dsh/turning-point-capability-audit-2026-08-23.html)
-- [A 股未来一年周期展望与五种 AI 方法论会商](https://hancao97.github.io/hanai-investment-dsh/a-share-cycle-outlook-2026-08-23.html)
+- [A 股未来一年周期展望（完整门禁版）](https://hancao97.github.io/hanai-investment-dsh/a-share-cycle-outlook.html)
 
 ## 文档索引
 
 | 文档 | 内容 | 状态 |
 | --- | --- | --- |
-| [a-share-cycle-outlook-2026-08-23.html](a-share-cycle-outlook-2026-08-23.html) | 2026-08-23 至 2027-08-23 的互斥情景状态机、五种 AI 方法论会商、最新财报、主题证据、六股严格门禁与月度开关 | **当前周期投研报告** |
+| [a-share-cycle-outlook-2026-08-25.html](a-share-cycle-outlook-2026-08-25.html) | 补齐点时行情、相对强弱、市场宽度、估值、粗FCF与六门状态，并以全状态 Round 4 复核主题和六股 | **当前完整周期投研报告** |
+| [a-share-cycle-market-snapshot-2026-08-25.json](research-data/a-share-cycle-market-snapshot-2026-08-25.json) | 六股与主题代理的点时行情、标准化前复权日线、逐条件事件、20/60/120日相对收益、市场/板块宽度和10年国债收益率 | **可复算点时市场证据** |
+| [a-share-cycle-outlook-pre-council-2026-08-25.json](research-data/a-share-cycle-outlook-pre-council-2026-08-25.json) | Round 4 实际读取的冻结前置输入；与最终聚合 JSON 分离，并由运行台账中的 SHA 绑定 | **可复核会商输入** |
+| [a-share-cycle-expert-runs-2026-08-25.json](research-data/a-share-cycle-expert-runs-2026-08-25.json) | Round 4 五个专家 Skill 的冻结事实包、完整提示词、原始输出、解析结果及运行哈希 | **可审计执行证据** |
+| [a-share-cycle-outlook-2026-08-23.html](a-share-cycle-outlook-2026-08-23.html) | 2026-08-23 至 2027-08-23 的互斥情景状态机、五种 AI 方法论会商、最新财报、主题证据、六股严格门禁与月度开关 | 历史初版（保留原始缺口） |
 | [a-share-cycle-expert-runs-2026-08-23.json](research-data/a-share-cycle-expert-runs-2026-08-23.json) | Round 3 五个专家 Skill 的冻结事实包、完整提示词、原始输出、解析结果、提示词 / Skill / AGENTS 哈希与运行状态 | **可审计执行证据** |
 | [turning-point-research-index.md](turning-point-research-index.md) | 变盘点、扫描与回测材料的统一分类、数据血缘、cutoff、产物映射与复现命令 | **研究总入口** |
 | [turning-point-capability-audit-2026-08-23.html](turning-point-capability-audit-2026-08-23.html) | 当前 10 类生产标记、22 个有效周期格、候选 case 与统计比例的自包含审计报告 | 当前汇总报告 |

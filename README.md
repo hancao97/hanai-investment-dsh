@@ -20,9 +20,9 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 | 报告 | 在线页面 | 仓库内自包含 HTML | 内容 |
 | --- | --- | --- | --- |
 | 变盘点能力审计 | [GitHub Pages 首页](https://hancao97.github.io/hanai-investment-dsh/) | [turning-point-capability-audit-2026-08-23.html](docs/turning-point-capability-audit-2026-08-23.html) | 当前 10 类生产标记、22 个有效周期格、matched 增量、候选与缠论生命周期 |
-| A 股未来一年周期展望 | [五种 AI 方法论会商在线报告](https://hancao97.github.io/hanai-investment-dsh/a-share-cycle-outlook-2026-08-23.html) | [a-share-cycle-outlook-2026-08-23.html](docs/a-share-cycle-outlook-2026-08-23.html) | 2026-08-23 至 2027-08-23 互斥情景状态机、待验证主题、最新财报、五角色交叉质询与严格门禁 |
+| A 股未来一年周期展望 | [完整门禁版在线报告](https://hancao97.github.io/hanai-investment-dsh/a-share-cycle-outlook.html) | [a-share-cycle-outlook-2026-08-25.html](docs/a-share-cycle-outlook-2026-08-25.html) | 点时市场截面、主题A—C证据评分、六股质量/估值/相对强弱、条件历史比例、六门结果与Round 4全状态复核 |
 
-周期展望实际调用仓库内五个专家 Skill，但它们是同源的 **AI 方法论角色**。两轮结构化会商之后，系统再用2026年最新财报执行 Round 3，五份[原始输出、冻结事实包、提示词与 Skill 哈希](docs/research-data/a-share-cycle-expert-runs-2026-08-23.json)公开留痕；具体模型与reasoning配置未在产物中冻结。报告不提供未经校准的概率，最终动作由修正事实后的 Round 3 与严格门禁决定。
+周期展望实际调用仓库内五个专家 Skill，但它们是同源的 **AI 方法论角色**。完成版先冻结2026-08-25市场解析快照与官方财报，补齐事实、机制、质量、估值和反证五门，再由 Round 4 的独立 `council_vote` 关闭会商门；[专家实际读取的前置输入](docs/research-data/a-share-cycle-outlook-pre-council-2026-08-25.json)与五份[原始输出、提示词及 Skill 哈希](docs/research-data/a-share-cycle-expert-runs-2026-08-25.json)分别保存并以 SHA 绑定。主题映射核对和股票门禁核对不是独立投票，具体模型与reasoning配置也未在产物中冻结；报告不提供未经校准的概率、目标价或收益承诺。
 
 ## 界面预览
 

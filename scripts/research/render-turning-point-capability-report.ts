@@ -1129,7 +1129,7 @@ function render(args: Args): string {
 </style>
 </head>
 <body>
-<nav class="site-nav" aria-label="研究站点导航"><div class="site-nav-inner"><a class="site-brand" href="./">Hanai Worth · 值见</a><a class="site-link" href="./turning-point-capability-audit-2026-08-23.html" aria-current="page">变盘点审计</a><a class="site-link" href="./a-share-cycle-outlook-2026-08-23.html">A股周期展望</a><a class="site-link" href="https://github.com/hancao97/hanai-investment-dsh" target="_blank" rel="noreferrer">GitHub ↗</a></div></nav>
+<nav class="site-nav" aria-label="研究站点导航"><div class="site-nav-inner"><a class="site-brand" href="./">Hanai Worth · 值见</a><a class="site-link" href="./turning-point-capability-audit-2026-08-23.html" aria-current="page">变盘点审计</a><a class="site-link" href="./a-share-cycle-outlook.html">A股周期展望</a><a class="site-link" href="https://github.com/hancao97/hanai-investment-dsh" target="_blank" rel="noreferrer">GitHub ↗</a></div></nav>
 <div class="page">
   <header class="hero">
     <div class="eyebrow">Reproducible capability audit · frozen evidence</div>
