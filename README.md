@@ -331,6 +331,10 @@ docs/
 - DSH Session 删除与跨版本迁移能力仍有限；备份持续对话时，需要同时保留 Hanai 数据根和 DSH Session 数据。
 - 本项目是研究辅助工具，不构成投资建议，不承诺数据实时性、完整性或投资收益。
 
+## 友链
+
+- [LINUX DO](https://linux.do/)
+
 ## License
 
 [MIT](LICENSE)
