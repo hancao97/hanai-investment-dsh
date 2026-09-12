@@ -185,6 +185,35 @@ describe('HanaiService report lifecycle', () => {
     database.close()
   })
 
+  it('starts Sanhu Yi in both research and open-chat modes with its own complete Skill snapshot', async () => {
+    const { database, paths, service, sessions } = fixture()
+    const signal = new AbortController().signal
+    const masterId = 'sanhu-yi-perspective'
+    const judgement = await service.call('judgement.create', {
+      secId: '1.600519', masterId,
+    }, signal)
+    const chat = await service.call('expert-chat.create', { masterId }, signal)
+
+    expect(judgement).toMatchObject({ masterId, masterName: '散户乙', reportStatus: 'generating' })
+    expect(chat).toMatchObject({ masterId, masterName: '散户乙', turnStatus: 'idle' })
+    expect(chat.dshSessionId).not.toBe(judgement.dshSessionId)
+    expect(sessions.prompts).toHaveLength(1)
+    expect(sessions.prompts[0]!.sessionId).toBe(judgement.dshSessionId)
+    for (const workspace of [
+      join(paths.judgementsDir, judgement.id, 'workspace'),
+      join(paths.expertChatsDir, chat.id, 'workspace'),
+    ]) {
+      const skillRoot = join(workspace, '.agents', 'skills', masterId)
+      expect(readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')).toContain('name: sanhu-yi-perspective')
+      expect(readFileSync(join(skillRoot, 'references', 'provenance.md'), 'utf8')).toContain('493')
+      expect(readFileSync(join(skillRoot, 'references', 'valuation-worked-example.md'), 'utf8')).toContain('ROE')
+    }
+    const chatWorkspace = join(paths.expertChatsDir, chat.id, 'workspace')
+    expect(readFileSync(join(chatWorkspace, 'AGENTS.md'), 'utf8')).toContain('不代表散户乙本人观点')
+    expect(existsSync(join(chatWorkspace, 'REPORT.md'))).toBe(false)
+    database.close()
+  })
+
   it('deletes only a settled judgement, archives its session, and removes local report files', async () => {
     const { database, paths, service, sessions } = fixture()
     const created = await service.call('judgement.create', {

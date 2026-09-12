@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import type { MasterPersona } from '../../contracts/src/index.ts'
 
 // Bump whenever either the immutable Skill snapshot or its workspace contract changes.
-export const MASTER_VERSION = '2026.08.23-v3'
+export const MASTER_VERSION = '2026.09.12-v4'
 
 interface MasterTheme extends Omit<MasterPersona, 'description' | 'version'> {}
 
@@ -45,6 +45,21 @@ const MASTER_THEMES: readonly MasterTheme[] = [
     roleTag: '价值投资',
     tags: ['护城河', '内在价值', '资本配置'],
     defaultPrompt: '请评估能力圈、护城河、管理层资本配置、所有者收益与安全边际。',
+  },
+  {
+    id: 'sanhu-yi-perspective',
+    name: '散户乙',
+    shortName: '乙',
+    color: '#299b9a',
+    roleTag: '价值投资',
+    tags: ['股权思维', '分红复利', '底线回报'],
+    defaultPrompt: '请用散户乙的股权思维，核验这家公司的生意、可持续 ROE、估值与分红能力，区分买入价格和持有决策，给出保守回报情景及失效条件。',
+    personaDisclaimer: '这是依据《从冲浪到潜水》发言汇编提炼的 AI 视角模拟，不代表散户乙本人观点。',
+    chatStarters: [
+      '怎样判断一家公司的分红能够持续，而不是高股息陷阱？',
+      '低 PB、高 ROE 的公司就一定便宜吗？',
+      '长期持有时，什么时候应该继续拿着，什么时候应该重新评估？',
+    ],
   },
   {
     id: 'sun-yuchen-perspective',

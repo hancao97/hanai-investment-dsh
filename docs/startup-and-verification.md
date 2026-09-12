@@ -194,3 +194,20 @@ dsh --profile hanai-investment --dump-default-config
 ```bash
 pnpm run profile:verify
 ```
+
+## 11. 散户乙专家接入验收（2026-09-12）
+
+新增 `sanhu-yi-perspective`，支持独立研判和开放对谈；专家资源版本为 `2026.09.12-v4`。当前共有六位对谈专家、五位研判专家。能力包包含六个心智模型、八条条件决策、六维研究、算例及两阶段独立审查记录，详见[来源与蒸馏记录](../packages/masters/assets/sanhu-yi-perspective/references/provenance.md)。
+
+| 验证 | 本次结果 |
+| --- | --- |
+| 类型检查与生产构建 | `pnpm run typecheck`、`pnpm run build` 通过 |
+| 自动测试 | `pnpm test`：28 个测试文件、198 项测试全部通过；包括两种专家任务创建、完整资源快照及包内引用检查 |
+| 发布包 | `pnpm run pack:check`：87 个发布文件符合契约 |
+| Skill 结构 | `quick_validate.py` 通过；nuwa 正则检查的来源项实际跳过，以人工来源审核为准 |
+| 本机 Profile | `pnpm run profile:verify` 通过，沿用已有 `hanai-investment` Profile |
+| 服务启动 | `dsh --profile hanai-investment` 成功监听 `http://127.0.0.1:3080`，HTTP 200 |
+| 浏览器入口 | 专家中心展示散户乙；新建研判可选中；开放对谈可选中并展示三个开场问题及模拟说明 |
+| 真实会话创建 | 已创建散户乙空白对谈；16 个能力文件逐一校验与源码一致，工作区契约版本正确，开放对谈没有创建 `REPORT.md` |
+
+本次真实服务验收截至空白对谈创建，未发起真实模型 Turn；研判调度与报告/对谈分流由集成测试覆盖。人物验证忠于用户提供的发言汇编，原帖未逐条核验，不宣称一手来源比例或投资效果已经验证。

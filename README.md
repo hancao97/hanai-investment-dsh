@@ -140,14 +140,15 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 - **不必先选股票**：可直接讨论行业周期、商业模式、市场情绪、决策困境或近期事件，不生成 `REPORT.md`。
 - **持久开放会话**：每次对谈绑定独立专家快照与 DSH Session，支持正常追问、检索、工具调用、队列、steer、取消、审批和历史恢复。
 - **专用对谈工作台**：左侧保留对谈历史，右侧消息区占满剩余高度；支持深链接和刷新恢复，思考与工具过程默认折叠，输入区固定在当前会话底部。
-- **五位对谈专家**：段永平、混江龙、查理·芒格、沃伦·巴菲特均支持研判与开放对谈；孙宇晨视角仅进入开放对谈。
+- **六位对谈专家**：段永平、混江龙、查理·芒格、沃伦·巴菲特、散户乙均支持研判与开放对谈；孙宇晨视角仅进入开放对谈。
+- **散户乙视角**：按 nuwa 的本地语料流程，从《从冲浪到潜水》发言汇编提炼股权思维、可持续 ROE、分红复利和底线回报；保留 PDF 页码、观点演化和汇编归属边界。详见[能力包](packages/masters/assets/sanhu-yi-perspective/SKILL.md)与[蒸馏记录](packages/masters/assets/sanhu-yi-perspective/references/provenance.md)。
 - **孙宇晨视角边界**：参考用户指定的[开源能力包](https://github.com/alchaincyf/nuwa-skill/tree/main/examples/sun-yuchen-perspective)，用于分析行业周期、注意力迁移和叙事竞争；创建对谈时明确提示 AI 模拟边界，首次回答完成身份披露，详情页不重复占用消息空间；具体时效事实必须先检索核验。
 - **周期可证伪**：“永远缺某种资源”只作为假设，从需求、供给、库存与利用率、资本开支、价格利润和拥挤度检查，并给出反证与失效条件。
 - **单一事实源**：Hanai SQLite 只保存标题、专家和 opaque `dshSessionId`；消息、工具与 Turn 历史仍只在 DSH。
 
 ### 大师研判与持续对话
 
-- **单专家独立研判**：支持段永平、查理·芒格、沃伦·巴菲特和混江龙四套方法论；每次研判绑定独立工作区和持久 DSH Session。
+- **单专家独立研判**：支持段永平、查理·芒格、沃伦·巴菲特、混江龙和散户乙五套方法论；每次研判绑定独立工作区和持久 DSH Session。
 - **可核验报告**：保留 preparing → running → verifying → completed/failed 状态、实时执行过程、失败原因、归档信息、不可变报告版本、哈希与文件大小。
 - **报告默认、对话延续**：完成后默认打开研判报告，也可切换到“继续对话”，沿用原 `dshSessionId` 追问；普通追问不会静默创建新报告版本。
 - **Markdown 与过程展示**：报告和对话正确渲染标题、列表、表格、引用、链接、行内代码和代码块；思考与工具活动按轮次紧凑折叠，详细参数和结果按需展开。
@@ -313,7 +314,7 @@ packages/
 ├── host/               Cordis Host、/hanai RPC、DSH Session 编排
 ├── client-workbench/   全屏 React 产品工作台
 ├── client-chat/        Hanai 自绘 DSH Session 对话
-└── masters/            五位专家的 Skill、能力分流与参考资料
+└── masters/            六位专家的 Skill、能力分流与参考资料
 tooling/
 └── dsh-client-bundle/  树外 DSH Client closure 构建适配器
 scripts/
