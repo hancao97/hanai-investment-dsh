@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { RpcResult } from '@deepseek-ai/dsh-host-apiproxy/api'
+import type { ConnectionRpcResult as RpcResult } from '@deepseek-ai/dsh-client-connection'
 import type { HanaiEndpoint, HanaiRequest, HanaiResponse } from '../../contracts/src/index.ts'
 
 const empty = z.object({}).strict()

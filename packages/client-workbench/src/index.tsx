@@ -1,11 +1,12 @@
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-connection/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { HanaiWorkbench } from './app.tsx'
 import { HanaiClient } from './api.ts'
 
-export const inject = ['slots', 'sessions', 'connection']
+export const inject = ['slots', 'sessions', 'connection', 'remote', 'remote.credentials', 'remote.session', 'uiConversation', 'uiSession']
 
 interface WorkbenchInjected {
   client: HanaiClient

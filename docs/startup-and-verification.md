@@ -1,6 +1,6 @@
 # Hanai Worth · 值见 DSH 启动与验收报告
 
-> 验收日期：2026-08-23
+> 最近适配验收：2026-09-30；首版验收：2026-08-23
 
 ## 1. 结论
 
@@ -12,7 +12,7 @@ Hanai Worth · 值见当前以兼容包名 `hanai-investment-dsh` 和独立 DSH 
 | --- | --- |
 | Node.js | `v22.22.0` |
 | pnpm | `11.7.0` |
-| DeepSeek Harness | `0.1.1-rc.2` |
+| DeepSeek Harness | `0.2.0-rc.2` |
 | Profile | `hanai-investment` |
 | 默认监听 | `http://127.0.0.1:3080` |
 
@@ -29,6 +29,7 @@ pnpm --version
 在仓库根目录执行：
 
 ```bash
+npm install -g @deepseek-ai/dsh@0.2.0-rc.2
 pnpm install --frozen-lockfile
 pnpm run build
 pnpm run profile:install -- --package .
@@ -36,10 +37,10 @@ pnpm run profile:verify
 dsh --profile hanai-investment
 ```
 
-终端出现以下输出后，在浏览器打开对应地址：
+终端出现以下输出后，使用终端中的完整地址首次打开浏览器。DSH 0.2 会用启动 token 换取浏览器会话，再重定向到不含 token 的地址：
 
 ```text
-dsh web: http://127.0.0.1:3080
+dsh web: http://127.0.0.1:3080/?token=<本次启动 token>
 ```
 
 安装器会执行以下装配与迁移：
@@ -47,7 +48,7 @@ dsh web: http://127.0.0.1:3080
 1. 安装当前 Hanai 插件包；
 2. 把 Bundle 顺序规范化为 `@deepseek-ai/dsh-base` → `@deepseek-ai/dsh-web-app` → `hanai-investment-dsh`；
 3. 从 Profile dependencies 中移除早期版本错误安装的 `@deepseek-ai/dsh-web-app`，再由 pnpm 清理它带入的本地 DSH runtime 副本；
-4. 校验 Profile 与 `dsh-agent-loop` 解析到同一个真实 `@deepseek-ai/dsh-tools` 模块。
+4. 使用当前 CLI 的内存模块解析机制，校验 Profile 与 `dsh-agent-loop` 解析到同一个真实 `@deepseek-ai/dsh-tools` 模块。
 
 Base 和 Web App 是当前 DSH CLI 自带的 installation-owned Bundle，不应安装成 Profile dependency。Profile 中只保留 `hanai-investment-dsh` 这一项直接依赖。
 
@@ -104,7 +105,7 @@ pnpm run check
 
 它依次覆盖 TypeScript、单元/集成测试、Host 与 Client 生产构建、npm tarball allowlist、DSH ModuleLoader 协议、source map、三方许可证、私有绝对路径和旧数据路径隔离。
 
-本次最终运行结果：
+首版最终运行结果（2026-08-23；本次适配结果见第 12 节）：
 
 | 门禁 | 结果 |
 | --- | --- |
@@ -127,7 +128,7 @@ pnpm run profile:verify
 
 ## 8. 浏览器验收
 
-已在真实 DSH Host/Web 中完成以下检查：
+首版已在真实 DSH Host/Web 中完成以下检查：
 
 - 1520 × 940：侧栏 176px、顶栏 46px、页面无水平溢出；
 - 1280 × 720：Dashboard 和股票详情无水平溢出；
@@ -211,3 +212,23 @@ pnpm run profile:verify
 | 真实会话创建 | 已创建散户乙空白对谈；16 个能力文件逐一校验与源码一致，工作区契约版本正确，开放对谈没有创建 `REPORT.md` |
 
 本次真实服务验收截至空白对谈创建，未发起真实模型 Turn；研判调度与报告/对谈分流由集成测试覆盖。人物验证忠于用户提供的发言汇编，原帖未逐条核验，不宣称一手来源比例或投资效果已经验证。
+
+## 12. DSH 0.2 适配验收（2026-09-30）
+
+本机 CLI、Host peer 和 Client service plugin 统一到 `0.2.0-rc.2`。旧的 `dsh-host-apiproxy` 和 `dsh-client-runtime` 已移除：Host 使用原生 Session/Workspace Controller，Client 使用 Typert Remote 的凭据与模型接口。聊天页通过 Session reference 持有生命周期，分别订阅 Conversation Chat target、inbox 和 pending interaction；离开页面会释放 reference 和订阅。
+
+Profile 校验改用当前 CLI 的 `createRuntimeResolution` 与 `PluginPackages`，不再依赖旧版落盘 fallback 链接。Hanai Profile 为 Connection 补齐 `webServer` 注入，业务 RPC 沿用 `/hanai` 通道并由新版浏览器认证和 Host/Origin 校验保护。Client 为 `remote.credentials` 和 `remote.session` 声明独立注入。
+
+| 验证 | 本次结果 |
+| --- | --- |
+| 完整门禁 | `pnpm run check` 通过：29 个测试文件、205 项测试；Host、Client、Profile tools 构建通过；87 个发布文件符合契约 |
+| 依赖可复现性 | `pnpm install --frozen-lockfile --ignore-scripts --strict-peer-dependencies` 通过 |
+| 独立 Profile | 全新临时 `DSH_HOME` 中安装、组合和真实模块 identity 校验通过 |
+| 生产 tarball | 安装实际 npm tarball 后，脱离仓库链接启动 Host，认证 bootstrap、原生 Session 创建与归档均通过 |
+| 认证与设置 | 未认证 `/hanai` 请求返回 401；设置页正确读取凭据状态和当前模型目录 |
+| 无 Key 会话 | 创建散户乙空白对谈、发送消息、接收凭据错误事件、刷新恢复历史、删除业务记录和归档 Session 均通过 |
+| 真实模型与工具 | 使用已有 DSH 凭据和 DeepSeek-V4-Pro，临时业务工作区中的 `read` 工具成功读取 `AGENTS.md`，专家回复“验证成功”；调用期间浏览器无警告或错误 |
+| 进程重启恢复 | 重启验证 Host 后，用户消息、工具过程和真实回复均能恢复；重启期间仅有预期的连接重试警告 |
+| 日常服务 | 原有 `hanai-investment` Profile 启动成功，监听 `http://127.0.0.1:3080`；官方 `web` Profile 的 manifest 和 patch 指纹保持一致 |
+
+真实调用测试使用临时 Hanai 数据目录，测试 Session 在完成后归档。没有重新运行完整证券研判或改写已有报告；报告状态机和封存由集成测试覆盖。上游共享 UI 包未附带其声明的 JavaScript source map，会使 Vite 测试输出缺失 map 的警告，但全部测试正常通过。

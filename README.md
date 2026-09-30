@@ -161,7 +161,7 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 - **亮色/黑夜模式**：两套主题只替换语义色彩，不改变页面结构、图表数据或业务含义。
 - **全局搜索与深链接**：可按代码、名称或拼音搜索股票；`#/dashboard`、`#/watch`、`#/judgements`、`#/expert-chats`、`#/personas`、`#/settings` 及详情页支持刷新、前进、后退和直接打开。
 - **设置与诊断**：在工作台内管理 DSH Credentials、默认模型和主题，查看 Agent、数据源、缓存、本地存储与版本状态，并可打开数据目录或清理行情/估值缓存。
-- **完全自有界面**：使用 React 18、DSH Slot/Runtime、ECharts 和 CSS Modules；不显示或复用 DSH 原生聊天 UI。
+- **完全自有界面**：使用 React 18、DSH Slot、Session Controller 与 Conversation Projection、ECharts 和 CSS Modules；不显示或复用 DSH 原生聊天 UI。
 
 ## 架构
 
@@ -195,16 +195,17 @@ flowchart LR
 
 - Node.js `^22.19.0` 或 `>=24.0.0`
 - pnpm `11.7.0`
-- DeepSeek Harness `0.1.1-rc.2`；DSH 仍处于 pre-release，升级到其它 rc 前必须重新验证，CLI、Web App 与 Hanai 应使用同一版本
+- DeepSeek Harness `0.2.0-rc.2`；DSH 仍处于 pre-release，升级到其它 rc 前必须重新验证，CLI、Web App 与 Hanai 应使用同一版本
 - 一个 DeepSeek API Key（只在实际运行 Agent 时需要）
 
-DSH 仍处于 pre-release，rc 之间不承诺兼容。仓库把 Host、Client 和 profile 装配都纳入兼容性检查，但升级前仍应运行完整门禁。
+DSH 仍处于 pre-release，rc 之间不承诺兼容。安装器会在修改 Profile 前检查 CLI 是否为已验证的 `0.2.0-rc.2`。仓库把 Host、Client 和 profile 装配都纳入兼容性检查，但升级前仍应运行完整门禁。
 
 ## 从源码安装
 
 ```bash
 git clone git@github.com:hanai-labs/worth-dsh.git
 cd worth-dsh
+npm install -g @deepseek-ai/dsh@0.2.0-rc.2
 pnpm install
 pnpm run build
 pnpm run profile:install -- --package .
@@ -212,7 +213,7 @@ pnpm run profile:verify
 dsh --profile hanai-investment
 ```
 
-安装器会创建或安全迁移独立的 `hanai-investment` Profile。最终 Bundle 顺序固定为 DSH Base、DSH Web App、Hanai；只有 `hanai-investment-dsh` 是 Profile dependency。Base 与 Web App 必须由当前 DSH CLI 的 installation fallback 提供，不能再用 `dsh plugin add @deepseek-ai/dsh-web-app` 安装到 Profile，否则相同版本的 DSH runtime 仍可能被加载成两个模块实例。安装器会拒绝修改 `web`、`headless` 等保留 Profile，也会在目标 Profile 含无关依赖或 Bundle 时停止。
+安装器会创建或安全迁移独立的 `hanai-investment` Profile。最终 Bundle 顺序固定为 DSH Base、DSH Web App、Hanai；只有 `hanai-investment-dsh` 是 Profile dependency。Base 与 Web App 必须由当前 DSH CLI 的 installation-owned runtime resolution 提供，不能再用 `dsh plugin add @deepseek-ai/dsh-web-app` 安装到 Profile，否则相同版本的 DSH runtime 仍可能被加载成两个模块实例。安装器会拒绝修改 `web`、`headless` 等保留 Profile，也会在目标 Profile 含无关依赖或 Bundle 时停止。
 
 通用 DSH Web 仍按原方式启动：
 

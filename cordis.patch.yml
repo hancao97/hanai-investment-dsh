@@ -1,5 +1,10 @@
 # Hanai is a Web-surface bundle. The recommended installer composes it into a
 # dedicated `hanai-investment` profile after `dsh-web-app`, leaving `web` intact.
+- id: connection
+  # DSH 0.2 registers custom authenticated channels through Connection's owner
+  # context. That context must declare webServer before /hanai can be mounted.
+  inject: [webRuntime, webServer]
+
 - id: ui-settings-models
   # Hanai owns the credential and model setup experience. Disabling the stock
   # models surface also prevents its first-run modal from covering Workbench.
@@ -8,7 +13,7 @@
 - insert:
     - id: hanai-investment
       name: hanai-investment-dsh
-      inject: [connection, apiProxy, sessions, agentDefaultModel]
+      inject: [connection, webServer, sessionController, workspaceController, sessions, agentDefaultModel]
       config:
         dataRoot: !!js process.env.HANAI_INVESTMENT_DSH_HOME
         requestTimeoutMs: 12000

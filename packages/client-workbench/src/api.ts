@@ -1,8 +1,9 @@
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import type { CredentialInfo as CredentialView } from '@deepseek-ai/dsh-api-remotes/client'
+import type { ModelProviderGroup } from '@deepseek-ai/dsh-api-session-controller/types'
 import type {
-  CredentialView,
   ConnectionHandle,
-  ModelProviderGroup,
 } from '@deepseek-ai/dsh-client-connection/client'
 import type {
   HanaiEndpoint,
@@ -44,32 +45,29 @@ export class HanaiClient {
 
   async credential(): Promise<CredentialView> {
     this.assertLoopback()
-    const response = await this.connection.api.credentials.describe({ refs: [DEEPSEEK_CREDENTIAL_REF] })
-    if (!response.result.ok) throw new Error(response.result.error.message)
-    return response.result.value.credentials[DEEPSEEK_CREDENTIAL_REF]
+    const response = await this.ctx.remote.credentials.describe([DEEPSEEK_CREDENTIAL_REF])
+    if (!response.ok) throw new Error(response.error.message)
+    return response.value[DEEPSEEK_CREDENTIAL_REF]
       ?? { configured: false, writable: true }
   }
 
   async setDeepSeekKey(value: string): Promise<void> {
     this.assertLoopback()
     const key = normalizeApiKey(value)
-    const response = await this.connection.api.credentials.set({
-      ref: DEEPSEEK_CREDENTIAL_REF,
-      value: key,
-    })
-    if (!response.result.ok) throw new Error(response.result.error.message)
+    const response = await this.ctx.remote.credentials.set(DEEPSEEK_CREDENTIAL_REF, key)
+    if (!response.ok) throw new Error(response.error.message)
   }
 
   async unsetDeepSeekKey(): Promise<void> {
     this.assertLoopback()
-    const response = await this.connection.api.credentials.unset({ ref: DEEPSEEK_CREDENTIAL_REF })
-    if (!response.result.ok) throw new Error(response.result.error.message)
+    const response = await this.ctx.remote.credentials.unset(DEEPSEEK_CREDENTIAL_REF)
+    if (!response.ok) throw new Error(response.error.message)
   }
 
   async models(): Promise<ModelProviderGroup[]> {
-    const response = await this.connection.api.llm.models({})
-    if (!response.result.ok) throw new Error(response.result.error.message)
-    return response.result.value.groups
+    const response = await this.ctx.remote.session.modelCatalog()
+    if (!response.ok) throw new Error(response.error.message)
+    return [...response.value.groups]
   }
 
   /** Read DSH's process-wide Agent default through the loopback Hanai Host bridge. */
@@ -91,10 +89,6 @@ export class HanaiClient {
     const model = selection.model.trim()
     if (provider === '' || model === '') throw new Error('请选择有效的模型')
     return defaultModelView(await this.call('model.default.set', { provider, model }))
-  }
-
-  openSession(sessionId: string): void {
-    this.ctx.sessions.open(sessionId as never)
   }
 
   private assertLoopback(): void {

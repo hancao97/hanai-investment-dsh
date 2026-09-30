@@ -9,11 +9,14 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { dirname, join, relative } from 'node:path'
+import { delimiter, dirname, join, relative, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import type * as DshBoot from '@deepseek-ai/dsh-app-boot'
 
 export const BASE_BUNDLE = '@deepseek-ai/dsh-base'
 export const WEB_APP_BUNDLE = '@deepseek-ai/dsh-web-app'
 export const HANAI_BUNDLE = 'hanai-investment-dsh'
+export const SUPPORTED_DSH_VERSION = '0.2.0-rc.2'
 export const EXPECTED_PROFILE_BUNDLES = [
   BASE_BUNDLE,
   WEB_APP_BUNDLE,
@@ -24,6 +27,14 @@ type JsonObject = Record<string, unknown>
 
 function invariant(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
+}
+
+/** Reject a CLI mismatch before changing a profile or composing its runtime. */
+export function assertDshVersion(output: string): string {
+  const version = output.match(/\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/)?.[0]
+  invariant(version === SUPPORTED_DSH_VERSION,
+    `Hanai 需要 DSH ${SUPPORTED_DSH_VERSION}，当前为 ${version ?? '无法识别'}；请先更新 dsh CLI`)
+  return version
 }
 
 function isObject(value: unknown): value is JsonObject {
@@ -134,7 +145,7 @@ export function writeManifestAtomic(manifestPath: string, manifest: JsonObject):
 /**
  * A profile-local copy of an in-box DSH package can split service-definition
  * symbols from their providers. All of these packages must resolve through
- * DSH's parent fallback instead.
+ * DSH's installation-owned runtime resolution instead.
  */
 export function profileLocalDshPackages(profileDir: string): string[] {
   const scopeDir = join(profileDir, 'node_modules', '@deepseek-ai')
@@ -149,28 +160,67 @@ export function profileLocalDshPackages(profileDir: string): string[] {
  * Prove the agent loop and profile resolve the exact same dsh-tools module,
  * not merely files with the same package version and bytes.
  */
-export function assertRuntimeIdentity(profileDir: string): void {
+export async function assertRuntimeIdentity(profileDir: string, dshBin = 'dsh'): Promise<void> {
   const localPackages = profileLocalDshPackages(profileDir)
   invariant(
     localPackages.length === 0,
     `profile node_modules 含有 DSH 内置包副本（${localPackages.join(', ')}）；请重新运行 profile:install 清理 shadow packages`,
   )
 
-  const profileRequire = createRequire(join(profileDir, 'package.json'))
-  const profileTools = realpathSync(profileRequire.resolve('@deepseek-ai/dsh-tools'))
-  const agentLoop = realpathSync(profileRequire.resolve('@deepseek-ai/dsh-agent-loop'))
-  const agentLoopRequire = createRequire(agentLoop)
-  const agentLoopTools = realpathSync(agentLoopRequire.resolve('@deepseek-ai/dsh-tools'))
-  invariant(
-    profileTools === agentLoopTools,
-    `DSH runtime identity 分裂：profile 使用 ${profileTools}，agent-loop 使用 ${agentLoopTools}`,
-  )
+  // DSH 0.2 routes packages in memory. Use the selected CLI's own boot and
+  // Cordis modules so this check exercises the same resolver as a real launch.
+  const installAnchor = resolveDshInstallAnchor(dshBin)
+  const installRequire = createRequire(installAnchor)
+  const boot = await import(pathToFileURL(installRequire.resolve('@deepseek-ai/dsh-app-boot')).href) as typeof DshBoot
+  const { Context } = await import(pathToFileURL(installRequire.resolve('@deepseek-ai/cordis')).href) as typeof import('@deepseek-ai/cordis')
+  const profile = boot.loadProfileDirectory('hanai', profileDir, installAnchor)
+  invariant(profile.skippedBundles.length === 0, 'DSH 跳过了不兼容的 profile bundle')
+  const resolution = await boot.createRuntimeResolution({
+    installAnchor,
+    profile,
+    home: dirname(dirname(profileDir)),
+  })
+  const ctx = new Context()
+  try {
+    await ctx.plugin(boot.PluginPackages, { resolution })
+    const profileRequire = createRequire(join(profileDir, 'package.json'))
+    const profileTools = realpathSync(profileRequire.resolve('@deepseek-ai/dsh-tools'))
+    const agentLoop = realpathSync(profileRequire.resolve('@deepseek-ai/dsh-agent-loop'))
+    const agentLoopTools = realpathSync(createRequire(agentLoop).resolve('@deepseek-ai/dsh-tools'))
+    invariant(
+      profileTools === agentLoopTools,
+      `DSH runtime identity 分裂：profile 使用 ${profileTools}，agent-loop 使用 ${agentLoopTools}`,
+    )
+    invariant(
+      relative(profileDir, profileTools).startsWith('..'),
+      `dsh-tools 错误地从 profile 内解析：${profileTools}`,
+    )
+  } finally {
+    await ctx.fiber.dispose()
+  }
+}
 
-  const relativeTools = relative(profileDir, profileTools)
-  invariant(
-    relativeTools.startsWith('..'),
-    `dsh-tools 错误地从 profile 内解析：${profileTools}`,
-  )
+/** Follow the selected npm CLI, rather than guessing a global install prefix. */
+export function resolveDshInstallAnchor(dshBin: string): string {
+  const candidates = dshBin.includes('/') || dshBin.includes('\\')
+    ? [resolve(dshBin)]
+    : (process.env.PATH ?? '').split(delimiter).map(directory => resolve(directory, dshBin))
+  const executable = candidates.find(candidate => existsSync(candidate) && statSync(candidate).isFile())
+  invariant(executable !== undefined, `无法定位 dsh CLI：${dshBin}`)
+  let directory = dirname(realpathSync(executable))
+  while (true) {
+    const manifestPath = join(directory, 'package.json')
+    if (existsSync(manifestPath)) {
+      const manifest = readManifest(manifestPath)
+      if (manifest.name === '@deepseek-ai/dsh') {
+        assertDshVersion(String(manifest.version))
+        return manifestPath
+      }
+    }
+    const parent = dirname(directory)
+    invariant(parent !== directory, `无法从 ${dshBin} 定位 @deepseek-ai/dsh 安装目录`)
+    directory = parent
+  }
 }
 
 export function assertComposedLayers(output: string): void {

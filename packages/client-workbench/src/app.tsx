@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { ModelProviderGroup } from '@deepseek-ai/dsh-client-connection/client'
+import type { ModelProviderGroup } from '@deepseek-ai/dsh-api-session-controller/types'
 import type {
   BootstrapData,
   DashboardData,

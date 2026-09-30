@@ -13,15 +13,14 @@ import {
   type ReactNode,
 } from 'react'
 import type {
-  AssistantBlock,
-  ClientContext,
   PendingInteraction,
   QueuedMessage,
   SessionFace,
-  ToolCallBlock,
-  ToolResultNode,
-} from '@deepseek-ai/dsh-client-runtime/client'
-import type { ChatNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
+} from './dsh-adapter.ts'
+import { createChatSessions } from './dsh-adapter.ts'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { AssistantBlock, ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ChatNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
   answerApproval,
@@ -45,6 +44,7 @@ const CODE_LABELS = {
   copyLabel: '复制代码',
   copiedLabel: '已复制',
 } as const
+const MARKDOWN_LABELS = { code: CODE_LABELS, footnotes: '脚注' } as const
 
 export type ChatPanelVariant = 'judgement' | 'open-chat'
 
@@ -144,9 +144,10 @@ export function ChatPanel({
   headerActions,
   onClose,
 }: ChatPanelProps) {
+  const sessions = useMemo(() => createChatSessions(clientContext), [clientContext])
   return (
     <DshChatPanel
-      sessions={clientContext.sessions}
+      sessions={sessions}
       sessionId={sessionId}
       compact={compact}
       variant={variant}
@@ -178,7 +179,6 @@ export interface DshChatPanelProps {
   /** Remove the inner title bar when the host already renders equivalent context. */
   hideHeader?: boolean
   className?: string
-  autoOpen?: boolean
   /** Workbench lifecycle guard, e.g. while the report turn is still sealing. */
   readOnlyReason?: string
   onClose?: () => void
@@ -206,11 +206,10 @@ function DshChatPanelInstance({
   variant = 'judgement',
   hideHeader = false,
   className,
-  autoOpen,
   readOnlyReason,
   onClose,
 }: DshChatPanelProps) {
-  const state = useDshChatSession({ sessions, sessionId, ...(autoOpen === undefined ? {} : { autoOpen }) })
+  const state = useDshChatSession({ sessions, sessionId })
   const copy = variant === 'open-chat' ? OPEN_CHAT_COPY : JUDGEMENT_COPY
   const rootClassName = [css.panel, compact ? css.compact : '', className ?? '']
     .filter(Boolean)
@@ -632,7 +631,7 @@ const ChatNodeRow = memo(function ChatNodeRow({
       return <MessageCard role="user" label="你 · 插话"><ContentBlocks blocks={node.data.content} /></MessageCard>
     case 'context':
       return (
-        <ContextCard label={`上下文 · ${node.data.provenance.label ?? node.data.provenance.role}`}>
+        <ContextCard label={`上下文 · ${node.data.producer.label ?? node.data.producer.role}`}>
           <ContentBlocks blocks={node.data.content} />
         </ContextCard>
       )
@@ -775,7 +774,7 @@ function AssistantBlocks({ blocks, running }: { blocks: readonly AssistantBlock[
 function MarkdownBlock({ text, streaming = false }: { text: string; streaming?: boolean }) {
   return (
     <div className={css.markdown}>
-      <MarkdownText text={text} codeLabels={CODE_LABELS} />
+      <MarkdownText text={text} labels={MARKDOWN_LABELS} />
       <StreamingCaret show={streaming} />
     </div>
   )
@@ -788,7 +787,7 @@ function StreamingCaret({ show }: { show: boolean }) {
 function ToolCard({ block, depth, compact = false }: { block: ToolCallBlock; depth: number; compact?: boolean }) {
   const settled = isSettledTool(block)
   const name = settled ? block.call?.name ?? block.callId : block.name
-  const args = settled ? block.call?.argsRaw ?? '' : block.argsRaw
+  const args = settled ? block.call?.argsRaw ?? '' : block.phase === 'start' ? block.argsRaw : ''
   const argsPreview = inlinePreview(args)
   const failed = settled && block.isError
   return (
@@ -965,16 +964,16 @@ function ApprovalCard({ wait, session }: { wait: ApprovalWait; session: SessionF
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const call = useSessionSelector(session, snapshot => (
-    wait.payload.callId === undefined
+    wait.callId === undefined
       ? null
-      : findToolCall(snapshot, String(wait.payload.callId))
+      : findToolCall(snapshot, String(wait.callId))
   ))
   const callName = call === null
-    ? wait.payload.toolName
+    ? wait.toolName
     : isSettledTool(call) ? call.call?.name ?? call.callId : call.name
   const callArgs = call === null
     ? null
-    : isSettledTool(call) ? call.call?.argsRaw ?? '' : call.argsRaw
+    : isSettledTool(call) ? call.call?.argsRaw ?? '' : call.phase === 'start' ? call.argsRaw : ''
 
   const decide = async (outcome: 'allowed-once' | 'rejected') => {
     setBusy(true)
@@ -990,8 +989,8 @@ function ApprovalCard({ wait, session }: { wait: ApprovalWait; session: SessionF
   return (
     <article className={css.pendingCard}>
       <div className={css.sectionTitle}>工具授权</div>
-      <strong>{wait.payload.reason ?? `${copy.approvalFallback} ${wait.payload.toolName}`}</strong>
-      <span className={css.pendingDetail}>工具：{wait.payload.toolName}</span>
+      <strong>{wait.reason ?? `${copy.approvalFallback} ${wait.toolName}`}</strong>
+      <span className={css.pendingDetail}>工具：{wait.toolName}</span>
       {callArgs !== null && (
         <details className={css.inlineTool} open>
           <summary>将执行：{callName}</summary>
@@ -1028,12 +1027,13 @@ interface QuestionDraft {
 
 function QuestionCard({ wait }: { wait: QuestionWait }) {
   const copy = useChatCopy()
-  const questions = wait.payload.questions
+  const questions = wait.questions
   const [drafts, setDrafts] = useState<QuestionDraft[]>(() => questions.map(() => ({ selected: [], custom: '' })))
   const [busy, setBusy] = useState<'answer' | 'cancel' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const update = (index: number, transform: (draft: QuestionDraft) => QuestionDraft) => {
+    wait.engage()
     setDrafts(current => current.map((draft, draftIndex) => draftIndex === index ? transform(draft) : draft))
     setError(null)
   }
@@ -1087,7 +1087,13 @@ function QuestionCard({ wait }: { wait: QuestionWait }) {
   }
 
   return (
-    <article className={css.pendingCard}>
+    <article
+      className={css.pendingCard}
+      onFocusCapture={() => { wait.holdFocus() }}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) wait.releaseFocus()
+      }}
+    >
       <div className={css.sectionTitle}>{copy.questionLead}</div>
       {questions.map((question, index) => {
         const draft = drafts[index] as QuestionDraft

@@ -38,10 +38,15 @@ const EXPECTED_FILES = [
 ] as const
 
 const EXPECTED_INJECT = [
-  '@deepseek-ai/dsh-client-runtime',
+  '@deepseek-ai/dsh-api-session-controller',
+  '@deepseek-ai/dsh-api-remotes',
   '@deepseek-ai/dsh-client-ui-layout',
   '@deepseek-ai/dsh-client-connection',
   '@deepseek-ai/dsh-client-ui-conversation',
+  '@deepseek-ai/dsh-client-ui-session',
+  '@deepseek-ai/dsh-client-ui-chat',
+  '@deepseek-ai/dsh-client-ui-approval',
+  '@deepseek-ai/dsh-client-ui-user-questions',
 ] as const
 
 // Keep the forbidden sentinel out of this verifier's own source text. This

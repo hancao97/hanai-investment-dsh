@@ -5,7 +5,9 @@ describe('Hanai Host composition requirements', () => {
   it('waits for the DSH-owned default model service before mounting RPC', () => {
     expect(inject).toEqual([
       'connection',
-      'apiProxy',
+      'webServer',
+      'sessionController',
+      'workspaceController',
       'sessions',
       'agentDefaultModel',
     ])

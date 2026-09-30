@@ -10,7 +10,7 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import { SessionSeq, type SessionEvent } from '@deepseek-ai/dsh-session'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { DefaultModelSelection, ProviderMeta, StockDetail } from '../../contracts/src/index.ts'
 import { HanaiDatabase } from '../../domain/src/database.ts'
@@ -109,7 +109,7 @@ function fixture(minChars = 100) {
 }
 
 function completed(turn = 1): SessionEvent {
-  return { type: 'turn/end', seq: turn, time: Date.now(), data: { turn, reason: { kind: 'completed' } } }
+  return { type: 'turn/end', seq: SessionSeq(turn), time: Date.now(), data: { turn, reason: { kind: 'completed' } } }
 }
 
 async function eventually(assertion: () => void): Promise<void> {
@@ -146,7 +146,7 @@ describe('HanaiService report lifecycle', () => {
     expect(readFileSync(join(workspace, 'AGENTS.md'), 'utf8')).toContain('专家开放对谈工作区')
 
     service.handleSessionEvent(created.dshSessionId!, {
-      type: 'turn/start', seq: 1, time: Date.now(), data: { turn: 1 },
+      type: 'turn/start', seq: SessionSeq(1), time: Date.now(), data: { turn: 1 },
     })
     expect(database.getExpertChat(created.id)?.turnStatus).toBe('running')
     service.handleSessionEvent(created.dshSessionId!, completed())
@@ -263,7 +263,7 @@ describe('HanaiService report lifecycle', () => {
     expect(database.listReportRows(created.id)).toHaveLength(1)
 
     service.handleSessionEvent(created.dshSessionId!, {
-      type: 'turn/start', seq: 2, time: Date.now(), data: { turn: 2 },
+      type: 'turn/start', seq: SessionSeq(2), time: Date.now(), data: { turn: 2 },
     })
     service.handleSessionEvent(created.dshSessionId!, completed(2))
     expect(database.getJudgement(created.id)?.turnStatus).toBe('idle')
@@ -316,7 +316,7 @@ describe('HanaiService report lifecycle', () => {
 
     service.handleSessionEvent(created.dshSessionId!, {
       type: 'turn/end',
-      seq: 1,
+      seq: SessionSeq(1),
       time: Date.now(),
       data: {
         turn: 1,

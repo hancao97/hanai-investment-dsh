@@ -5,6 +5,7 @@ const CODE_LABELS = {
   copyLabel: '复制代码',
   copiedLabel: '已复制',
 } as const
+const MARKDOWN_LABELS = { code: CODE_LABELS, footnotes: '脚注' } as const
 
 /**
  * Render a settled, model-authored research report through DSH's untrusted
@@ -14,7 +15,7 @@ const CODE_LABELS = {
 export function MarkdownView({ content }: { content: string }) {
   return (
     <article className={researchStyles['markdownSurface']}>
-      <MarkdownText text={content} codeLabels={CODE_LABELS} />
+      <MarkdownText text={content} labels={MARKDOWN_LABELS} />
     </article>
   )
 }

@@ -1,8 +1,9 @@
 # Hanai Worth · 值见 DSH 总体架构设计
 
 - 状态：核心架构已实现
-- 更新日期：2026-08-23
-- DSH 分析基线：`deepseek-harness@b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`
+- 更新日期：2026-09-30
+- 当前运行版本：`@deepseek-ai/dsh@0.2.0-rc.2`（2026-09-30 完成适配）
+- 首版 DSH 分析基线：`deepseek-harness@b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`
 
 ## 1. 结论
 
@@ -303,7 +304,7 @@ turnStatus: idle | queued | running | cancelling | failed
 
 ### 7.4 Session 事件与报告协调器
 
-Host 订阅 DSH Session 的 `turn/start` 与 `turn/end`：报告状态处于生成、校验、修复或内部修订时，成功结束的 Turn 会进入报告校验与封存队列；普通追问只更新 `turnStatus`，不会创建报告版本。内部 revision 状态用于保证报告不可变和未来受控演进，不作为当前一级产品动作宣传。聊天页直接使用 DSH Client Runtime 已折叠的 Conversation Snapshot，因此不需要 Hanai 自定义消息 Projection。
+Host 订阅 DSH Session 的 `turn/start` 与 `turn/end`：报告状态处于生成、校验、修复或内部修订时，成功结束的 Turn 会进入报告校验与封存队列；普通追问只更新 `turnStatus`，不会创建报告版本。内部 revision 状态用于保证报告不可变和未来受控演进，不作为当前一级产品动作宣传。聊天页通过 `sessions.retain()` 持有当前 Session generation，激活 `uiConversation` 的 Chat target，并订阅其折叠结果；队列读取原生 inbox projection，审批和问答读取 `uiSession.sessionStatus`。Hanai 只合并这些可观察快照，不创建消息 Projection 或持久副本。
 
 发布顺序是：报告文件原子封存成功 → SQLite 事务提交报告版本和最新版本指针 → RPC 下一次读取可见。报告 Markdown 不复制进 DSH 消息或第二套消息表；UI 始终从正式封存文件读取。
 
@@ -406,7 +407,7 @@ watch.item.add / watch.item.remove / watch.item.move
 judgement.list / judgement.get / judgement.create / judgement.revise
 ```
 
-DeepSeek Key 与模型目录不经过 Hanai RPC，而是直接调用 DSH 的 `credentials.describe/set/unset` 与 Models capability。所有 Hanai 返回类型是 JSON 兼容的普通数据；诊断页会显示本机绝对数据路径，其他业务记录只持久化相对路径和 opaque Session ID。
+DeepSeek Key 与模型目录不经过 Hanai RPC，而是直接调用 DSH 的 `credentials.describe/set/unset` 与 `remote.session.modelCatalog()`。所有 Hanai 返回类型是 JSON 兼容的普通数据；诊断页会显示本机绝对数据路径，其他业务记录只持久化相对路径和 opaque Session ID。
 
 Provider 传输层使用 Node/DSH Host 能力重写，不能继续依赖 Electron `net.fetch`。东方财富、腾讯等源必须通过集成测试重新验证，并保留 provider fallback、抓取时间、来源和缓存状态。
 
@@ -425,7 +426,7 @@ Provider 传输层使用 Node/DSH Host 能力重写，不能继续依赖 Electro
 - 报告封存目录不作为 Agent cwd，也不授予 Agent 写权限。
 - 不沿用旧版 `danger-full-access + never`。
 - 网络 Provider 使用明确的目标和超时；错误消息在进入 UI 前脱敏。
-- Connection RPC 默认只依赖 DSH 的 loopback 部署假设。若 WebServer 绑定非 loopback，必须先增加真实认证和 CSRF/Origin 策略。
+- Connection RPC 使用 DSH 0.2 的浏览器认证以及 Host/Origin 校验；默认监听 loopback。Hanai Profile 为 Connection 声明显式 `webServer` 依赖，使独立 `/hanai` 通道可以注册到同一个受认证保护的 Web 服务。
 - 报告属于投资研究辅助内容，界面和导出均保留数据时点、不确定性和非收益承诺提示。
 
 ## 12. 测试策略

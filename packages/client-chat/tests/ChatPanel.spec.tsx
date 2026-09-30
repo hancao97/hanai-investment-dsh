@@ -4,10 +4,10 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type {
   ConversationSnapshot,
-  ISessions,
+  ChatSessions,
   SessionFace,
   SessionId,
-} from '@deepseek-ai/dsh-client-runtime/client'
+} from '../src/dsh-adapter.ts'
 import { DshChatPanel } from '../src/ChatPanel.tsx'
 
 afterEach(() => { cleanup() })
@@ -22,7 +22,7 @@ describe('DshChatPanel', () => {
     expect(screen.getByText('HANAI WORTH')).not.toBeNull()
     expect(screen.getByRole('region', { name: '大师对话记录' })).not.toBeNull()
     expect(screen.getByText('正在检查现金流')).not.toBeNull()
-    await waitFor(() => { expect(harness.open).toHaveBeenCalledWith('session-1') })
+    await waitFor(() => { expect(harness.retain).toHaveBeenCalledWith('session-1') })
 
     const input = screen.getByLabelText('继续与大师对话')
     fireEvent.change(input, { target: { value: '请给出最重要的反证' } })
@@ -110,9 +110,13 @@ describe('DshChatPanel', () => {
 
     view.rerender(<DshChatPanel sessions={harness.sessions} sessionId={null} />)
     expect(screen.queryByLabelText('继续与大师对话')).toBeNull()
+    expect(harness.release).toHaveBeenCalledOnce()
 
     view.rerender(<DshChatPanel sessions={harness.sessions} sessionId="session-1" />)
     expect((screen.getByLabelText('继续与大师对话') as HTMLTextAreaElement).value).toBe('')
+    view.unmount()
+    expect(harness.retain).toHaveBeenCalledTimes(2)
+    expect(harness.release).toHaveBeenCalledTimes(2)
   })
 
   it('supports compact headerless embeds and keeps context folded by default', () => {
@@ -185,9 +189,7 @@ describe('DshChatPanel', () => {
       hasMore: true,
       queue: [{
         id: 'queue-1' as never,
-        messageId: 'message-1' as never,
         placement: 'queued',
-        content: [{ type: 'text', text: '稍后检查估值' }],
         preview: '稍后检查估值',
         text: '稍后检查估值',
       }],
@@ -214,13 +216,10 @@ describe('DshChatPanel', () => {
         kind: 'approval',
         key: 'a:approval-rpc',
         sessionId: 'session-1' as never,
-        payload: {
-          approvalId: 'approval-1' as never,
-          callId: 'tool-1' as never,
-          toolName: 'financial_lookup',
-          reason: '读取最新公告',
-        },
-        respond,
+        callId: 'tool-1' as never,
+        toolName: 'financial_lookup',
+        reason: '读取最新公告',
+        answer: respond,
       } as never],
     })
 
@@ -230,14 +229,7 @@ describe('DshChatPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '仅本次允许' }))
 
     await waitFor(() => {
-      expect(respond).toHaveBeenCalledWith({
-        ok: true,
-        value: {
-          sessionId: 'session-1',
-          approvalId: 'approval-1',
-          outcome: 'allowed-once',
-        },
-      })
+      expect(respond).toHaveBeenCalledWith('allowed-once')
     })
   })
 
@@ -246,9 +238,7 @@ describe('DshChatPanel', () => {
     const harness = makeHarness([], true, {
       queue: [{
         id: 'queue-1' as never,
-        messageId: 'message-1' as never,
         placement: 'queued',
-        content: [{ type: 'text', text: '稍后检查估值' }],
         preview: '稍后检查估值',
         text: '稍后检查估值',
       }],
@@ -256,8 +246,8 @@ describe('DshChatPanel', () => {
         kind: 'approval',
         key: 'a:approval-rpc',
         sessionId: 'session-1' as never,
-        payload: { approvalId: 'approval-1' as never, toolName: 'web', reason: '读取最新公告' },
-        respond,
+        toolName: 'web', reason: '读取最新公告',
+        answer: respond,
       } as never],
     })
 
@@ -279,19 +269,21 @@ describe('DshChatPanel', () => {
 
   it('renders tool activity through settlement and submits structured question answers', async () => {
     const respond = vi.fn().mockResolvedValue({ accepted: true })
+    const engage = vi.fn()
     const harness = makeHarness([toolNode(false)], true, {
       pending: [{
         kind: 'question',
         key: 'q:question-rpc',
         sessionId: 'session-1' as never,
-        payload: {
-          questions: [{
-            id: 'valuation',
-            question: '估值假设应如何调整？',
-            options: [{ label: '维持' }, { label: '下调估值', description: '使用更保守的倍数' }],
-          }],
-        },
-        respond,
+        questions: [{
+          id: 'valuation',
+          question: '估值假设应如何调整？',
+          options: [{ label: '维持' }, { label: '下调估值', description: '使用更保守的倍数' }],
+        }],
+        answer: respond,
+        engage,
+        holdFocus: vi.fn(),
+        releaseFocus: vi.fn(),
       } as never],
     })
 
@@ -302,15 +294,10 @@ describe('DshChatPanel', () => {
     expect((screen.getByText('financial_lookup').closest('details') as HTMLDetailsElement).open).toBe(true)
 
     fireEvent.click(screen.getByRole('radio', { name: /下调估值/ }))
+    expect(engage).toHaveBeenCalledOnce()
     fireEvent.click(screen.getByRole('button', { name: '提交回答' }))
     await waitFor(() => {
-      expect(respond).toHaveBeenCalledWith({
-        ok: true,
-        value: {
-          sessionId: 'session-1',
-          answer: { answers: [{ id: 'valuation', selected: ['下调估值'] }] },
-        },
-      })
+      expect(respond).toHaveBeenCalledWith({ answers: [{ id: 'valuation', selected: ['下调估值'] }] })
     })
 
     act(() => { harness.publish([toolNode(true)], false) })
@@ -353,7 +340,7 @@ function contextNode() {
     location: { kind: 'unresolved' },
     visibility: 'visible',
     data: {
-      provenance: { role: 'system', label: 'AGENTS.md' },
+      producer: { role: 'system', label: 'AGENTS.md' },
       content: [{ type: 'text', text: '研究上下文' }],
     },
   }
@@ -361,6 +348,7 @@ function contextNode() {
 
 function toolNode(settled: boolean) {
   const running = {
+    phase: 'start',
     callId: 'tool-1',
     name: 'financial_lookup',
     argsRaw: '{"code":"600519"}',
@@ -443,20 +431,21 @@ function makeHarness(
     jobsBySession: {},
     currentAddress: undefined,
   }
-  const open = vi.fn()
+  const release = vi.fn()
+  const retain = vi.fn(() => ({ session, ready: Promise.resolve(), release }))
   const sessions = {
     list: {
       getSnapshot: () => listSnapshot,
       subscribe: () => () => {},
     },
-    open,
-    binding: (id: SessionId) => id === sessionId ? { sessionId, session, ctx: {} } : undefined,
-  } as unknown as Pick<ISessions, 'list' | 'open' | 'binding'>
+    retain,
+  } as unknown as ChatSessions
 
   return {
     sessions,
     session,
-    open,
+    retain,
+    release,
     prompt,
     cancel,
     updateQueue,

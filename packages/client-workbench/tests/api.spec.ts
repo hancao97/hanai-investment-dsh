@@ -1,17 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { HanaiClient, normalizeApiKey } from '../src/api.ts'
 
 describe('HanaiClient DSH credentials', () => {
   it('describes only the write-only DeepSeek credential reference', async () => {
     const describe = vi.fn().mockResolvedValue(apiOk({
-      credentials: {
-        DEEPSEEK_API_KEY: {
-          configured: true,
-          writable: true,
-          source: 'file',
-        },
-      },
+      DEEPSEEK_API_KEY: { configured: true, writable: true, source: 'file' },
     }))
     const client = makeClient({ describe })
 
@@ -20,7 +14,7 @@ describe('HanaiClient DSH credentials', () => {
       writable: true,
       source: 'file',
     })
-    expect(describe).toHaveBeenCalledWith({ refs: ['DEEPSEEK_API_KEY'] })
+    expect(describe).toHaveBeenCalledWith(['DEEPSEEK_API_KEY'])
   })
 
   it('normalizes and writes the key without sending it through Hanai RPC', async () => {
@@ -29,10 +23,7 @@ describe('HanaiClient DSH credentials', () => {
     const client = makeClient({ rpcCall, set })
 
     await expect(client.setDeepSeekKey('  test-key_123  ')).resolves.toBeUndefined()
-    expect(set).toHaveBeenCalledWith({
-      ref: 'DEEPSEEK_API_KEY',
-      value: 'test-key_123',
-    })
+    expect(set).toHaveBeenCalledWith('DEEPSEEK_API_KEY', 'test-key_123')
     expect(rpcCall).not.toHaveBeenCalled()
   })
 
@@ -41,7 +32,7 @@ describe('HanaiClient DSH credentials', () => {
     const client = makeClient({ unset })
 
     await expect(client.unsetDeepSeekKey()).resolves.toBeUndefined()
-    expect(unset).toHaveBeenCalledWith({ ref: 'DEEPSEEK_API_KEY' })
+    expect(unset).toHaveBeenCalledWith('DEEPSEEK_API_KEY')
   })
 
   it('rejects credential reads and writes outside a loopback page', async () => {
@@ -117,7 +108,7 @@ describe('HanaiClient DSH default model settings', () => {
     }, undefined)
   })
 
-  it('keeps the provider/model catalog on the native DSH llm API', async () => {
+  it('reads the provider/model catalog through the native DSH Session Remote', async () => {
     const models = vi.fn().mockResolvedValue(apiOk({ groups: [{
       id: 'deepseek-official', name: 'DeepSeek', models: [],
     }], failures: [] }))
@@ -126,7 +117,7 @@ describe('HanaiClient DSH default model settings', () => {
     await expect(client.models()).resolves.toEqual([{
       id: 'deepseek-official', name: 'DeepSeek', models: [],
     }])
-    expect(models).toHaveBeenCalledWith({})
+    expect(models).toHaveBeenCalledWith()
   })
 
   it('does not expose settings through a non-loopback page', async () => {
@@ -150,19 +141,19 @@ function makeClient(
   const connection = {
     isLoopback,
     rpc: { call: doubles.rpcCall ?? vi.fn() },
-    api: {
-      credentials: {
-        describe: doubles.describe ?? vi.fn(),
-        set: doubles.set ?? vi.fn(),
-        unset: doubles.unset ?? vi.fn(),
-      },
-      llm: { models: doubles.models ?? vi.fn() },
-    },
   }
-  const context = { get: () => connection } as unknown as ClientContext
+  const remote = {
+    credentials: {
+      describe: doubles.describe ?? vi.fn(),
+      set: doubles.set ?? vi.fn(),
+      unset: doubles.unset ?? vi.fn(),
+    },
+    session: { modelCatalog: doubles.models ?? vi.fn() },
+  }
+  const context = { get: () => connection, remote } as unknown as ClientContext
   return new HanaiClient(context)
 }
 
 function apiOk(value: unknown) {
-  return Promise.resolve({ rpcId: 'test', result: { ok: true as const, value } })
+  return Promise.resolve({ ok: true as const, value })
 }

@@ -1,8 +1,8 @@
 # Hanai client chat
 
-Standalone React presentation for a DeepSeek Harness Session. It uses DSH's
-runtime-owned history/live fold and Agent actions, but it does not import or
-render DSH Chat UI components, shadcn, or Tailwind.
+Standalone React presentation for a DeepSeek Harness 0.2.0-rc.2 Session. It uses
+DSH-owned history/live projections and Agent actions with Hanai's own chat rows
+and composer. Shared DSH Markdown primitives render rich text.
 
 ## Workbench integration
 
@@ -21,11 +21,13 @@ While the report-producing turn is still being sealed, pass
 history, streaming activity, approvals, and questions, but hides the prompt
 composer and freezes queued-message mutations until the guard is removed.
 
-`ChatPanel` calls `clientContext.sessions.open(sessionId)` when needed, resolves
-the stable `SessionFace` through `sessions.binding(sessionId)`, and subscribes to
-its folded `ConversationSnapshot`. Selecting a report conversation therefore
-also makes that Session the current DSH Session; this is required for DSH to open
-and maintain its history window.
+`ChatPanel` retains its Session with `sessions.retain(sessionId, { source:
+'hanaiChat' })`. The local adapter activates the `uiConversation` Chat target and
+joins its transcript with the native Session lifecycle, inbox queue/steering
+projection, and `uiSession.sessionStatus` pending interaction. It caches each
+read snapshot until one source publishes, without copying conversation data
+into another store. Switching Sessions or unmounting releases every subscription
+and the underlying Session reference.
 
 The lower-level `DshChatPanel` accepts `sessions` directly, and
 `useDshChatSession` exposes the same bridge for custom workbench layouts.
@@ -39,19 +41,24 @@ The lower-level `DshChatPanel` accepts `sessions` directly, and
 - ordinary Sessions expose queue/steer; continuable subagents use continuation
   delivery without presenting a misleading steer control;
 - approval allow-once/reject responses;
-- structured question answer/cancel responses;
+- structured question answer/cancel responses, with focus and draft engagement
+  preserving the latest DSH asynchronous question deadline semantics;
 - removed, missing, loading, error, and non-resumable subagent states.
 
 ## Runtime dependencies
 
 - `react`;
-- `@deepseek-ai/dsh-client-runtime/client` for `ClientContext`, `ISessions`,
-  `SessionFace`, and `ConversationSnapshot` contracts;
-- `@deepseek-ai/dsh-client-connection/client` as a type-only source for the
-  official approval and question response payloads;
-- `@deepseek-ai/dsh-client-ui-conversation/client` as a **type-only** source for
-  the folded Chat node union. The deployment must load ui-conversation so those
-  business fold definitions are registered, but none of its React renderers or
-  primitives are used.
+- `@deepseek-ai/cordis` for `Context`;
+- `@deepseek-ai/dsh-api-session-controller/client` for Session references and actions;
+- `@deepseek-ai/dsh-client-ui-conversation/client` and `dsh-client-ui-chat/client`
+  for the folded Chat target and node contracts;
+- `@deepseek-ai/dsh-client-ui-session/client` for pending interaction selection;
+- `@deepseek-ai/dsh-client-ui-approval/client` and `dsh-client-ui-user-questions/client`
+  for the native answerable request carriers;
+- `@deepseek-ai/dsh-client-ui-primitives` for shared Markdown rendering.
+
+Only React and the Markdown primitive are imported as runtime values by this
+presentation package. Other DSH contracts are type-only imports; the deployment
+loads the matching service plugins before activating Hanai.
 
 Styles are a local CSS Module inlined by the repository's DSH client bundler.

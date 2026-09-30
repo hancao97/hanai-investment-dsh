@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path'
 import { stripPnpmRunSeparator } from './pnpm-run-args.ts'
 import {
   assertComposedLayers,
+  assertDshVersion,
   assertProfileContract,
   assertRuntimeIdentity,
   assertSafeProfileManifest,
@@ -24,8 +25,7 @@ interface Options {
 
 const options = parse(stripPnpmRunSeparator(process.argv.slice(2)))
 assertSafeExistingProfile(options.profile)
-const dshVersion = commandOutput(options.dshBin, ['--version']).match(/\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/)?.[0]
-if (dshVersion === undefined) throw new Error('无法从 dsh --version 识别版本')
+const dshVersion = assertDshVersion(commandOutput(options.dshBin, ['--version']))
 
 console.log(`Creating or migrating isolated DSH profile ${options.profile} with DSH ${dshVersion}…`)
 // The released package and source-install flow are built before this script
@@ -62,9 +62,7 @@ const finalManifest = readManifest(profileManifestPath)
 assertProfileContract(finalManifest, options.profile)
 const composed = commandOutput(options.dshBin, ['--profile', options.profile, '--dump-default-config'])
 assertComposedLayers(composed)
-// Profile boot heals DSH's installation-owned parent module fallback. Resolve
-// identity only after the config dump has exercised that boot preparation.
-assertRuntimeIdentity(profileDirForManifest(profileManifestPath))
+await assertRuntimeIdentity(profileDirForManifest(profileManifestPath), options.dshBin)
 console.log(`\nProfile ready. Start Hanai with:\n  dsh --profile ${options.profile}\n\nThe stock UI remains available with:\n  dsh web`)
 
 function parse(args: string[]): Options {

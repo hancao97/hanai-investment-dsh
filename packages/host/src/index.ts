@@ -2,6 +2,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import type {} from '@deepseek-ai/dsh-client-connection'
+import type {} from '@deepseek-ai/dsh-host-webserver'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { HanaiDatabase } from '../../domain/src/database.ts'
 import { resolveHanaiPaths, ensureHanaiLayout } from '../../domain/src/paths.ts'
@@ -17,7 +18,7 @@ import { badRequest, internalError, isHanaiEndpoint, ok, parseHanaiRequest } fro
 import { HanaiService } from './service.ts'
 
 export const name = 'hanai-investment-dsh'
-export const inject = ['connection', 'apiProxy', 'sessions', 'agentDefaultModel']
+export const inject = ['connection', 'webServer', 'sessionController', 'workspaceController', 'sessions', 'agentDefaultModel']
 export const VERSION = '0.1.0'
 
 export interface Config {
@@ -32,7 +33,7 @@ export const Config: z<Config> = z.object({
   reportMinChars: z.natural().min(400).default(800),
 })
 
-/** Mount the Host business plane and its loopback-only browser RPC channel. */
+/** Mount the Host business plane behind DSH's authenticated browser RPC. */
 export function apply(ctx: Context, config: Config = {}): void {
   const paths = resolveHanaiPaths(config.dataRoot)
   ensureHanaiLayout(paths)
@@ -66,7 +67,7 @@ export function apply(ctx: Context, config: Config = {}): void {
       if (isValidationError(error)) return badRequest(error.message)
       return internalError(error)
     }
-  }, { authority: 'loopback' })
+  })
 
   ctx.on('session/event', (session, event: SessionEvent) => {
     try {

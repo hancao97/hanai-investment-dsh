@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { stripPnpmRunSeparator } from './pnpm-run-args.ts'
 import {
   assertComposedLayers,
+  assertDshVersion,
   assertProfileContract,
   assertRuntimeIdentity,
   manifestPathFor,
@@ -24,6 +25,10 @@ for (let index = 0; index < args.length; index += 1) {
   else if (argument !== undefined) profile = argument
 }
 if (!/^[A-Za-z0-9._-]+$/.test(profile)) throw new Error('非法 profile 名称')
+const version = spawnSync(dshBin, ['--version'], { encoding: 'utf8' })
+if (version.error !== undefined) throw version.error
+if (version.status !== 0) throw new Error(version.stderr || '无法读取 dsh CLI 版本')
+assertDshVersion(version.stdout)
 const dshHome = process.env.DSH_HOME?.trim() || join(homedir(), '.dsh')
 const manifestPath = manifestPathFor(dshHome, profile)
 if (!existsSync(manifestPath)) throw new Error(`profile ${profile} 不存在：${manifestPath}`)
@@ -36,7 +41,7 @@ if (result.error !== undefined) throw result.error
 if (result.status !== 0) throw new Error(result.stderr || `profile verification failed: ${String(result.status)}`)
 const output = `${result.stdout}\n${result.stderr}`
 assertComposedLayers(output)
-assertRuntimeIdentity(profileDirForManifest(manifestPath))
+await assertRuntimeIdentity(profileDirForManifest(manifestPath), dshBin)
 console.log(`Profile ${profile} has installation-owned DSH runtime packages and the Base → Web app → Hanai bundle stack.`)
 
 function value(values: string[], index: number, flag: string): string {

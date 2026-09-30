@@ -81,7 +81,7 @@ describe('out-of-tree DSH client bundle adapter', () => {
     expect(adapterSource).toContain('alwaysBundle: (specifier: string) => !isRequested(specifier)')
     expect(adapterSource).toContain("'react/jsx-runtime'")
     expect(adapterSource).toContain("'@deepseek-ai/cordis'")
-    expect(adapterSource).toContain("'@deepseek-ai/dsh-client-runtime/client'")
+    expect(adapterSource).not.toContain("'@deepseek-ai/dsh-client-runtime/client'")
     expect(adapterSource).toContain("name: 'hanai-dsh-client-bundle-purity'")
     expect(adapterSource).not.toContain("'@deepseek-ai/dsh-client-web-react'")
     expect(adapterSource).not.toContain("'@deepseek-ai/dsh-client-schema-form'")
@@ -125,6 +125,7 @@ describe.skipIf(bundleSource === undefined)('built DSH client bundle', () => {
     expect(plugin.inject).toSatisfy((value: unknown) => (
       Array.isArray(value) && value.every((item) => typeof item === 'string')
     ))
+    expect(plugin.inject).toEqual(expect.arrayContaining(['remote.credentials', 'remote.session']))
     expect(new Set(requested).size).toBeGreaterThan(0)
   })
 })

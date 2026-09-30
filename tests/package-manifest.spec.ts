@@ -32,22 +32,34 @@ const EXPECTED_FILES = [
 ]
 
 const EXPECTED_CLIENT_INJECT = [
-  '@deepseek-ai/dsh-client-runtime',
+  '@deepseek-ai/dsh-api-session-controller',
+  '@deepseek-ai/dsh-api-remotes',
   '@deepseek-ai/dsh-client-ui-layout',
   '@deepseek-ai/dsh-client-connection',
   '@deepseek-ai/dsh-client-ui-conversation',
+  '@deepseek-ai/dsh-client-ui-session',
+  '@deepseek-ai/dsh-client-ui-chat',
+  '@deepseek-ai/dsh-client-ui-approval',
+  '@deepseek-ai/dsh-client-ui-user-questions',
 ]
 
-const DSH_PEER_RANGE = '^0.1.1-rc.2'
-const DSH_DEV_VERSION = '0.1.1-rc.2'
+const DSH_PEER_RANGE = '0.2.0-rc.2'
+const DSH_DEV_VERSION = '0.2.0-rc.2'
 const DYNAMIC_DSH_PEERS = [
   '@deepseek-ai/dsh-agent-default-model',
+  '@deepseek-ai/dsh-api-remotes',
+  '@deepseek-ai/dsh-api-session-controller',
+  '@deepseek-ai/dsh-api-workspace-controller',
   '@deepseek-ai/dsh-client-connection',
-  '@deepseek-ai/dsh-client-runtime',
+  '@deepseek-ai/dsh-client-ui-approval',
+  '@deepseek-ai/dsh-client-ui-chat',
   '@deepseek-ai/dsh-client-ui-conversation',
   '@deepseek-ai/dsh-client-ui-layout',
-  '@deepseek-ai/dsh-host-apiproxy',
+  '@deepseek-ai/dsh-client-ui-session',
+  '@deepseek-ai/dsh-client-ui-user-questions',
+  '@deepseek-ai/dsh-host-webserver',
   '@deepseek-ai/dsh-session',
+  '@deepseek-ai/dsh-typert-protocol',
 ]
 const STATIC_CLIENT_DEV_ONLY = [
   '@deepseek-ai/dsh-client-ui-primitives',
