@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import type { MasterPersona } from '../../contracts/src/index.ts'
 
 // Bump whenever either the immutable Skill snapshot or its workspace contract changes.
-export const MASTER_VERSION = '2026.09.12-v4'
+export const MASTER_VERSION = '2026.10.01-v5'
 
 interface MasterTheme extends Omit<MasterPersona, 'description' | 'version'> {}
 
@@ -59,6 +59,21 @@ const MASTER_THEMES: readonly MasterTheme[] = [
       '怎样判断一家公司的分红能够持续，而不是高股息陷阱？',
       '低 PB、高 ROE 的公司就一定便宜吗？',
       '长期持有时，什么时候应该继续拿着，什么时候应该重新评估？',
+    ],
+  },
+  {
+    id: 'dong-taishan-perspective',
+    name: '东泰山',
+    shortName: '东',
+    color: '#a47bd4',
+    roleTag: '公司位置与产业周期',
+    tags: ['估值位置', '行业拐点', '盈利质量'],
+    defaultPrompt: '请先核验业务和盈利质量，分别判断估值位置与产业周期，用财报兑现和同行共性检验拐点，给出关键反证与后续验证条件。',
+    personaDisclaimer: '这是从蜗牛成长笔记已读材料提炼的东泰山 AI 视角，不代表本人当前观点。',
+    chatStarters: [
+      '一家公司的估值已经很低，怎样区分便宜和行业真正见底？',
+      '周期股的 PE 很低，为什么还可能很贵？',
+      '行业开始涨价、公司产能爬坡，哪些证据才能确认拐点？',
     ],
   },
   {

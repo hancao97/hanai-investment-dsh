@@ -52,7 +52,8 @@ describe('legacy master Skill migration', () => {
     const bundled = relativeFiles(ASSETS_ROOT).filter(file => file !== 'migration-manifest.json')
     expect(bundled.filter(file => Object.hasOwn(manifest.files, file)))
       .toEqual(Object.keys(manifest.files).sort())
-    expect(bundled.filter(file => !Object.hasOwn(manifest.files, file) && !file.startsWith('sanhu-yi-perspective/'))).toEqual([
+    expect(bundled.filter(file => !Object.hasOwn(manifest.files, file)
+      && !file.startsWith('sanhu-yi-perspective/') && !file.startsWith('dong-taishan-perspective/'))).toEqual([
       'sun-yuchen-perspective/SKILL.md',
       'sun-yuchen-perspective/agents/openai.yaml',
       'sun-yuchen-perspective/references/provenance.md',
@@ -77,15 +78,17 @@ describe('legacy master Skill migration', () => {
       'munger-perspective',
       'warren-buffett-perspective',
       'sanhu-yi-perspective',
+      'dong-taishan-perspective',
       'sun-yuchen-perspective',
     ])
-    expect(new Set(masters.map(master => master.version))).toEqual(new Set(['2026.09.12-v4']))
+    expect(new Set(masters.map(master => master.version))).toEqual(new Set(['2026.10.01-v5']))
     expect(masters.map(({ color, roleTag, tags }) => ({ color, roleTag, tags }))).toEqual([
       { color: '#d4a017', roleTag: '价值投资', tags: ['本分', '消费者导向', '长期价值'] },
       { color: '#c4573d', roleTag: '游资大佬', tags: ['题材周期', '情绪', '弱转强'] },
       { color: '#5b8def', roleTag: '价值投资', tags: ['多元思维', '逆向思考', '认知偏误'] },
       { color: '#34a870', roleTag: '价值投资', tags: ['护城河', '内在价值', '资本配置'] },
       { color: '#299b9a', roleTag: '价值投资', tags: ['股权思维', '分红复利', '底线回报'] },
+      { color: '#a47bd4', roleTag: '公司位置与产业周期', tags: ['估值位置', '行业拐点', '盈利质量'] },
       { color: '#f29d38', roleTag: '行业与注意力周期', tags: ['行业周期', '注意力套利', '叙事判断'] },
     ])
     for (const master of masters) {
@@ -93,7 +96,7 @@ describe('legacy master Skill migration', () => {
       const frontmatter = parseSkillFrontmatter(markdown)
       expect(frontmatter.name).toBe(master.id)
       expect(master.description).toBe(frontmatter.description)
-      expect(master.description.length).toBeGreaterThan(['sun-yuchen-perspective', 'sanhu-yi-perspective'].includes(master.id) ? 80 : 200)
+      expect(master.description.length).toBeGreaterThan(['sun-yuchen-perspective', 'sanhu-yi-perspective', 'dong-taishan-perspective'].includes(master.id) ? 80 : 200)
       expect(markdown.length).toBeGreaterThan(master.id === 'sun-yuchen-perspective' ? 1_500 : 2_000)
     }
     expect(masters[0]!.defaultPrompt).toContain('$duan-yongping-perspective')
@@ -106,16 +109,19 @@ describe('legacy master Skill migration', () => {
     })
   })
 
-  it('ships a portable Sanhu Yi research pack with resolvable local references', () => {
-    const master = listMasters().find(candidate => candidate.id === 'sanhu-yi-perspective')!
-    expect(master).toMatchObject({ name: '散户乙', roleTag: '价值投资' })
+  it.each([
+    { id: 'sanhu-yi-perspective', name: '散户乙', roleTag: '价值投资', reference: 'references/valuation-worked-example.md' },
+    { id: 'dong-taishan-perspective', name: '东泰山', roleTag: '公司位置与产业周期', reference: 'references/source-manifest.md' },
+  ])('ships a portable $name research pack with resolvable local references', ({ id, name, roleTag, reference }) => {
+    const master = listMasters().find(candidate => candidate.id === id)!
+    expect(master).toMatchObject({ name, roleTag })
     expect(master.chatOnly).not.toBe(true)
     const root = join(ASSETS_ROOT, master.id)
     const files = relativeFiles(root)
     expect(files).toEqual(expect.arrayContaining([
       'SKILL.md',
       'references/provenance.md',
-      'references/valuation-worked-example.md',
+      reference,
       'references/research/01-writings.md',
       'references/research/02-conversations.md',
       'references/research/03-expression-dna.md',

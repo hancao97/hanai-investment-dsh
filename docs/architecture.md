@@ -92,7 +92,7 @@ worth-dsh/
 │   ├── host/                   # Cordis Service、Connection RPC、Agent 编排和持久化
 │   ├── client-workbench/       # 侧栏入口、全屏 Hanai 工作台和业务页面
 │   ├── client-chat/            # 报告详情、消息时间线和 composer
-│   └── masters/                # 五位专家 Skill、参考资料、能力分流及版本元数据
+│   └── masters/                # 七位专家 Skill、参考资料、能力分流及版本元数据
 ├── tooling/
 │   └── dsh-client-bundle/      # 锁定 DSH 基线的最小 Client Bundle 构建适配器
 ├── package.json
@@ -192,7 +192,7 @@ Hanai 不创建 `messages` 或 `turns` 表。聊天页从 DSH 历史和实时事
 
 开放对谈拥有独立的 `expert_chats` 业务索引与 `expert-chats/<id>/workspace`，不复用 `judgements` 的证券字段、报告状态机或封存目录。每次创建会复制一份不可变专家 Skill，并写入开放对谈专用 `AGENTS.md`；空白对谈不发送合成用户 prompt，带开场问题时只发送用户原文。
 
-段永平、混江龙、查理·芒格和沃伦·巴菲特支持研判与开放对谈；孙宇晨视角标记为 `chatOnly`，客户端不显示在研判创建器，Host 也拒绝绕过创建。孙宇晨页面持续展示真人模拟声明，Skill 和工作区共同要求时效事实先核验、行业周期给出反证，并禁止把操纵、欺骗或规避监管转化为执行建议。
+段永平、混江龙、查理·芒格、沃伦·巴菲特、散户乙和东泰山支持研判与开放对谈；孙宇晨视角标记为 `chatOnly`，客户端不显示在研判创建器，Host 也拒绝绕过创建。模拟说明在新建对谈时展示并要求首次回答披露，详情页不重复占用消息区。Skill 和工作区共同要求时效事实先核验、判断给出反证。
 
 对谈消息、工具与 Turn 历史和研判续聊一样只由 DSH 保存。Hanai SQLite 的标题只是业务导航元数据，不是消息摘要或可独立恢复的会话副本。完整决策见 [ADR-0004](adr/0004-open-expert-conversations.md)。
 
@@ -482,7 +482,7 @@ Provider 传输层使用 Node/DSH Host 能力重写，不能继续依赖 Electro
 1. 用户可以安装 Bundle 并启动 `hanai-investment` Profile，且官方 `dsh web` 不受影响。
 2. 页面可以配置 DeepSeek Key，明文不进入 Hanai 数据目录。
 3. 保留旧版五个一级页面并新增“专家对谈”；个股、研判和对谈详情保留 Hash 深链语义。
-4. 四位大师均可创建研判；五位专家均可创建开放对谈；每次任务有独立工作区和 DSH Session。
+4. 六位大师均可创建研判；七位专家均可创建开放对谈；每次任务有独立工作区和 DSH Session。
 5. 报告校验后形成带 SHA-256 的不可变快照。
 6. 报告和消息时间线出现在 Hanai 自有研判详情页中，不要求显示 DSH 原生聊天。
 7. 用户可以通过 Hanai composer 在同一 Session 继续追问，重启后仍可恢复。

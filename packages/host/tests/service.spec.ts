@@ -214,6 +214,42 @@ describe('HanaiService report lifecycle', () => {
     database.close()
   })
 
+  it('runs Dong Taishan in both modes and seals the research report without leaking it into open chat', async () => {
+    const { database, paths, reports, service, sessions } = fixture()
+    const signal = new AbortController().signal
+    const masterId = 'dong-taishan-perspective'
+    const openingMessage = '估值便宜和产业拐点怎样分开判断？'
+    const judgement = await service.call('judgement.create', { secId: '1.600519', masterId }, signal)
+    const chat = await service.call('expert-chat.create', { masterId, openingMessage }, signal)
+
+    expect(judgement).toMatchObject({ masterId, masterName: '东泰山', masterVersion: '2026.10.01-v5', reportStatus: 'generating' })
+    expect(chat).toMatchObject({ masterId, masterName: '东泰山', masterVersion: '2026.10.01-v5', turnStatus: 'queued' })
+    expect(chat.dshSessionId).not.toBe(judgement.dshSessionId)
+    expect(sessions.prompts).toEqual([
+      { sessionId: judgement.dshSessionId, text: expect.stringContaining('以东泰山大师的方法论') },
+      { sessionId: chat.dshSessionId, text: openingMessage },
+    ])
+    for (const workspace of [
+      join(paths.judgementsDir, judgement.id, 'workspace'),
+      join(paths.expertChatsDir, chat.id, 'workspace'),
+    ]) {
+      const skillRoot = join(workspace, '.agents', 'skills', masterId)
+      expect(readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')).toContain('name: dong-taishan-perspective')
+      expect(readFileSync(join(skillRoot, 'references', 'source-manifest.md'), 'utf8')).toContain('S22')
+    }
+    const chatWorkspace = join(paths.expertChatsDir, chat.id, 'workspace')
+    expect(readFileSync(join(chatWorkspace, 'AGENTS.md'), 'utf8')).toContain('不代表本人当前观点')
+    const report = `# 东泰山研判\n\n${'估值位置与产业位置分别判断，盈利质量需核验，列出反证与下一次验证条件。'.repeat(8)}`
+    writeFileSync(reports.workingReportPath(judgement.id), report)
+    service.handleSessionEvent(judgement.dshSessionId!, completed())
+    service.handleSessionEvent(chat.dshSessionId!, completed())
+    await eventually(() => expect(database.getJudgement(judgement.id)?.reportStatus).toBe('ready'))
+    expect(database.listReportRows(judgement.id)).toHaveLength(1)
+    expect(database.getExpertChat(chat.id)?.turnStatus).toBe('idle')
+    expect(existsSync(join(chatWorkspace, 'REPORT.md'))).toBe(false)
+    database.close()
+  })
+
   it('deletes only a settled judgement, archives its session, and removes local report files', async () => {
     const { database, paths, service, sessions } = fixture()
     const created = await service.call('judgement.create', {

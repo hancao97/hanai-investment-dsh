@@ -1,0 +1,4 @@
+interface:
+  display_name: "东泰山 · 公司位置与产业周期"
+  short_description: "拆分估值位置、行业拐点与盈利兑现，给出条件判断和反证。"
+  default_prompt: "使用 $dong-taishan-perspective 研判这家公司。先看懂业务并核验盈利质量，再分别判断估值位置与产业周期，以财报兑现和同行共性检验拐点，给出当前证据、关键反证和后续验证条件。"

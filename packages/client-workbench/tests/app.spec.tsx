@@ -73,6 +73,7 @@ const valuationFresh: ProviderMeta = {
 const masters: MasterPersona[] = [
   { id: 'buffett', name: '沃伦 · 巴菲特', shortName: '巴', description: '关注护城河、内在价值与资本配置。', color: '#43bc83', roleTag: '价值投资', tags: ['护城河', '内在价值'], defaultPrompt: '', version: '1.0.0' },
   { id: 'munger', name: '查理 · 芒格', shortName: '芒', description: '坚持多元思维与认知纪律。', color: '#6d98ef', roleTag: '多元思维', tags: ['逆向思考', '纪律'], defaultPrompt: '', version: '1.0.0' },
+  { id: 'dong-taishan-perspective', name: '东泰山', shortName: '东', description: '区分公司估值位置、产业周期和盈利兑现。', color: '#a47bd4', roleTag: '公司位置与产业周期', tags: ['估值位置', '行业拐点', '盈利质量'], defaultPrompt: '', version: '2026.10.01-v5', personaDisclaimer: '这是从蜗牛成长笔记已读材料提炼的东泰山 AI 视角，不代表本人当前观点。', chatStarters: ['估值便宜和行业真正见底怎样分开判断？'] },
   { id: 'sun-yuchen-perspective', name: '孙宇晨', shortName: '孙', description: '从行业周期、注意力与叙事竞争观察市场。', color: '#f29d38', roleTag: '行业与注意力周期', tags: ['行业周期', '注意力套利'], defaultPrompt: '', version: '1.0.0', chatOnly: true, personaDisclaimer: '这是基于公开资料构建的 AI 视角模拟，不代表孙宇晨本人观点。', chatStarters: ['“永远缺存储”要验证哪些信号？'] },
 ]
 
@@ -873,6 +874,27 @@ describe('HanaiWorkbench old-client parity', () => {
     const judgementDialog = await screen.findByRole('dialog', { name: '新建大师研判' })
     expect(within(judgementDialog).queryByRole('button', { name: /孙宇晨/ })).toBeNull()
     expect(within(judgementDialog).getByRole('button', { name: /沃伦 · 巴菲特/ })).not.toBeNull()
+  })
+
+  it('offers Dong Taishan in both launchers with its own disclosure and opening question', async () => {
+    renderAt('/expert-chats')
+    await screen.findByRole('heading', { name: '专家对谈' })
+    fireEvent.click(screen.getByRole('button', { name: '开始与东泰山开放对谈' }))
+    const chatDialog = await screen.findByRole('dialog', { name: '新建专家对谈' })
+    expect(within(chatDialog).getByRole('button', { name: /东泰山/, pressed: true })).not.toBeNull()
+    expect(within(chatDialog).getByText(/蜗牛成长笔记已读材料/)).not.toBeNull()
+    fireEvent.click(within(chatDialog).getByRole('button', { name: '估值便宜和行业真正见底怎样分开判断？' }))
+    expect((within(chatDialog).getByLabelText('开场问题（可选）') as HTMLTextAreaElement).value)
+      .toBe('估值便宜和行业真正见底怎样分开判断？')
+    cleanup()
+
+    renderAt('/judgements')
+    await screen.findByRole('heading', { name: '大师研判' })
+    fireEvent.click(screen.getByRole('button', { name: '＋ 新建研判' }))
+    const judgementDialog = await screen.findByRole('dialog', { name: '新建大师研判' })
+    fireEvent.click(within(judgementDialog).getByRole('button', { name: /东泰山/ }))
+    expect(within(judgementDialog).getByRole('button', { name: /东泰山/, pressed: true })).not.toBeNull()
+    expect(within(judgementDialog).queryByRole('button', { name: /孙宇晨/ })).toBeNull()
   })
 
   it('deep-links an open conversation without repeating the launcher disclosure', async () => {
