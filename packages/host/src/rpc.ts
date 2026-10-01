@@ -11,7 +11,7 @@ const tradingDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const schemas = {
   'bootstrap': empty,
   'dashboard.get': z.object({ refresh: z.boolean().optional() }).strict(),
-  'sector.stocks': z.object({ sectorCode: z.string().trim().regex(/^BK\d{4}$/) }).strict(),
+  'sector.stocks': z.object({ sectorCode: z.string().trim().regex(/^(?:BK\d{4}|SINA:(?:new_|gn_)[A-Za-z0-9_]{1,60})$/) }).strict(),
   'security.sync': z.object({ force: z.boolean().optional() }).strict(),
   'security.search': z.object({ query: z.string().trim().min(1).max(80) }).strict(),
   'security.detail': z.object({ secId }).strict(),

@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { parseHanaiRequest } from '../src/rpc.ts'
 
 describe('Hanai RPC request validation', () => {
+  it('accepts namespaced backup sector nodes without accepting arbitrary query or URL input', () => {
+    for (const sectorCode of ['BK0475', 'SINA:new_blhy', 'SINA:gn_BCdc']) {
+      expect(parseHanaiRequest('sector.stocks', { sectorCode })).toEqual({ sectorCode })
+    }
+    for (const sectorCode of ['SINA:hs_a', 'SINA:gn_x&page=2', 'https://example.com', 'SINA:../new_blhy']) {
+      expect(() => parseHanaiRequest('sector.stocks', { sectorCode })).toThrow()
+    }
+  })
   it('accepts only conventional persisted themes', () => {
     expect(parseHanaiRequest('theme.set', { theme: 'light' })).toEqual({ theme: 'light' })
     expect(parseHanaiRequest('theme.set', { theme: 'dark' })).toEqual({ theme: 'dark' })

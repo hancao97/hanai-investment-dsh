@@ -47,6 +47,9 @@ export function describeDataStatus(
   if (meta.cacheState === 'unavailable') {
     return { kind: 'unavailable', label: '不可用', detail: '数据源本次没有返回可用数据' }
   }
+  if (fallback && meta.cacheState === 'stale') {
+    return { kind: 'cached', label: '备源缓存', detail: `${meta.sourceName} 未能更新，当前展示最近成功数据` }
+  }
   if (fallback) {
     return { kind: 'fallback', label: '备源降级', detail: `主数据源不可用，当前使用 ${meta.sourceName}` }
   }

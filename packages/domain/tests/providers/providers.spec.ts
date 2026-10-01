@@ -427,7 +427,7 @@ describe('MarketDataService', () => {
     expect(dashboard.ranks.gainers).toEqual([])
     expect(quote.quote).toMatchObject({ name: '比亚迪', price: 83.31 })
     expect(quote.sources.quote?.providerId).toBe('tencent-fallback')
-    expect(quote.metrics).toBeNull()
+    expect(quote.metrics).toMatchObject({ averagePrice: 82.87, amplitude: 2.16, volumeRatio: 0.99, pb: 3.17, peTtm: null })
   })
 
   it('preserves successful dashboard panels when a single sector request rejects', async () => {

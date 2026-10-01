@@ -147,6 +147,9 @@ export interface StockMetrics {
   bvps: number | null
   listingDate: string | null
   industry: string | null
+  /** The financial values are cumulative within this fiscal report period; valuations use current quotes. */
+  reportDate?: string | null
+  reportName?: string | null
   meta: ProviderMeta
 }
 
@@ -355,6 +358,7 @@ export interface DashboardData {
   industry: SectorBoard
   concept: SectorBoard
   ranks: Record<'gainers' | 'losers' | 'amount' | 'turnover', RankEntry[]>
+  rankSources?: Record<'gainers' | 'losers' | 'amount' | 'turnover', ProviderMeta>
 }
 
 export interface Diagnostics {

@@ -22,6 +22,7 @@ describe('describeDataStatus', () => {
   it('distinguishes delayed, fallback, cached, unavailable, and missing provenance', () => {
     expect(describeDataStatus({ ...base, providerId: 'eastmoney-delay', sourceName: '东方财富（延迟行情）', cacheState: 'stale' }).label).toBe('延迟行情')
     expect(describeDataStatus({ ...base, providerId: 'tencent-fallback', sourceName: '腾讯行情（备源）' }).label).toBe('备源降级')
+    expect(describeDataStatus({ ...base, providerId: 'sina-fallback', sourceName: '新浪行情（备源）', cacheState: 'stale' }).label).toBe('备源缓存')
     expect(describeDataStatus({ ...base, providerId: 'eastmoney-memory-cache', sourceName: '东方财富（最近成功快照）', cacheState: 'stale' }).label).toBe('历史快照')
     expect(describeDataStatus({ ...base, cacheState: 'cached' }).label).toBe('缓存数据')
     expect(describeDataStatus({ ...base, cacheState: 'unavailable' }).label).toBe('不可用')

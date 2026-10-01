@@ -421,7 +421,8 @@ function DashboardPage({ client, theme, onStock, notify }: { client: HanaiClient
           </div> : <button className={styles['button']} onClick={closeDrill}>← 返回板块</button>}
         />
         {drill === null ? <div className={styles['treemapBody']}>
-          {treemapOption === null ? <Empty compact title="暂无板块热力数据" detail={sector?.meta.cacheState === 'unavailable' ? '东方财富板块接口暂不可用，其余行情可继续查看。' : '等待板块成交额与涨跌幅。'} /> : <EChart option={treemapOption} {...(styles['treemapChart'] === undefined ? {} : { className: styles['treemapChart'] })} ariaLabel="板块成交额热力图" onChartClick={openSector} />}
+          <div className={styles['dataStrip']}><DataStateBadge meta={sector?.meta} liveCapable={sector?.meta.sourceTimestamp !== null} /><DataSourceText meta={sector?.meta} /></div>
+          {treemapOption === null ? <Empty compact title="暂无板块热力数据" detail={sector?.meta.cacheState === 'unavailable' ? '板块数据源暂不可用，其余行情可继续查看。' : '等待板块成交额与涨跌幅。'} /> : <EChart option={treemapOption} {...(styles['treemapChart'] === undefined ? {} : { className: styles['treemapChart'] })} ariaLabel="板块成交额热力图" onChartClick={openSector} />}
           <div className={styles['treemapLegend']}>
             <span>涨</span>
             {legendStops.map(stop => <i key={stop.value} style={{ background: stop.color }} title={stop.title} />)}
@@ -436,6 +437,7 @@ function DashboardPage({ client, theme, onStock, notify }: { client: HanaiClient
           {([['gainers', '涨幅榜'], ['losers', '跌幅榜'], ['amount', '成交额'], ['turnover', '换手率']] as const).map(([id, label]) => <button key={id} className={rank === id ? styles['buttonSelected'] : styles['button']} onClick={() => setRank(id)}>{label}</button>)}
         </div>} />
         <div className={styles['rankBody']}>
+          {data.rankSources !== undefined && <div className={styles['dataStrip']}><DataStateBadge meta={data.rankSources[rank]} liveCapable={data.rankSources[rank].sourceTimestamp !== null} /><DataSourceText meta={data.rankSources[rank]} /></div>}
           <table className={styles['dataTable']}>
             <thead><tr><th>名称</th><th>最新价</th><th>涨跌幅</th><th>{rank === 'turnover' ? '换手率' : '成交额'}</th></tr></thead>
             <tbody>{data.ranks[rank].map(item => <tr key={item.secId} onClick={() => onStock(toSearchResult(item))}><td><b>{item.name}</b><small>{item.code}</small></td><td>{number(item.price)}</td><td className={styles[classForChange(item.changePct)]}>{percent(item.changePct)}</td><td>{rank === 'turnover' ? ratio(item.turnoverRate) : money(item.amount)}</td></tr>)}</tbody>
@@ -1201,7 +1203,9 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
           <Metric label="流通市值" value={money(quote?.floatCap ?? metrics?.floatCap ?? null)} />
         </div></article>
 
-        <article className={styles['card']}><PanelHead title="基本面（财报期数据）" hint="低频数据 · 与盘中价格时效不同" /><div className={styles['stockMetricGrid']}>
+        <article className={styles['card']}><PanelHead title="基本面（财报期数据）" hint={metrics?.reportDate ? `报告期 ${metrics.reportDate} · ${metrics.reportName ?? '累计财报'} · 估值随行情更新` : '低频数据 · 与盘中价格时效不同'} />
+          <div className={styles['dataStrip']}><DataStateBadge meta={detail.sources.metrics} liveCapable={false} /><small className={styles['dataSource']}>{detail.sources.metrics?.sourceName ?? '财报来源未提供'}{metrics?.reportDate ? ' · 营收、利润、每股收益和 ROE 为本年累计值' : ''}</small></div>
+          <div className={styles['stockMetricGrid']}>
           {fundamentalMetrics(metrics).map(item => <Metric key={item.label} label={item.label} value={item.value} {...(item.tone === undefined ? {} : { tone: item.tone })} />)}
         </div></article>
       </div>

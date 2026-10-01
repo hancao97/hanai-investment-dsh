@@ -1,5 +1,6 @@
-import type { KLineBar, ProviderMeta, StockQuote, TrendPoint } from '../../../contracts/src/index.ts'
+import type { KLineBar, ProviderMeta, StockMetrics, StockQuote, TrendPoint } from '../../../contracts/src/index.ts'
 import { fetchJson, isoNow, systemClock, type Clock, type HttpClient } from '../http.ts'
+import { metricsFromQuote } from './metrics.ts'
 
 const SOURCE_NAME = '腾讯行情（备源）'
 const HEADERS = { Referer: 'https://gu.qq.com/' }
@@ -50,6 +51,7 @@ interface TencentMinuteResponse {
 }
 
 export class TencentProvider {
+  private readonly quoteMetrics = new Map<string, StockMetrics>()
   constructor(
     private readonly http: HttpClient,
     private readonly clock: Clock = systemClock,
@@ -87,7 +89,7 @@ export class TencentProvider {
           if (secId === undefined || fields[2] !== secId.slice(2) || !fields[1] || price === null || price <= 0) continue
           const timestamp = quoteTimestamp(fields[30])
           const age = timestamp === null ? Infinity : this.clock.now() - Date.parse(timestamp)
-          quotes.push({
+          const quote: StockQuote = {
             secId,
             code: fields[2],
             name: fields[1],
@@ -107,6 +109,12 @@ export class TencentProvider {
             open: finiteNumber(fields[5]),
             prevClose: finiteNumber(fields[4]),
             meta: { ...this.meta(timestamp), cacheState: age >= 0 && age <= 5 * 60_000 ? 'fresh' : 'stale' },
+          }
+          quotes.push(quote)
+          this.quoteMetrics.set(secId, {
+            ...metricsFromQuote(secId, quote, quote.meta!),
+            averagePrice: finiteNumber(fields[51]), amplitude: finiteNumber(fields[43]), volumeRatio: finiteNumber(fields[49]),
+            totalShares: finiteNumber(fields[73]), floatShares: finiteNumber(fields[72]),
           })
         }
       } catch {
@@ -121,6 +129,16 @@ export class TencentProvider {
         cacheState: quotes.length === 0 ? 'unavailable' : quotes.every(quote => quote.meta?.cacheState === 'fresh') ? 'fresh' : 'stale',
       },
     }
+  }
+
+  getQuoteMetrics(secId: string): StockMetrics | null {
+    return this.quoteMetrics.get(secId) ?? null
+  }
+
+  clearQuoteMetrics(): number {
+    const count = this.quoteMetrics.size
+    this.quoteMetrics.clear()
+    return count
   }
 
   async getKline(
