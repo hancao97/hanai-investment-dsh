@@ -67,6 +67,11 @@ function sector(code: string, name: string, amount: number, changePct: number | 
 }
 
 describe('legacy-compatible chart options', () => {
+  it('shows an empty panel when no sector has a usable traded amount', () => {
+    expect(buildTreemapOption({ type: 'industry', sectors: [], meta: META })).toBeNull()
+    expect(buildTreemapOption({ type: 'industry', sectors: [{ ...sector('BK001', '电子', 1, 0), amount: null }], meta: META })).toBeNull()
+  })
+
   it('builds the sector treemap by turnover, with a stable 3.5% Other tile and drill metadata', () => {
     const sectors = [
       sector('minor-a', '<小板块>', 1, -2),
@@ -131,7 +136,7 @@ describe('legacy-compatible chart options', () => {
     expect(getChartPalette('dark')).toBe(DARK_CHART_PALETTE)
     expect(getChartPalette('light')).toBe(LIGHT_CHART_PALETTE)
     expect(heatColor(3, LIGHT_CHART_PALETTE)).not.toBe(heatColor(3, DARK_CHART_PALETTE))
-    expect(inspect(buildTreemapOption({ type: 'concept', sectors: [], meta: META }, LIGHT_CHART_PALETTE)).tooltip?.backgroundColor)
+    expect(inspect(buildTreemapOption({ type: 'concept', sectors: [sector('BK001', '电子', 1, 0)], meta: META }, LIGHT_CHART_PALETTE)).tooltip?.backgroundColor)
       .toBe('#ffffff')
     expect(treemapTargetFromEvent({ data: { sectorCode: 'BK001', name: '电子' } })).toEqual({
       sectorCode: 'BK001',

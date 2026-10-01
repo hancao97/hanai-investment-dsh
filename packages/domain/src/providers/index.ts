@@ -12,7 +12,7 @@ import type {
   StockValuationData,
 } from '../../../contracts/src/index.ts'
 import type { HanaiDatabase } from '../database.ts'
-import { NodeFetchHttpClient, systemClock, type Clock, type HttpClient } from '../http.ts'
+import { isoNow, NodeFetchHttpClient, systemClock, type Clock, type HttpClient } from '../http.ts'
 import { SecuritiesService } from '../securities.ts'
 import { EastmoneyProvider, type EastmoneyProviderOptions } from './eastmoney.ts'
 import {
@@ -90,23 +90,28 @@ export class MarketDataService {
 
   async getDashboard(): Promise<DashboardData> {
     const [overview, industry, concept, gainers, losers, amount, turnover] = await Promise.all([
-      this.eastmoney.getMarketOverview(),
-      this.eastmoney.getSectorBoard('industry'),
-      this.eastmoney.getSectorBoard('concept'),
-      this.eastmoney.getRankList('gainers'),
-      this.eastmoney.getRankList('losers'),
-      this.eastmoney.getRankList('amount'),
-      this.eastmoney.getRankList('turnover'),
+      optional(this.eastmoney.getMarketOverview()),
+      optional(this.eastmoney.getSectorBoard('industry')),
+      optional(this.eastmoney.getSectorBoard('concept')),
+      optional(this.eastmoney.getRankList('gainers')),
+      optional(this.eastmoney.getRankList('losers')),
+      optional(this.eastmoney.getRankList('amount')),
+      optional(this.eastmoney.getRankList('turnover')),
     ])
     return {
-      overview,
-      industry,
-      concept,
+      overview: overview ?? {
+        indices: [],
+        breadth: { up: null, down: null, flat: null, limitUp: null, limitDown: null, totalAmount: null },
+        marketStatus: 'unknown',
+        meta: this.unavailableMeta(),
+      },
+      industry: industry ?? { type: 'industry', sectors: [], meta: this.unavailableMeta() },
+      concept: concept ?? { type: 'concept', sectors: [], meta: this.unavailableMeta() },
       ranks: {
-        gainers: gainers.entries,
-        losers: losers.entries,
-        amount: amount.entries,
-        turnover: turnover.entries,
+        gainers: gainers?.entries ?? [],
+        losers: losers?.entries ?? [],
+        amount: amount?.entries ?? [],
+        turnover: turnover?.entries ?? [],
       },
     }
   }
@@ -148,14 +153,15 @@ export class MarketDataService {
 
   async getStockQuoteMetrics(secId: string): Promise<StockQuoteMetricsData> {
     const [quotes, metrics] = await Promise.all([
-      optional(this.eastmoney.getQuotes([secId])),
+      optional(this.getQuotes([secId])),
       optional(this.eastmoney.getStockMetrics(secId)),
     ])
+    const quote = quotes?.quotes.find(item => item.secId === secId) ?? null
     return {
-      quote: quotes?.quotes.find(item => item.secId === secId) ?? null,
+      quote,
       metrics,
       sources: {
-        quote: quotes?.meta ?? null,
+        quote: quote === null ? null : quote.meta ?? quotes?.meta ?? null,
         metrics: metrics?.meta ?? null,
       },
     }
@@ -190,8 +196,29 @@ export class MarketDataService {
     }
   }
 
-  getQuotes(secIds: readonly string[]): Promise<{ quotes: StockQuote[]; meta: ProviderMeta }> {
-    return this.eastmoney.getQuotes(secIds)
+  async getQuotes(secIds: readonly string[]): Promise<{ quotes: StockQuote[]; meta: ProviderMeta }> {
+    const primary = await optional(this.eastmoney.getQuotes(secIds))
+    const available = new Map((primary?.quotes ?? []).map(quote => [quote.secId, quote]))
+    const missing = secIds.filter(id => available.get(id)?.price == null || primary?.meta.providerId.includes('memory-cache'))
+    if (missing.length === 0 && primary !== null) return primary
+    const fallback = await this.tencent.getQuotes(missing)
+    if (fallback.quotes.length === 0) return primary ?? { quotes: [], meta: this.unavailableMeta() }
+    for (const quote of fallback.quotes) available.set(quote.secId, quote)
+    const quotes = secIds.flatMap(id => available.has(id) ? [available.get(id)!] : [])
+    if (quotes.every(quote => quote.meta?.providerId === fallback.meta.providerId)) return { quotes, meta: fallback.meta }
+    return {
+      quotes,
+      meta: {
+        ...fallback.meta,
+        providerId: 'eastmoney-tencent-mixed',
+        sourceName: '东方财富 / 腾讯行情（备源）',
+        cacheState: primary?.meta.cacheState === 'fresh' && fallback.meta.cacheState === 'fresh' ? 'fresh' : 'stale',
+      },
+    }
+  }
+
+  private unavailableMeta(): ProviderMeta {
+    return { providerId: 'eastmoney', sourceName: '东方财富', sourceTimestamp: null, fetchedAt: isoNow(this.clock), cacheState: 'unavailable' }
   }
 
   clearMarketCache(): number {

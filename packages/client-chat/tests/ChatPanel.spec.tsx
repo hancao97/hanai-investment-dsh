@@ -13,6 +13,32 @@ import { DshChatPanel } from '../src/ChatPanel.tsx'
 afterEach(() => { cleanup() })
 
 describe('DshChatPanel', () => {
+  it('waits for the first DSH session list before retaining a deep-linked conversation', async () => {
+    const harness = makeHarness([assistantNode('已有历史已恢复', 'settled')], false)
+    const readyList = harness.sessions.list.getSnapshot()
+    let list = { ...readyList, phase: 'pending' as const, ids: [], byId: {} } as typeof readyList
+    const listeners = new Set<() => void>()
+    const sessions: ChatSessions = {
+      ...harness.sessions,
+      list: {
+        getSnapshot: () => list,
+        subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener) } },
+      },
+    }
+
+    render(<DshChatPanel sessions={sessions} sessionId="session-1" variant="open-chat" />)
+    expect(harness.retain).not.toHaveBeenCalled()
+    expect(screen.getByText('正在载入专家的完整对谈…')).not.toBeNull()
+
+    act(() => { list = readyList; for (const listener of listeners) listener() })
+    await screen.findByText('已有历史已恢复')
+    expect(harness.retain).toHaveBeenCalledOnce()
+
+    act(() => { list = { ...readyList, phase: 'pending' }; for (const listener of listeners) listener() })
+    expect(harness.release).not.toHaveBeenCalled()
+    expect(harness.retain).toHaveBeenCalledOnce()
+  })
+
   it('opens the report session, renders folded streaming nodes, and sends queue/steer prompts', async () => {
     const assistant = assistantNode('正在检查现金流', 'running')
     const harness = makeHarness([assistant], true)

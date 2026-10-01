@@ -35,6 +35,18 @@ interface ProviderValue<T> {
   source: EastmoneySource
 }
 
+interface ProviderHealth {
+  primaryFailures: number
+  primaryBlockedUntil: number
+  totalFailures: number
+  breakerOpenUntil: number
+  rateLimited: boolean
+}
+
+function initialHealth(): ProviderHealth {
+  return { primaryFailures: 0, primaryBlockedUntil: 0, totalFailures: 0, breakerOpenUntil: 0, rateLimited: false }
+}
+
 interface EastmoneyEnvelope<T> {
   data?: T | null
 }
@@ -144,10 +156,8 @@ export class EastmoneyProvider {
   private historyHostSequence = 0
   private queueTail: Promise<void> = Promise.resolve()
   private lastRequestAt = 0
-  private realtimeFailures = 0
-  private realtimeBlockedUntil = 0
-  private totalFailures = 0
-  private breakerOpenUntil = 0
+  private readonly quoteHealth = initialHealth()
+  private readonly historyHealth = initialHealth()
   private readonly quoteCache = new Map<string, StockQuote>()
 
   constructor(
@@ -197,32 +207,34 @@ export class EastmoneyProvider {
     }
   }
 
-  private checkBreaker(): void {
-    if (this.clock.now() >= this.breakerOpenUntil) return
-    const seconds = Math.ceil((this.breakerOpenUntil - this.clock.now()) / 1000)
-    throw new Error(`行情源限流熔断中，${seconds} 秒后自动重试`)
+  private checkBreaker(health: ProviderHealth): void {
+    if (this.clock.now() >= health.breakerOpenUntil) return
+    const seconds = Math.ceil((health.breakerOpenUntil - this.clock.now()) / 1000)
+    const reason = health.rateLimited ? '行情源限流熔断中' : '行情源请求连续失败'
+    throw new Error(`${reason}，${seconds} 秒后自动重试`)
   }
 
-  private reportRealtime(ok: boolean): void {
+  private reportRealtime(ok: boolean, health: ProviderHealth): void {
     if (ok) {
-      this.realtimeFailures = 0
+      health.primaryFailures = 0
       return
     }
-    this.realtimeFailures += 1
-    if (this.realtimeFailures < this.realtimeFailureThreshold) return
-    this.realtimeBlockedUntil = this.clock.now() + this.realtimeCooldownMs
-    this.realtimeFailures = 0
+    health.primaryFailures += 1
+    if (health.primaryFailures < this.realtimeFailureThreshold) return
+    health.primaryBlockedUntil = this.clock.now() + this.realtimeCooldownMs
+    health.primaryFailures = 0
   }
 
-  private reportTotal(ok: boolean): void {
+  private reportTotal(ok: boolean, health: ProviderHealth): void {
     if (ok) {
-      this.totalFailures = 0
+      health.totalFailures = 0
+      health.rateLimited = false
       return
     }
-    this.totalFailures += 1
-    if (this.totalFailures < this.totalFailureThreshold) return
-    this.breakerOpenUntil = this.clock.now() + this.breakerOpenMs
-    this.totalFailures = 0
+    health.totalFailures += 1
+    if (health.totalFailures < this.totalFailureThreshold) return
+    health.breakerOpenUntil = this.clock.now() + this.breakerOpenMs
+    health.totalFailures = 0
   }
 
   private meta(
@@ -261,10 +273,11 @@ export class EastmoneyProvider {
     params: Readonly<Record<string, string>>,
     history = false,
   ): Promise<ProviderValue<T> | null> {
-    this.checkBreaker()
+    const health = history ? this.historyHealth : this.quoteHealth
+    this.checkBreaker(health)
     const query = new URLSearchParams(params).toString()
     const hosts: Array<{ host: string; source: EastmoneySource }> = []
-    if (this.clock.now() >= this.realtimeBlockedUntil) {
+    if (this.clock.now() >= health.primaryBlockedUntil) {
       hosts.push({ host: history ? this.nextHistoryHost() : this.nextRealtimeHost(), source: 'realtime' })
       if (history) hosts.push({ host: this.nextHistoryHost(), source: 'realtime' })
     }
@@ -279,13 +292,14 @@ export class EastmoneyProvider {
       )
       const value = response.ok ? response.data?.data : null
       const ok = value !== null && value !== undefined
-      if (candidate.source === 'realtime') this.reportRealtime(ok)
+      if (candidate.source === 'realtime') this.reportRealtime(ok, health)
+      if (response.status === 429) health.rateLimited = true
       if (ok) {
-        this.reportTotal(true)
+        this.reportTotal(true, health)
         return { value, source: candidate.source }
       }
     }
-    this.reportTotal(false)
+    this.reportTotal(false, health)
     return null
   }
 
@@ -400,12 +414,22 @@ export class EastmoneyProvider {
 
   async getMarketOverview(): Promise<MarketOverview> {
     const [indices, breadth] = await Promise.all([
-      Promise.all(CORE_INDICES.map(index => this.getIndex(index.secId))),
+      Promise.all(CORE_INDICES.map(index => this.getIndex(index.secId).catch(() => null))),
       this.getBreadth(),
     ])
     const valid = indices.filter((entry): entry is ProviderValue<IndexQuote> => entry !== null)
     const source = valid.some(entry => entry.source === 'delay') ? 'delay' : 'realtime'
     const quotes = valid.map(entry => entry.value)
+    const missing = CORE_INDICES.filter(index => !quotes.some(quote => quote.code === index.secId.slice(2)))
+    const fallback = missing.length === 0 ? null : await this.tencent.getQuotes(missing.map(index => index.secId))
+    for (const quote of fallback?.quotes ?? []) {
+      quotes.push({
+        code: quote.code, name: quote.name, price: quote.price, change: quote.change, changePct: quote.changePct,
+        amount: quote.amount, upCount: null, downCount: null, flatCount: null,
+      })
+    }
+    quotes.sort((left, right) => CORE_INDICES.findIndex(index => index.secId.slice(2) === left.code)
+      - CORE_INDICES.findIndex(index => index.secId.slice(2) === right.code))
     const shanghai = quotes.find(index => index.code === '000001')
     const shenzhen = quotes.find(index => index.code === '399001')
     const totalAmount = shanghai?.amount !== null && shanghai?.amount !== undefined
@@ -422,8 +446,15 @@ export class EastmoneyProvider {
         limitDown: breadth.limitDown,
         totalAmount,
       },
-      marketStatus: this.marketStatus(breadth.qdate),
-      meta: this.meta(valid.length === 0 ? 'unavailable' : source, breadth.qdate),
+      marketStatus: this.marketStatus(breadth.qdate ?? fallback?.meta.sourceTimestamp?.slice(0, 10) ?? null),
+      meta: fallback !== null && fallback.quotes.length > 0
+        ? valid.length === 0 ? fallback.meta : {
+            ...fallback.meta,
+            providerId: 'eastmoney-tencent-mixed',
+            sourceName: '东方财富 / 腾讯行情（备源）',
+            cacheState: source === 'delay' || fallback.meta.cacheState === 'stale' ? 'stale' : 'fresh',
+          }
+        : this.meta(valid.length === 0 ? 'unavailable' : source, breadth.qdate),
     }
   }
 
@@ -692,7 +723,7 @@ export class EastmoneyProvider {
         fields2: 'f51,f52,f53,f54,f55,f56,f57',
       },
       true,
-    )
+    ).catch(() => null)
     const rawLines = Array.isArray(response?.value.klines) ? response.value.klines : []
     const bars: KLineBar[] = rawLines.flatMap(rawLine => {
       if (typeof rawLine !== 'string') return []
@@ -728,7 +759,7 @@ export class EastmoneyProvider {
       iscr: '0',
       fields1: 'f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13',
       fields2: 'f51,f53,f56,f58',
-    })
+    }).catch(() => null)
     const rawLines = Array.isArray(response?.value.trends) ? response.value.trends : []
     const points: TrendPoint[] = rawLines.flatMap(rawLine => {
       if (typeof rawLine !== 'string') return []

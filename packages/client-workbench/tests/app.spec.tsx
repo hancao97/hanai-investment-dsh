@@ -671,6 +671,15 @@ describe('HanaiWorkbench old-client parity', () => {
     expect(screen.getByText(/价值线末端为供应商预测/)).not.toBeNull()
   })
 
+  it('finishes the chart loading state when the provider returns no bars', async () => {
+    const daily = deferred<{ period: 'daily'; bars: []; meta: null; hasMore: false }>()
+    renderAt('/stock/1.600519', makeClient({ 'security.kline': () => daily.promise }))
+    await screen.findByText('图表数据加载中')
+    await act(async () => { daily.resolve({ period: 'daily', bars: [], meta: null, hasMore: false }) })
+    await screen.findByText('图表数据暂不可用')
+    expect(screen.queryByText('图表数据加载中')).toBeNull()
+  })
+
   it('loads quote, daily K, and valuation independently and lazily requests longer periods', async () => {
     const quote = deferred<{
       quote: StockDetail['quote']

@@ -61,6 +61,7 @@ interface ChatPanelCopy {
   maxTokens: string
   idleDetail: string
   loading: string
+  emptyConversation: string
   missingDetail: string
   approvalFallback: string
   questionLead: string
@@ -81,6 +82,7 @@ const JUDGEMENT_COPY: ChatPanelCopy = {
   maxTokens: '本轮达到最大输出长度，可发送“继续”让大师接着回答。',
   idleDetail: '完成大师研判后，会在这里关联可继续交流的 DSH Session。',
   loading: '正在载入大师的完整对话…',
+  emptyConversation: '暂时没有对话记录。',
   missingDetail: '找不到这份报告关联的 DSH Session，可能已被删除或尚未同步。',
   approvalFallback: '大师希望调用',
   questionLead: '大师需要你的补充',
@@ -101,6 +103,7 @@ const OPEN_CHAT_COPY: ChatPanelCopy = {
   maxTokens: '本轮达到最大输出长度，可发送“继续”让专家接着回答。',
   idleDetail: '创建专家对谈后，会在这里关联可持续交流的 DSH Session。',
   loading: '正在载入专家的完整对谈…',
+  emptyConversation: '还未开始对谈，发送第一个问题即可。',
   missingDetail: '找不到这次对谈关联的 DSH Session，可能已被删除或尚未同步。',
   approvalFallback: '专家希望调用',
   questionLead: '专家需要你的补充',
@@ -389,7 +392,7 @@ const SessionView = memo(function SessionView({
         {intro !== undefined && <div className={css.intro}>{intro}</div>}
 
         {order.length === 0 && !running && (
-          <div className={css.zeroConversation}>这条 Session 还没有可显示的对话。</div>
+          <div className={css.zeroConversation}>{copy.emptyConversation}</div>
         )}
 
         <div

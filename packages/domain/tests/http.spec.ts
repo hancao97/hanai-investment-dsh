@@ -7,6 +7,11 @@ import {
 } from '../src/http.ts'
 
 describe('NodeFetchHttpClient', () => {
+  it('decodes GBK quote names without changing the default JSON encoding', async () => {
+    const client = new NodeFetchHttpClient(async () => new Response(new Uint8Array([0xb1, 0xc8, 0xd1, 0xc7, 0xb5, 0xcf])))
+    await expect(client.request('https://qt.gtimg.cn/q=sz002594', { responseEncoding: 'gb18030' }))
+      .resolves.toEqual({ status: 200, body: '比亚迪' })
+  })
   it('uses the browser-compatible default headers and parses GET JSON', async () => {
     let captured: RequestInit | undefined
     const fetchImplementation: FetchImplementation = async (_input, init) => {

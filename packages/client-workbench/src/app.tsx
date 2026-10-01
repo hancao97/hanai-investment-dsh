@@ -373,7 +373,7 @@ function DashboardPage({ client, theme, onStock, notify }: { client: HanaiClient
   return <Page>
     <PageHeader
       title="今日市场"
-      meta={<><DataStateBadge meta={data.overview.meta} marketStatus={data.overview.marketStatus} refreshFailed={refreshError !== null} /><span>数据来源 {data.overview.meta.sourceName} · 近实时快照 · 更新于 {shortTime(data.overview.meta.fetchedAt)}</span></>}
+      meta={<><DataStateBadge meta={data.overview.meta} marketStatus={data.overview.marketStatus} refreshFailed={refreshError !== null} /><DataSourceText meta={data.overview.meta} /></>}
       action={<button className={`${styles['button']} ${styles['buttonGhost']}`} disabled={refreshing} onClick={() => void load(true)}>{refreshing ? '刷新中' : '刷新'}</button>}
     />
     {refreshError !== null && <div className={styles['errorCard']}><b>行情获取失败：</b>{refreshError}<span>请检查网络后点击刷新；其他面板保留最近成功的数据。</span></div>}
@@ -421,7 +421,7 @@ function DashboardPage({ client, theme, onStock, notify }: { client: HanaiClient
           </div> : <button className={styles['button']} onClick={closeDrill}>← 返回板块</button>}
         />
         {drill === null ? <div className={styles['treemapBody']}>
-          {treemapOption === null ? <Empty compact title="暂无板块热力数据" detail="等待板块成交额与涨跌幅。" /> : <EChart option={treemapOption} {...(styles['treemapChart'] === undefined ? {} : { className: styles['treemapChart'] })} ariaLabel="板块成交额热力图" onChartClick={openSector} />}
+          {treemapOption === null ? <Empty compact title="暂无板块热力数据" detail={sector?.meta.cacheState === 'unavailable' ? '东方财富板块接口暂不可用，其余行情可继续查看。' : '等待板块成交额与涨跌幅。'} /> : <EChart option={treemapOption} {...(styles['treemapChart'] === undefined ? {} : { className: styles['treemapChart'] })} ariaLabel="板块成交额热力图" onChartClick={openSector} />}
           <div className={styles['treemapLegend']}>
             <span>涨</span>
             {legendStops.map(stop => <i key={stop.value} style={{ background: stop.color }} title={stop.title} />)}
@@ -867,6 +867,7 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
   const [dailyHasMore, setDailyHasMore] = useState(true)
   const [dailyViewWindow, setDailyViewWindow] = useState<KlineViewWindow | null>(null)
   const [chart, setChart] = useState<StockChart>('daily')
+  const [chartLoading, setChartLoading] = useState<Partial<Record<StockChart, boolean>>>({ daily: true })
   const [klineMaMode, setKlineMaMode] = useState<KlineMaMode>('short')
   const [turningMarkersVisible, setTurningMarkersVisible] = useState(true)
   const [groups, setGroups] = useState(bootstrapGroups)
@@ -890,6 +891,7 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
     dailyHistoryLoadingRef.current = false
     dailyHasMoreRef.current = true
     setChart('daily')
+    setChartLoading({ daily: true })
     setWatchDialogOpen(false)
     setDetailState({ secId, detail: emptyStockDetail() })
     setValuationLoading(true)
@@ -945,6 +947,7 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
         }))
       })
       .catch(error => failed('日 K', error))
+      .finally(() => { if (active()) setChartLoading(current => ({ ...current, daily: false })) })
     void client.call('security.valuation', { secId }, controller.signal)
       .then(result => update(current => ({
         ...current,
@@ -1037,6 +1040,7 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
     const refreshSurface = async () => {
       if (inFlight || (chart !== 'trend' && loadedSurfaces.current.has(chart))) return
       inFlight = true
+      setChartLoading(current => ({ ...current, [chart]: true }))
       try {
         if (chart === 'trend') {
           const trendResult = await client.call('security.trend', { secId }, controller.signal)
@@ -1060,7 +1064,10 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
         }
       } catch (error) {
         if (active && !controller.signal.aborted && activeSecId.current === secId) notify(messageOf(error), 'error')
-      } finally { inFlight = false }
+      } finally {
+        inFlight = false
+        if (active && activeSecId.current === secId) setChartLoading(current => ({ ...current, [chart]: false }))
+      }
     }
     void refreshSurface()
     if (chart !== 'trend') return () => { active = false; controller.abort() }
@@ -1151,7 +1158,7 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
     <div className={styles['stockDetailGrid']}>
       <div className={styles['stockMainColumn']}>
         <article className={styles['card']}>
-          <PanelHead title="价格走势" hint={`${chart === 'trend' ? '分时均价' : '东方财富 · 前复权'} · ${chartMeta?.sourceName ?? '来源未知'}${chart === 'daily' ? ` · ${dailyHasMore ? '左拖加载更早数据' : '已加载完整历史'}` : chart === 'weekly' || chart === 'monthly' ? ' · 完整历史' : ''}`} extra={<div className={styles['buttonGroup']}>{([['trend', '分时'], ['daily', '日K'], ['weekly', '周K'], ['monthly', '月K']] as const).map(([id, label]) => <button key={id} className={chart === id ? styles['buttonSelected'] : styles['button']} onClick={() => setChart(id)}>{label}</button>)}</div>} />
+          <PanelHead title="价格走势" hint={`${chart === 'trend' ? '分时均价' : '前复权'} · ${chartMeta?.sourceName ?? '来源未知'}${chart === 'daily' ? ` · ${dailyHasMore ? '左拖加载更早数据' : '已加载完整历史'}` : chart === 'weekly' || chart === 'monthly' ? ' · 完整历史' : ''}`} extra={<div className={styles['buttonGroup']}>{([['trend', '分时'], ['daily', '日K'], ['weekly', '周K'], ['monthly', '月K']] as const).map(([id, label]) => <button key={id} className={chart === id ? styles['buttonSelected'] : styles['button']} onClick={() => setChart(id)}>{label}</button>)}</div>} />
           {chart !== 'trend' && <div className={styles['klineMaBar']}>
             <div className={styles['klineMaModes']} role="group" aria-label="均线组合模式">
               <span>均线组合</span>
@@ -1171,7 +1178,7 @@ function StockPage({ client, secId, theme, groups: bootstrapGroups, onGroups, on
               <small>最新 K 每 15 秒刷新并动态重算 · 标记点悬浮查看历史后续</small>
             </div>
           </div>}
-          <div className={styles['priceChart']}>{chartOption === null ? <Empty compact title="图表数据加载中" detail="当前周期暂无可用数据。" /> : <EChart
+          <div className={styles['priceChart']}>{chartOption === null ? <Empty compact title={chartLoading[chart] ? '图表数据加载中' : '图表数据暂不可用'} detail={chartLoading[chart] ? '正在获取当前周期行情。' : '当前行情源未返回该周期数据，请稍后重试。'} /> : <EChart
             option={chartOption}
             ariaLabel={chart === 'trend' ? '分时价格图' : `${chart === 'daily' ? '日' : chart === 'weekly' ? '周' : '月'}K线图`}
             onDataZoom={handleKlineDataZoom}

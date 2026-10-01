@@ -14,6 +14,7 @@ export interface HttpRequest {
   headers?: Readonly<Record<string, string>>
   body?: string
   signal?: AbortSignal
+  responseEncoding?: 'gb18030'
 }
 
 export interface HttpResponse {
@@ -65,7 +66,10 @@ export class NodeFetchHttpClient implements HttpClient {
 
     try {
       const response = await this.fetchImplementation(url, init)
-      return { status: response.status, body: await response.text() }
+      const body = request.responseEncoding === undefined
+        ? await response.text()
+        : new TextDecoder(request.responseEncoding).decode(await response.arrayBuffer())
+      return { status: response.status, body }
     } finally {
       clearTimeout(timeout)
     }

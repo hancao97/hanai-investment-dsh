@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { EastmoneyProvider } from '../../src/providers/eastmoney.ts'
 import { GuruFocusProvider, MemoryValuationCache } from '../../src/providers/gurufocus.ts'
@@ -11,6 +12,8 @@ import {
 } from '../helpers.ts'
 
 const fixtures = loadProviderFixtures()
+// Captured from Tencent's public quote endpoint on 2026-10-01 (latest trade: 2026-09-30).
+const tencentQuotes = readFileSync(new URL('../fixtures/tencent-quotes.txt', import.meta.url), 'utf8')
 const NOW = new Date('2026-08-15T10:00:00+08:00').getTime()
 
 describe('EastmoneyProvider', () => {
@@ -184,11 +187,58 @@ describe('EastmoneyProvider', () => {
     online = false
     await provider.getSectorBoard('industry')
     await provider.getSectorBoard('industry')
-    await expect(provider.getSectorBoard('industry')).rejects.toThrow('行情源限流熔断中')
+    await expect(provider.getSectorBoard('industry')).rejects.toThrow('行情源请求连续失败')
 
     clock.advance(1001)
     online = true
     await expect(provider.getSectorBoard('industry')).resolves.toMatchObject({ type: 'industry' })
+  })
+
+  it('keeps Eastmoney history and Tencent minute fallback usable during a quote circuit outage', async () => {
+    const clock = new FakeClock(NOW)
+    const http = new HandlerHttpClient(url => {
+      if (url.includes('/api/qt/stock/kline/get')) return jsonResponse(fixtures.eastmoney.kline)
+      if (url.includes('/minute/query')) return jsonResponse(fixtures.tencent.trend)
+      return jsonResponse({}, 503)
+    })
+    const provider = new EastmoneyProvider(http, {
+      clock, minIntervalMs: 0, realtimeFailureThreshold: 1, totalFailureThreshold: 1,
+    })
+    await provider.getSectorBoard('industry')
+    await expect(provider.getSectorBoard('industry')).rejects.toThrow('请求连续失败')
+
+    const daily = await provider.getKline('1.600519')
+    const trend = await provider.getTrend('1.600519')
+
+    expect(daily.bars).toHaveLength(2)
+    expect(daily.meta.providerId).toBe('eastmoney')
+    expect(trend.points).toHaveLength(2)
+    expect(trend.meta.providerId).toBe('tencent-fallback')
+    expect(http.requests.filter(request => request.url.includes('/api/qt/stock/kline/get'))).toHaveLength(1)
+  })
+
+  it('continues using Tencent K-lines while Eastmoney history itself is circuit-broken', async () => {
+    const http = new HandlerHttpClient(url => {
+      if (url.includes('web.ifzq.gtimg.cn/appstock/app/fqkline/get')) return jsonResponse(fixtures.tencent.kline)
+      if (url.includes('/api/qt/ulist.np/get')) return jsonResponse(fixtures.eastmoney.quote)
+      return jsonResponse({}, 503)
+    })
+    const provider = new EastmoneyProvider(http, {
+      clock: new FakeClock(NOW), minIntervalMs: 0, totalFailureThreshold: 1,
+    })
+
+    await expect(provider.getKline('1.600519')).resolves.toMatchObject({ meta: { providerId: 'tencent-fallback' } })
+    await expect(provider.getKline('1.600519')).resolves.toMatchObject({ meta: { providerId: 'tencent-fallback' } })
+    expect(http.requests.filter(request => request.url.includes('/api/qt/stock/kline/get'))).toHaveLength(2)
+    await expect(provider.getQuotes(['1.600519'])).resolves.toMatchObject({ quotes: [{ price: 1480.5 }] })
+  })
+
+  it('reports rate limiting only when the upstream actually returned HTTP 429', async () => {
+    const provider = new EastmoneyProvider(new HandlerHttpClient(() => jsonResponse({}, 429)), {
+      clock: new FakeClock(NOW), minIntervalMs: 0, totalFailureThreshold: 1,
+    })
+    await provider.getSectorBoard('industry')
+    await expect(provider.getSectorBoard('industry')).rejects.toThrow('行情源限流熔断中')
   })
 
   it('rejects a security snapshot below 95 percent of the supplier total', async () => {
@@ -211,6 +261,27 @@ describe('EastmoneyProvider', () => {
 })
 
 describe('TencentProvider', () => {
+  it('parses captured quotes with correct currency units, null fields, and stale trade timestamps', async () => {
+    const http = new HandlerHttpClient(() => ({ status: 200, body: tencentQuotes }))
+    const provider = new TencentProvider(http, new FakeClock(Date.parse('2026-10-01T10:00:00+08:00')))
+
+    const result = await provider.getQuotes(['0.002594', '1.000001', '0.899050'])
+
+    expect(result.quotes).toHaveLength(3)
+    expect(result.quotes[0]).toMatchObject({
+      secId: '0.002594', name: '比亚迪', price: 83.31, prevClose: 82.02, open: 82.10,
+      change: 1.29, changePct: 1.57, amount: 1_795_660_000, volume: 216_673,
+      floatCap: 290_508_000_000, marketCap: 759_554_000_000, pe: 25.81, pb: 3.17,
+    })
+    expect(result.quotes[1]?.amount).toBe(679_398_990_000)
+    expect(result.quotes[2]?.name).toBe('北证50')
+    expect(result.meta).toMatchObject({ providerId: 'tencent-fallback', cacheState: 'stale' })
+    expect(result.quotes[0]?.meta?.sourceTimestamp).toBe('2026-09-30T08:14:24.000Z')
+    expect(http.requests[0]?.request.responseEncoding).toBe('gb18030')
+
+    const malformed = new TencentProvider(new HandlerHttpClient(() => ({ status: 200, body: 'v_pv_none_match="";' })))
+    await expect(malformed.getQuotes(['0.002594'])).resolves.toMatchObject({ quotes: [], meta: { cacheState: 'unavailable' } })
+  })
   it('converts cumulative hands into per-minute volume and derives average price', async () => {
     const clock = new FakeClock(NOW)
     const http = new HandlerHttpClient(url => {
@@ -333,6 +404,56 @@ describe('GuruFocusProvider', () => {
 })
 
 describe('MarketDataService', () => {
+  it('keeps six indices, breadth, and stock quotes available while Eastmoney quote endpoints fail', async () => {
+    const service = new MarketDataService({
+      clock: new FakeClock(Date.parse('2026-10-01T10:00:00+08:00')),
+      http: new HandlerHttpClient(url => {
+        if (url.startsWith('https://qt.gtimg.cn/')) return { status: 200, body: tencentQuotes }
+        if (url.startsWith('https://push2ex.eastmoney.com/')) return jsonResponse(fixtures.eastmoney.breadth)
+        return jsonResponse({}, 503)
+      }),
+      eastmoney: { minIntervalMs: 0, totalFailureThreshold: 1, realtimeFailureThreshold: 1 },
+    })
+
+    const dashboard = await service.getDashboard()
+    const quote = await service.getStockQuoteMetrics('0.002594')
+
+    expect(dashboard.overview.indices).toHaveLength(6)
+    expect(dashboard.overview.breadth.up).toBe(1250)
+    expect(dashboard.overview.breadth.totalAmount).toBe(1_438_018_090_000)
+    expect(dashboard.overview.meta.providerId).toBe('tencent-fallback')
+    expect(dashboard.overview.marketStatus).toBe('closed')
+    expect(dashboard.industry).toMatchObject({ sectors: [], meta: { cacheState: 'unavailable' } })
+    expect(dashboard.ranks.gainers).toEqual([])
+    expect(quote.quote).toMatchObject({ name: '比亚迪', price: 83.31 })
+    expect(quote.sources.quote?.providerId).toBe('tencent-fallback')
+    expect(quote.metrics).toBeNull()
+  })
+
+  it('preserves successful dashboard panels when a single sector request rejects', async () => {
+    const service = new MarketDataService({
+      clock: new FakeClock(NOW),
+      http: new HandlerHttpClient(url => {
+        if (url.startsWith('https://push2ex.eastmoney.com/')) return jsonResponse(fixtures.eastmoney.breadth)
+        if (url.includes('/api/qt/stock/get')) {
+          const secId = new URL(url).searchParams.get('secid') ?? ''
+          return jsonResponse({ data: fixtures.eastmoney.indices[secId] })
+        }
+        return jsonResponse(fixtures.eastmoney.sector)
+      }),
+      eastmoney: { minIntervalMs: 0 },
+    })
+    const sector = service.eastmoney.getSectorBoard.bind(service.eastmoney)
+    vi.spyOn(service.eastmoney, 'getSectorBoard').mockImplementation(type => type === 'concept'
+      ? Promise.reject(new Error('concept unavailable')) : sector(type))
+
+    const dashboard = await service.getDashboard()
+
+    expect(dashboard.overview.indices).toHaveLength(6)
+    expect(dashboard.industry.sectors[0]?.name).toBe('半导体')
+    expect(dashboard.concept).toMatchObject({ sectors: [], meta: { cacheState: 'unavailable' } })
+  })
+
   it('composes a stock detail with non-blocking provider results for the Host', async () => {
     const clock = new FakeClock(NOW)
     const http = new HandlerHttpClient((url) => {

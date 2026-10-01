@@ -1,4 +1,4 @@
-import type { KLineBar, ProviderMeta, TrendPoint } from '../../../contracts/src/index.ts'
+import type { KLineBar, ProviderMeta, StockQuote, TrendPoint } from '../../../contracts/src/index.ts'
 import { fetchJson, isoNow, systemClock, type Clock, type HttpClient } from '../http.ts'
 
 const SOURCE_NAME = '腾讯行情（备源）'
@@ -13,6 +13,17 @@ function previousDate(before: string): string {
   const date = new Date(`${before}T00:00:00Z`)
   date.setUTCDate(date.getUTCDate() - 1)
   return date.toISOString().slice(0, 10)
+}
+
+function quoteTimestamp(raw: string | undefined): string | null {
+  if (raw === undefined || !/^\d{14}$/.test(raw)) return null
+  const timestamp = Date.parse(`${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}T${raw.slice(8, 10)}:${raw.slice(10, 12)}:${raw.slice(12, 14)}+08:00`)
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null
+}
+
+function scaledNumber(raw: string | undefined, scale: number): number | null {
+  const number = finiteNumber(raw)
+  return number === null ? null : number * scale
 }
 
 export function tencentSymbol(secId: string): string {
@@ -52,6 +63,63 @@ export class TencentProvider {
       sourceTimestamp,
       fetchedAt: isoNow(this.clock),
       cacheState: 'fresh',
+    }
+  }
+
+  /** Tencent's text quotes are GBK encoded; parse data without evaluating the JavaScript envelope. */
+  async getQuotes(secIds: readonly string[]): Promise<{ quotes: StockQuote[]; meta: ProviderMeta }> {
+    const identities = new Map(secIds.map(secId => [tencentSymbol(secId), secId]))
+    const quotes: StockQuote[] = []
+    const symbols = [...identities.keys()]
+    for (let offset = 0; offset < symbols.length; offset += 60) {
+      try {
+        const response = await this.http.request(`https://qt.gtimg.cn/q=${symbols.slice(offset, offset + 60).join(',')}`, {
+          timeoutMs: this.timeoutMs,
+          headers: HEADERS,
+          responseEncoding: 'gb18030',
+        })
+        if (response.status < 200 || response.status >= 300) continue
+        for (const match of response.body.matchAll(/\bv_([a-z]{2}\d{6})="([^"]*)"/g)) {
+          const symbol = match[1]
+          const secId = symbol === undefined ? undefined : identities.get(symbol)
+          const fields = (match[2] ?? '').split('~')
+          const price = finiteNumber(fields[3])
+          if (secId === undefined || fields[2] !== secId.slice(2) || !fields[1] || price === null || price <= 0) continue
+          const timestamp = quoteTimestamp(fields[30])
+          const age = timestamp === null ? Infinity : this.clock.now() - Date.parse(timestamp)
+          quotes.push({
+            secId,
+            code: fields[2],
+            name: fields[1],
+            price,
+            change: finiteNumber(fields[31]),
+            changePct: finiteNumber(fields[32]),
+            // Tencent reports amount in ten-thousand yuan and capitalization in hundred-million yuan.
+            amount: scaledNumber(fields[37], 10_000),
+            volume: finiteNumber(fields[6]),
+            turnoverRate: finiteNumber(fields[38]),
+            marketCap: scaledNumber(fields[45], 100_000_000),
+            floatCap: scaledNumber(fields[44], 100_000_000),
+            pe: finiteNumber(fields[39]),
+            pb: finiteNumber(fields[46]),
+            high: finiteNumber(fields[33]),
+            low: finiteNumber(fields[34]),
+            open: finiteNumber(fields[5]),
+            prevClose: finiteNumber(fields[4]),
+            meta: { ...this.meta(timestamp), cacheState: age >= 0 && age <= 5 * 60_000 ? 'fresh' : 'stale' },
+          })
+        }
+      } catch {
+        // One unavailable batch must not discard quotes returned by another.
+      }
+    }
+    const oldest = quotes.map(quote => quote.meta?.sourceTimestamp).filter((value): value is string => value != null).sort()[0]
+    return {
+      quotes,
+      meta: {
+        ...this.meta(oldest ?? null),
+        cacheState: quotes.length === 0 ? 'unavailable' : quotes.every(quote => quote.meta?.cacheState === 'fresh') ? 'fresh' : 'stale',
+      },
     }
   }
 

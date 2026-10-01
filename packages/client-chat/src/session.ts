@@ -111,6 +111,10 @@ export function useDshChatSession({
   const listed = brandedId !== null && list.byId[brandedId] !== undefined
   const [retained, setRetained] = useState<{ id: SessionId; session: SessionFace } | null>(null)
   const session = retained?.id === brandedId ? retained.session : null
+  // A deep link can mount before DSH's first session-list response. Keep an
+  // existing reference across reconnects, but defer the initial lookup until
+  // the list is ready (including staged deleted-session bindings).
+  const readyToRetain = list.phase !== 'pending' || retained?.id === brandedId
   const [openError, setOpenError] = useState<Error | null>(null)
   const [actionError, setActionError] = useState<Error | null>(null)
 
@@ -120,7 +124,7 @@ export function useDshChatSession({
   }, [sessionId])
 
   useEffect(() => {
-    if (brandedId === null || brandedId === '') return
+    if (brandedId === null || brandedId === '' || !readyToRetain) return
     let active = true
     let release: (() => void) | undefined
     try {
@@ -137,7 +141,7 @@ export function useDshChatSession({
       active = false
       release?.()
     }
-  }, [brandedId, sessions])
+  }, [brandedId, readyToRetain, sessions])
 
   const subscribeSession = useCallback(
     (listener: () => void) => session?.subscribe(listener) ?? NOOP_SUBSCRIBE(),

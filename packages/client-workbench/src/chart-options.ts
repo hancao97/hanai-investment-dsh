@@ -183,6 +183,7 @@ export function buildTreemapOption(
     .filter((sector) => sector.amount !== null && Number.isFinite(sector.amount) && sector.amount > 0)
     .slice()
     .sort((left, right) => (right.amount ?? 0) - (left.amount ?? 0))
+  if (valid.length === 0) return null
   const totalAmount = valid.reduce((sum, sector) => sum + (sector.amount ?? 0), 0)
   const majors = valid.filter((sector, index) => index < 40 && (sector.amount ?? 0) / totalAmount >= 0.004)
   const minors = valid.slice(majors.length)
