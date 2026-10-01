@@ -11,6 +11,7 @@ GitHub Pages 研究站点：<https://hancao97.github.io/hanai-investment-dsh/>
 
 | 文档 | 内容 | 状态 |
 | --- | --- | --- |
+| [dong-taishan-skill-distillation-2026-10-01.md](dong-taishan-skill-distillation-2026-10-01.md) | 东泰山 v6 的 Nuwa 六维生成流程、实际阅读量、三个核心模型、PB 口径与验证局限 | 已发布 Skill 的生成总结 |
 | [a-share-cycle-outlook-2026-08-25.html](a-share-cycle-outlook-2026-08-25.html) | 补齐点时行情、相对强弱、市场宽度、估值、粗FCF与六门状态，并以全状态 Round 4 复核主题和六股 | **当前完整周期投研报告** |
 | [a-share-cycle-market-snapshot-2026-08-25.json](research-data/a-share-cycle-market-snapshot-2026-08-25.json) | 六股与主题代理的点时行情、标准化前复权日线、逐条件事件、20/60/120日相对收益、市场/板块宽度和10年国债收益率 | **可复算点时市场证据** |
 | [a-share-cycle-outlook-pre-council-2026-08-25.json](research-data/a-share-cycle-outlook-pre-council-2026-08-25.json) | Round 4 实际读取的冻结前置输入；与最终聚合 JSON 分离，并由运行台账中的 SHA 绑定 | **可复核会商输入** |

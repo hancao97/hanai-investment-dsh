@@ -273,6 +273,8 @@ dsh --profile hanai-investment --port 3080
 
 新任务使用 `2026.10.01-v6` 的能力快照；已有会话保留创建时的专家和资料，使用新版请新建任务。新版依据2,168个帖子的2,170个已保存正文版本及完整核读的109份PDF（2,940页）和2份表格，补入2025年以来的PB/ROE、下行双锚和研发/成长条件。原图、未加载评论及其余附件仍有缺口，不能称全部载体已读；也没有审计其预测准确率。具体[覆盖与模型](packages/masters/assets/dong-taishan-perspective/references/provenance.md)和运行结果见[启动与验收记录](docs/startup-and-verification.md)。
 
+本次生成的六维流程、阅读量口径、三个核心模型、PB 的分母与盈利能力，以及实际模型验证的局限，集中整理在[东泰山 Skill v6 生成总结](docs/dong-taishan-skill-distillation-2026-10-01.md)。
+
 ### 修复旧 Profile
 
 先停止 Hanai，在仓库根目录执行以下命令。安装器可重复运行，也会迁移早期错误安装过 Web App dependency 的 Profile：
