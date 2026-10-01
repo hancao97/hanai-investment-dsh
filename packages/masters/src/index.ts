@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import type { MasterPersona } from '../../contracts/src/index.ts'
 
 // Bump whenever either the immutable Skill snapshot or its workspace contract changes.
-export const MASTER_VERSION = '2026.10.01-v5'
+export const MASTER_VERSION = '2026.10.01-v6'
 
 interface MasterTheme extends Omit<MasterPersona, 'description' | 'version'> {}
 
@@ -67,8 +67,8 @@ const MASTER_THEMES: readonly MasterTheme[] = [
     shortName: '东',
     color: '#a47bd4',
     roleTag: '公司位置与产业周期',
-    tags: ['估值位置', '行业拐点', '盈利质量'],
-    defaultPrompt: '请先核验业务和盈利质量，分别判断估值位置与产业周期，用财报兑现和同行共性检验拐点，给出关键反证与后续验证条件。',
+    tags: ['PB与PE', '产业周期', '公司位置'],
+    defaultPrompt: '请核验业务、盈利和资产分母，分别判断价格与产业位置，列PB/PE各路及综合理由，区分当期、峰值和预测利润，追供需到利润现金，给关键反证。',
     personaDisclaimer: '这是从蜗牛成长笔记已读材料提炼的东泰山 AI 视角，不代表本人当前观点。',
     chatStarters: [
       '一家公司的估值已经很低，怎样区分便宜和行业真正见底？',

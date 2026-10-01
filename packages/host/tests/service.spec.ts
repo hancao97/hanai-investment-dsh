@@ -222,8 +222,8 @@ describe('HanaiService report lifecycle', () => {
     const judgement = await service.call('judgement.create', { secId: '1.600519', masterId }, signal)
     const chat = await service.call('expert-chat.create', { masterId, openingMessage }, signal)
 
-    expect(judgement).toMatchObject({ masterId, masterName: '东泰山', masterVersion: '2026.10.01-v5', reportStatus: 'generating' })
-    expect(chat).toMatchObject({ masterId, masterName: '东泰山', masterVersion: '2026.10.01-v5', turnStatus: 'queued' })
+    expect(judgement).toMatchObject({ masterId, masterName: '东泰山', masterVersion: '2026.10.01-v6', reportStatus: 'generating' })
+    expect(chat).toMatchObject({ masterId, masterName: '东泰山', masterVersion: '2026.10.01-v6', turnStatus: 'queued' })
     expect(chat.dshSessionId).not.toBe(judgement.dshSessionId)
     expect(sessions.prompts).toEqual([
       { sessionId: judgement.dshSessionId, text: expect.stringContaining('以东泰山大师的方法论') },
@@ -235,7 +235,7 @@ describe('HanaiService report lifecycle', () => {
     ]) {
       const skillRoot = join(workspace, '.agents', 'skills', masterId)
       expect(readFileSync(join(skillRoot, 'SKILL.md'), 'utf8')).toContain('name: dong-taishan-perspective')
-      expect(readFileSync(join(skillRoot, 'references', 'source-manifest.md'), 'utf8')).toContain('S22')
+      expect(readFileSync(join(skillRoot, 'references', 'source-manifest.md'), 'utf8')).toContain('P22')
     }
     const chatWorkspace = join(paths.expertChatsDir, chat.id, 'workspace')
     expect(readFileSync(join(chatWorkspace, 'AGENTS.md'), 'utf8')).toContain('不代表本人当前观点')

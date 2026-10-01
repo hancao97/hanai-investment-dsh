@@ -144,7 +144,7 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 - **专用对谈工作台**：左侧保留对谈历史，右侧消息区占满剩余高度；支持深链接和刷新恢复，思考与工具过程默认折叠，输入区固定在当前会话底部。
 - **七位对谈专家**：段永平、混江龙、查理·芒格、沃伦·巴菲特、散户乙、东泰山均支持研判与开放对谈；孙宇晨视角仅进入开放对谈。
 - **散户乙视角**：按 nuwa 的本地语料流程，从《从冲浪到潜水》发言汇编提炼股权思维、可持续 ROE、分红复利和底线回报；保留 PDF 页码、观点演化和汇编归属边界。详见[能力包](packages/masters/assets/sanhu-yi-perspective/SKILL.md)与[蒸馏记录](packages/masters/assets/sanhu-yi-perspective/references/provenance.md)。
-- **东泰山视角**：按 nuwa 六维流程，从用户指定的“蜗牛成长笔记”正文与作者回复提炼估值/产业双轴、业务与估值分母、拐点兑现和同行验证。支持股票研判与开放对谈，首次回答说明 AI 视角；不复制付费全文、不冒充本人实时观点或业绩。详见[能力包](packages/masters/assets/dong-taishan-perspective/SKILL.md)与[来源及验证记录](packages/masters/assets/dong-taishan-perspective/references/provenance.md)。
+- **东泰山视角**：按 nuwa 六维流程，从2025年起“蜗牛成长笔记”的已保存正文、作者回复及已核读附件，提炼PB分母与盈利能力、PB/PE双锚的条件综合、周期利润与兑现；保留位置分层及成长/研发/现金分支。支持股票研判与开放对谈，首次回答说明 AI 视角；不复制付费全文、不冒充本人实时观点或业绩。详见[能力包](packages/masters/assets/dong-taishan-perspective/SKILL.md)与[来源及验证记录](packages/masters/assets/dong-taishan-perspective/references/provenance.md)。
 - **孙宇晨视角边界**：参考用户指定的[开源能力包](https://github.com/alchaincyf/nuwa-skill/tree/main/examples/sun-yuchen-perspective)，用于分析行业周期、注意力迁移和叙事竞争；创建对谈时明确提示 AI 模拟边界，首次回答完成身份披露，详情页不重复占用消息空间；具体时效事实必须先检索核验。
 - **周期可证伪**：“永远缺某种资源”只作为假设，从需求、供给、库存与利用率、资本开支、价格利润和拥挤度检查，并给出反证与失效条件。
 - **单一事实源**：Hanai SQLite 只保存标题、专家和 opaque `dshSessionId`；消息、工具与 Turn 历史仍只在 DSH。
@@ -271,7 +271,7 @@ dsh --profile hanai-investment --port 3080
 - 在“专家对谈”点击“东泰山”，可用预设问题或自己的问题开始，后续直接在同一会话追问。
 - 在“大师研判”新建研判，选择股票和“东泰山”，生成完整报告；完成后可继续对话，也可明确要求更新报告。
 
-新任务使用 `2026.10.01-v5` 的能力快照；已有会话保留创建时的专家和资料，切换专家需要新建任务。本次提炼以估值位置与产业位置分开、校正盈利/资产分母、用财报与同行复核拐点为核心，不代表作者实时观点，也没有审计其预测准确率。来源覆盖和真实运行结果见[启动与验收记录](docs/startup-and-verification.md)。
+新任务使用 `2026.10.01-v6` 的能力快照；已有会话保留创建时的专家和资料，使用新版请新建任务。新版依据2,168个帖子的2,170个已保存正文版本及完整核读的109份PDF（2,940页）和2份表格，补入2025年以来的PB/ROE、下行双锚和研发/成长条件。原图、未加载评论及其余附件仍有缺口，不能称全部载体已读；也没有审计其预测准确率。具体[覆盖与模型](packages/masters/assets/dong-taishan-perspective/references/provenance.md)和运行结果见[启动与验收记录](docs/startup-and-verification.md)。
 
 ### 修复旧 Profile
 
