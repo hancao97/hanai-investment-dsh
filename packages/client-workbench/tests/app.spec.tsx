@@ -290,7 +290,7 @@ describe('HanaiWorkbench old-client parity', () => {
 
     fireEvent.click(within(nav).getByRole('button', { name: /自选与发现/ }))
     await screen.findByRole('heading', { name: '自选与发现' })
-    expect(window.location.hash).toBe('#/watch')
+    expect(window.location.hash).toBe('#/native-session')
     expect(document.title).toBe('自选与发现 — Hanai Worth · 值见')
   })
 
@@ -300,7 +300,7 @@ describe('HanaiWorkbench old-client parity', () => {
     await screen.findByRole('heading', { name: '今日市场' })
     fireEvent.click(within(screen.getByRole('navigation', { name: '主导航' })).getByRole('button', { name: /宏观数据/ }))
     await screen.findByRole('heading', { name: '宏观数据' })
-    expect(window.location.hash).toBe('#/dashboard/macro')
+    expect(window.location.hash).toBe('#/native-session')
     expect(document.title).toBe('宏观数据 — Hanai Worth · 值见')
     expect(screen.getByText(/占比不可用/)).toBeTruthy()
     cleanup()
@@ -810,7 +810,7 @@ describe('HanaiWorkbench old-client parity', () => {
     renderAt('/stock/1.600519')
     await screen.findByRole('heading', { name: '贵州茅台' })
 
-    expect(window.location.hash).toBe('#/stock/1.600519')
+    expect(window.location.hash).toBe('#/native-session')
     expect(screen.getByRole('button', { name: '日K' })).not.toBeNull()
     expect(screen.queryByRole('button', { name: /^(3年|5年|10年|全部)$/ })).toBeNull()
     expect(screen.getByRole('img', { name: '日K线图' })).not.toBeNull()
@@ -881,7 +881,7 @@ describe('HanaiWorkbench old-client parity', () => {
     fireEvent.change(selector, { target: { value: bank.secId } })
 
     await screen.findByRole('heading', { name: bank.name })
-    expect(window.location.hash).toBe('#/stock/0.000001')
+    expect(window.location.hash).toBe('#/native-session')
     expect((screen.getByRole('combobox', { name: '从自选切换股票' }) as HTMLSelectElement).value).toBe(bank.secId)
     expect((await screen.findByRole('img', { name: '周K线图' })).getAttribute('data-latest-kline-close')).toBe('10')
     expect(screen.getByRole('button', { name: '中线 MA20 / MA60' }).getAttribute('aria-pressed')).toBe('true')
@@ -896,10 +896,7 @@ describe('HanaiWorkbench old-client parity', () => {
     expect(screen.getByRole('img', { name: '周K线图' }).getAttribute('data-latest-kline-close')).toBe('10')
     expect((client.call as ReturnType<typeof vi.fn>).mock.calls.filter(([endpoint]) => endpoint === 'watch.securities')).toHaveLength(1)
 
-    act(() => {
-      window.history.replaceState(null, '', '#/stock/1.600519')
-      window.dispatchEvent(new PopStateEvent('popstate'))
-    })
+    fireEvent.change(screen.getByRole('combobox', { name: '从自选切换股票' }), { target: { value: '1.600519' } })
     await screen.findByRole('heading', { name: '贵州茅台' })
     expect((screen.getByRole('combobox', { name: '从自选切换股票' }) as HTMLSelectElement).value).toBe('1.600519')
   })
@@ -1123,7 +1120,7 @@ describe('HanaiWorkbench old-client parity', () => {
       openingMessage: '“永远缺存储”要验证哪些信号？',
     }))
     expect(await screen.findByLabelText('与孙宇晨开放对谈')).not.toBeNull()
-    expect(window.location.hash).toBe('#/expert-chats/chat-created')
+    expect(window.location.hash).toBe('#/native-session')
     cleanup()
 
     renderAt('/judgements')
@@ -1349,13 +1346,11 @@ describe('HanaiWorkbench old-client parity', () => {
         return requestId === nextJudgement.id ? nextRequest.promise : oldRequest.promise
       },
     })
-    renderAt('/judgements/judgement-ready', client)
+    const view = renderAt('/judgements/judgement-ready', client)
     await waitFor(() => expect(signals.has(readyJudgement.id)).toBe(true))
 
-    await act(async () => {
-      window.history.pushState(null, '', `#/judgements/${nextJudgement.id}`)
-      window.dispatchEvent(new PopStateEvent('popstate'))
-    })
+    view.unmount()
+    renderAt(`/judgements/${nextJudgement.id}`, client)
     await waitFor(() => expect(signals.has(nextJudgement.id)).toBe(true))
     expect(signals.get(readyJudgement.id)?.aborted).toBe(true)
 
@@ -1383,7 +1378,7 @@ describe('HanaiWorkbench old-client parity', () => {
     const dialog = await screen.findByRole('dialog', { name: '新建大师研判' })
     expect(within(dialog).getByText('贵州茅台')).not.toBeNull()
     expect(within(dialog).getByRole('button', { name: /沃伦 · 巴菲特/, pressed: true })).not.toBeNull()
-    expect(window.location.hash).toBe('#/judgements')
+    expect(window.location.hash).toBe('#/native-session')
   })
 
   it('keeps polling the dashboard (sector heatmap source) while the market is open', async () => {
@@ -1893,9 +1888,35 @@ describe('whole-page market history', () => {
   })
 })
 
+it('can return to DSH while bootstrap is pending or has failed', async () => {
+  const onClose = vi.fn()
+  const pending = makeClient({ bootstrap: () => new Promise(() => {}) })
+  const view = render(<HanaiWorkbench client={pending} onClose={onClose} />)
+  fireEvent.click(screen.getByRole('button', { name: '返回 DSH' }))
+  expect(onClose).toHaveBeenCalledTimes(1)
+  view.unmount()
+  const failed = makeClient({ bootstrap: () => { throw new Error('host unavailable') } })
+  render(<HanaiWorkbench client={failed} onClose={onClose} />)
+  await screen.findByText('Hanai Worth 暂时无法启动')
+  fireEvent.click(screen.getByRole('button', { name: '返回 DSH' }))
+  expect(onClose).toHaveBeenCalledTimes(2)
+  expect(screen.getByRole('button', { name: '重新连接' })).not.toBeNull()
+})
+
+it('ignores native URL changes while navigating inside the workbench', async () => {
+  renderAt('/watch')
+  await screen.findByRole('heading', { name: '自选与发现' })
+  act(() => {
+    window.history.replaceState(null, '', '#/session/another')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+  })
+  expect(screen.getByRole('heading', { name: '自选与发现' })).not.toBeNull()
+})
+
 function renderAt(path: string, client = makeClient()): { client: HanaiClient } & ReturnType<typeof render> {
-  window.history.replaceState(null, '', `#${path}`)
-  return { client, ...render(<HanaiWorkbench client={client} />) }
+  window.history.replaceState(null, '', '#/native-session')
+  return { client, ...render(<HanaiWorkbench client={client} initialPath={path} />) }
 }
 
 function callsOf(client: HanaiClient, endpoint: string) {

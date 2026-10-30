@@ -14,7 +14,7 @@ import {
 } from './profile-contract.ts'
 
 const args = stripPnpmRunSeparator(process.argv.slice(2))
-let profile = 'hanai-investment'
+let profile = 'web'
 let dshBin = 'dsh'
 for (let index = 0; index < args.length; index += 1) {
   const argument = args[index]
@@ -26,8 +26,8 @@ for (let index = 0; index < args.length; index += 1) {
 if (!/^[A-Za-z0-9._-]+$/.test(profile)) throw new Error('非法 profile 名称')
 const version = spawnSyncShell(dshBin, ['--version'], { encoding: 'utf8' })
 if (version.error !== undefined) throw version.error
-if (version.status !== 0) throw new Error(version.stderr || '无法读取 dsh CLI 版本')
-assertDshVersion(version.stdout)
+if (version.status !== 0) throw new Error(String(version.stderr) || '无法读取 dsh CLI 版本')
+assertDshVersion(String(version.stdout))
 const dshHome = process.env.DSH_HOME?.trim() || join(homedir(), '.dsh')
 const manifestPath = manifestPathFor(dshHome, profile)
 if (!existsSync(manifestPath)) throw new Error(`profile ${profile} 不存在：${manifestPath}`)
@@ -37,11 +37,11 @@ const result = spawnSyncShell(dshBin, ['--profile', profile, '--dump-default-con
   maxBuffer: 20 * 1024 * 1024,
 })
 if (result.error !== undefined) throw result.error
-if (result.status !== 0) throw new Error(result.stderr || `profile verification failed: ${String(result.status)}`)
+if (result.status !== 0) throw new Error(String(result.stderr) || `profile verification failed: ${String(result.status)}`)
 const output = `${result.stdout}\n${result.stderr}`
 assertComposedLayers(output)
 await assertRuntimeIdentity(profileDirForManifest(manifestPath), dshBin)
-console.log(`Profile ${profile} has installation-owned DSH runtime packages and the Base → Web app → Hanai bundle stack.`)
+console.log(`Profile ${profile} has installation-owned DSH runtime packages and Base → Web app → Hanai in relative order (other plugins preserved).`)
 
 function value(values: string[], index: number, flag: string): string {
   const result = values[index]

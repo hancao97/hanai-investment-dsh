@@ -131,7 +131,8 @@
 
 .app {
   position: fixed;
-  inset: 0;
+  inset: var(--dsh-frame-chrome-top, 0px) 0 0 0;
+  z-index: 100;
   display: flex;
   min-width: 940px;
   overflow: hidden;
@@ -906,7 +907,7 @@
 .empty > b { margin-top: 10px; font-size: 13px; }
 .empty > p { max-width: 440px; margin: 7px 0 14px; color: var(--muted); font-size: 10px; line-height: 1.6; }
 
-.splash { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; background: var(--bg); }
+.splash { position: fixed; inset: var(--dsh-frame-chrome-top, 0px) 0 0 0; z-index: 101; display: flex; align-items: center; justify-content: center; flex-direction: column; background: var(--bg); }
 .splashMark { width: 52px; height: 52px; }
 .splash > p { margin: 13px 0 22px; color: var(--gold); font-size: 9px; letter-spacing: .24em; }
 .splash h1 { margin: 0; font-size: 18px; }
@@ -1017,3 +1018,6 @@
 .macroSources { display: grid; min-width: 0; gap: 4px; }
 .macroSourceRow { min-width: 0; line-height: 1.5; overflow-wrap: anywhere; }
 .macroMetadata small { max-width: 100%; overflow-wrap: anywhere; }
+
+.closeApp { padding: 6px 10px; border-radius: 6px; color: var(--text); background: var(--control-bg); cursor: pointer; }
+.splashActions { display: flex; gap: 10px; }

@@ -10,10 +10,8 @@ import {
   assertRuntimeIdentity,
   assertSafeProfileManifest,
   manifestPathFor,
-  normalizeProfileManifest,
   profileDirForManifest,
   readManifest,
-  writeManifestAtomic,
 } from './profile-contract.ts'
 
 interface Options {
@@ -25,8 +23,10 @@ interface Options {
 const options = parse(stripPnpmRunSeparator(process.argv.slice(2)))
 assertSafeExistingProfile(options.profile)
 const dshVersion = assertDshVersion(commandOutput(options.dshBin, ['--version']))
+const existingManifest = resolveProfileManifestPath(options.profile)
+if (existsSync(existingManifest)) await assertRuntimeIdentity(profileDirForManifest(existingManifest), options.dshBin)
 
-console.log(`Creating or migrating isolated DSH profile ${options.profile} with DSH ${dshVersion}…`)
+console.log(`Installing Hanai into Web DSH profile ${options.profile} with DSH ${dshVersion}…`)
 // The released package and source-install flow are built before this script
 // runs. Skipping lifecycle scripts avoids pnpm rebuilding the linked package.
 run(options.dshBin, [
@@ -40,32 +40,15 @@ run(options.dshBin, [
 ])
 
 const profileManifestPath = resolveProfileManifestPath(options.profile)
-const installedManifest = readManifest(profileManifestPath)
-assertSafeProfileManifest(installedManifest, options.profile)
-const normalizedManifest = normalizeProfileManifest(installedManifest)
-writeManifestAtomic(profileManifestPath, normalizedManifest)
-
-// DSH resolves in-box bundles from its own installation first. Keeping the Web
-// app in dsh.profile.bundles while removing it from dependencies prevents a
-// profile-local dsh-tools copy from shadowing the agent loop's service symbols.
-run(options.dshBin, [
-  'plugin',
-  '--profile',
-  options.profile,
-  'install',
-  '--ignore-scripts',
-  '--workspace-root',
-])
-
 const finalManifest = readManifest(profileManifestPath)
 assertProfileContract(finalManifest, options.profile)
 const composed = commandOutput(options.dshBin, ['--profile', options.profile, '--dump-default-config'])
 assertComposedLayers(composed)
 await assertRuntimeIdentity(profileDirForManifest(profileManifestPath), options.dshBin)
-console.log(`\nProfile ready. Start Hanai with:\n  dsh --profile ${options.profile}\n\nThe stock UI remains available with:\n  dsh web`)
+console.log(`\nPlugin ready. Start DSH and open 值见 from its sidebar:\n  dsh --profile ${options.profile}`)
 
 function parse(args: string[]): Options {
-  let profile = 'hanai-investment'
+  let profile = 'web'
   let packageSpec = resolve('.')
   let dshBin = 'dsh'
   for (let index = 0; index < args.length; index += 1) {
@@ -76,15 +59,18 @@ function parse(args: string[]): Options {
     else throw new Error(`未知参数：${current}`)
   }
   if (!/^[A-Za-z0-9._-]+$/.test(profile)) throw new Error('profile 名称只能包含字母、数字、点、下划线或连字符')
-  if (['web', 'headless', 'node_modules', '.', '..'].includes(profile.toLowerCase())) {
-    throw new Error(`拒绝修改保留 profile：${profile}；请使用独立名称（默认 hanai-investment）`)
+  if (['headless', 'node_modules', '.', '..'].includes(profile.toLowerCase())) {
+    throw new Error(`拒绝修改保留 profile：${profile}；请使用 Web profile（默认 web）`)
   }
-  return { dshBin, profile, packageSpec }
+  return { dshBin, profile, packageSpec: existsSync(packageSpec) ? resolve(packageSpec) : packageSpec }
 }
 
 function assertSafeExistingProfile(profile: string): void {
   const manifestPath = resolveProfileManifestPath(profile)
-  if (!existsSync(manifestPath)) return
+  if (!existsSync(manifestPath)) {
+    if (profile !== 'web') throw new Error(`profile ${profile} 不存在；请使用已有 Web profile 或默认 web`)
+    return
+  }
   assertSafeProfileManifest(readManifest(manifestPath), profile)
 }
 
@@ -102,7 +88,7 @@ function requiredValue(args: string[], index: number, flag: string): string {
 function commandOutput(command: string, args: string[]): string {
   const result = spawnSyncShell(command, args, { encoding: 'utf8' })
   if (result.error !== undefined) throw result.error
-  if (result.status !== 0) throw new Error(`${command} ${args.join(' ')} 失败：${result.stderr.trim()}`)
+  if (result.status !== 0) throw new Error(`${command} ${args.join(' ')} 失败：${String(result.stderr).trim()}`)
   return `${result.stdout}\n${result.stderr}`.trim()
 }
 

@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -12,10 +12,7 @@ import {
   assertDshVersion,
   assertProfileContract,
   assertSafeProfileManifest,
-  normalizeProfileManifest,
   profileLocalDshPackages,
-  readManifest,
-  writeManifestAtomic,
 } from './profile-contract.ts'
 
 const temporaryDirectories: string[] = []
@@ -24,19 +21,10 @@ afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) rmSync(directory, { recursive: true, force: true })
 })
 
-function legacyManifest(): Record<string, unknown> {
+function manifest(bundles = [...EXPECTED_PROFILE_BUNDLES] as string[]): Record<string, unknown> {
   return {
-    name: 'dsh-profile-hanai-investment',
-    private: true,
-    dependencies: {
-      [WEB_APP_BUNDLE]: '0.1.0-rc.6',
-      [HANAI_BUNDLE]: 'link:/checkout/hanai-investment-dsh',
-    },
-    dsh: {
-      profile: {
-        bundles: [...EXPECTED_PROFILE_BUNDLES],
-      },
-    },
+    dependencies: { [HANAI_BUNDLE]: 'link:../hanai-investment-dsh', 'other-plugin': '1.0.0' },
+    dsh: { profile: { bundles, patchReload: 'live' } },
   }
 }
 
@@ -47,37 +35,33 @@ describe('Hanai DSH profile contract', () => {
     expect(() => assertDshVersion('0.2.1-rc.3')).toThrow(/需要 DSH/)
     expect(() => assertDshVersion('unknown')).toThrow(/无法识别/)
   })
-  it('migrates the legacy web-app dependency while preserving it as an ordered bundle', () => {
-    const normalized = normalizeProfileManifest(legacyManifest())
 
-    expect(normalized).toMatchObject({
-      dependencies: {
-        [HANAI_BUNDLE]: 'link:/checkout/hanai-investment-dsh',
-      },
-      dsh: {
-        profile: {
-          bundles: [BASE_BUNDLE, WEB_APP_BUNDLE, HANAI_BUNDLE],
-        },
-      },
-    })
-    expect((normalized.dependencies as Record<string, unknown>)).not.toHaveProperty(WEB_APP_BUNDLE)
-    expect(() => assertProfileContract(normalized, 'hanai-investment')).not.toThrow()
+  it('accepts other plugins anywhere without modifying their order or settings', () => {
+    const input = manifest([BASE_BUNDLE, 'other-plugin', WEB_APP_BUNDLE, 'auth-plugin', HANAI_BUNDLE, 'last-plugin'])
+    const before = structuredClone(input)
+    expect(() => assertSafeProfileManifest(input, 'web')).not.toThrow()
+    expect(() => assertProfileContract(input, 'web')).not.toThrow()
+    expect(input).toEqual(before)
   })
 
-  it('fails closed for unrelated dependencies or bundle layers', () => {
-    const dependencyProfile = legacyManifest()
-    ;(dependencyProfile.dependencies as Record<string, unknown>)['another-plugin'] = '1.0.0'
-    expect(() => assertSafeProfileManifest(dependencyProfile, 'hanai-investment')).toThrow(/其他插件/)
-
-    const bundleProfile = legacyManifest()
-    ;(((bundleProfile.dsh as Record<string, unknown>).profile as Record<string, unknown>).bundles as string[]).push('another-bundle')
-    expect(() => assertSafeProfileManifest(bundleProfile, 'hanai-investment')).toThrow(/其他组合层/)
+  it('accepts an existing web profile before Hanai is installed', () => {
+    expect(() => assertSafeProfileManifest({ dsh: { profile: { bundles: [BASE_BUNDLE, WEB_APP_BUNDLE] } } }, 'web')).not.toThrow()
+    expect(() => assertProfileContract(manifest([BASE_BUNDLE, WEB_APP_BUNDLE]), 'web')).toThrow(/缺少.*bundle/)
   })
 
-  it('rejects a direct web-app dependency even when all bundle names look correct', () => {
-    expect(() => assertProfileContract(legacyManifest(), 'hanai-investment')).toThrow(
-      /不得是 profile dependency/,
-    )
+  it('rejects missing, duplicate, or misordered core bundles', () => {
+    for (const bundles of [[BASE_BUNDLE], [WEB_APP_BUNDLE, BASE_BUNDLE, HANAI_BUNDLE], [BASE_BUNDLE, HANAI_BUNDLE, WEB_APP_BUNDLE], [...EXPECTED_PROFILE_BUNDLES, HANAI_BUNDLE]]) {
+      expect(() => assertProfileContract(manifest(bundles), 'web')).toThrow()
+    }
+    const input = manifest()
+    input.dependencies = {}
+    expect(() => assertProfileContract(input, 'web')).toThrow(/缺少.*dependency/)
+  })
+
+  it('rejects a direct web-app dependency before installation', () => {
+    const input = manifest()
+    ;(input.dependencies as Record<string, unknown>)[WEB_APP_BUNDLE] = '0.2.1-rc.2'
+    expect(() => assertSafeProfileManifest(input, 'web')).toThrow(/不得是 profile dependency/)
   })
 
   it('detects profile-local DSH shadow packages', () => {
@@ -91,19 +75,6 @@ describe('Hanai DSH profile contract', () => {
       '@deepseek-ai/dsh-client-runtime',
       '@deepseek-ai/dsh-tools',
     ])
-  })
-
-  it('atomically writes valid JSON manifests', () => {
-    const profileDir = mkdtempSync(join(tmpdir(), 'hanai-profile-contract-'))
-    temporaryDirectories.push(profileDir)
-    const manifestPath = join(profileDir, 'package.json')
-    writeFileSync(manifestPath, '{"before":true}\n')
-
-    const normalized = normalizeProfileManifest(legacyManifest())
-    writeManifestAtomic(manifestPath, normalized)
-
-    expect(readManifest(manifestPath)).toEqual(normalized)
-    expect(readFileSync(manifestPath, 'utf8')).toMatch(/\n$/)
   })
 
   it('requires all three composed bundle markers', () => {

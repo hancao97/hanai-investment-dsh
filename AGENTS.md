@@ -16,7 +16,7 @@ DSH 插件 `hanai-investment-dsh`（A 股投资工作台），pnpm monorepo + Ty
 
 以「DSH 插件开发老手 + A 股实战作手」双重视角工作：
 
-- **插件工程**：校验双入口（`lib/index.js` 宿主与 `lib/client.js` 前端）、独立 Profile、Base → Web app → Hanai 的 Bundle 顺序及 Cordis 装配；交付前通过相应门禁，避免 Profile 装配回归。
+- **插件工程**：校验双入口（`lib/index.js` 宿主与 `lib/client.js` 前端）、Web Profile 共存、Base → Web app → Hanai 的相对 Bundle 顺序及 Cordis 装配（允许其它插件穿插，不重排它们）；交付前通过相应门禁，避免 Profile 装配回归。
 - **实盘语义**：校验交易时段与竞价规则、涨跌停与晋级/断板口径、题材轮动与情绪周期、龙虎榜与梯队生态；术语用 A 股惯用说法（作手、梯队、断板、晋级率），不用书面化转译。
 - 工程简洁与实战语义冲突时，先向用户澄清再动手，不擅自牺牲任何一边。
 
@@ -24,7 +24,7 @@ DSH 插件 `hanai-investment-dsh`（A 股投资工作台），pnpm monorepo + Ty
 
 - `main` 仅跟踪 `origin/main`，禁止直接开发。
 - `dsh-profile`：基于 `origin/main` 的基线分支，放 upstream 兼容修复与通用加固（数据源熔断、开市轮询、Windows 安装修复）。
-- `dsh-plugin`：大型功能分支（今日交易数据、复盘分析、快照），不与 `dsh-profile` 交叉 rebase。
+- `dsh-plugin`：从 `origin/main` 整理全部业务功能及普通插件装配，默认支持 `web`；不与 `dsh-profile` 交叉 rebase。原功能开发分支和迁移前备份保留。
 - 新功能分支默认从 `origin/main` 打出，除非明确要求其它基点。
 
 ## 验证与交付
@@ -40,7 +40,7 @@ pnpm run build
 - 优先使用项目已有测试框架和夹具；新增或修复行为须有对应测试，尤其覆盖开市自动轮询不受手动刷新冷却影响的回归场景。
 - 涉及时间/轮询的测试必须使用 `vi.useFakeTimers()`，固定到明确的开市或闭市时刻并在结束后恢复；参考 `packages/client-workbench/tests/market-hours.spec.ts`。
 - Windows 曾出现 `database.spec` 的 SQLite 文件锁（EBUSY）和 `scripts/research` 渲染失败。只有核实错误与已知环境问题一致、且与本次改动无关，才可按环境限制记录；不得一律忽略这些用例的失败。
-- 修改打包内容或发布配置时补跑 `pnpm run pack:check`；修改 Profile 安装或装配时，在已授权的独立 Profile 上运行 `pnpm run profile:verify`，并实际启动检查。
+- 修改打包内容或发布配置时补跑 `pnpm run pack:check`；修改 Profile 安装或装配时，在隔离 DSH_HOME 的 Web Profile 上运行 `pnpm run profile:verify`，并实际启动检查。
 - 交付时分别说明静态检查、实际运行、业务结果和未验证项；命令退出成功不代表全部验收完成，构建成功不代表 Profile 或页面已运行验证。
 
 ## 数据源与行情语义
@@ -81,9 +81,9 @@ pnpm run build
 
 ## DSH Profile 纪律
 
-- 独立 Profile 名为 `hanai-investment`；`web` 是官方默认 Profile，保持纯净，禁止把本插件装进 `web` 或修改其 manifest。
+- 本分支将 Hanai 作为普通插件安装到 `web`（默认），也支持已有 Web Profile；保留原生聊天、模型设置及其它插件。不得接管默认界面或重写其它插件的 dependencies、Bundle 顺序与设置；仅由 DSH CLI 管理安装/卸载。开发验收先使用隔离 `DSH_HOME`，实际用户 Profile 的安装和重启须在任务授权范围内。
 - `profile:install` 执行的是 `lib/install-profile.js`，本身不重建源码；修改 `scripts/` 后必须先手动 `pnpm run build`。不要依赖安装生命周期带入最新改动。
-- 日常开发先 `pnpm run build`：仅前端（`lib/client.js`）改动刷新浏览器，宿主（`lib/index.js`）改动重启 `dsh --profile hanai-investment`；无需重复 `profile:install`。
+- 日常开发先 `pnpm run build`：仅前端（`lib/client.js`）改动刷新浏览器，宿主（`lib/index.js`）改动重启安装本插件的 DSH Profile（默认 `dsh web`）；无需重复 `profile:install`。
 - 增删 Profile 插件走 `dsh plugin --profile <name> <cmd>`；本项目安装与迁移复用已有 `profile:install` 脚本及其校验，不手改 `~/.dsh` 下的 manifest。
 
 ## upstream 合并友好

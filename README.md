@@ -13,7 +13,7 @@
 
 DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件和会话持久化；Hanai Worth 负责证券与估值数据、自选分组、研究资料、不可变报告快照和全部产品界面。产品包含“今日市场、自选与发现、大师研判、专家对谈、专家中心、设置与诊断”六个一级页面，以及个股、研判和对谈详情页。
 
-插件包名为 `hanai-investment-dsh`，独立 DSH Profile 名为 `hanai-investment`；安装和启动命令使用这两个名称。当前已验证的 DSH 版本为 `0.2.1-rc.2`。
+插件包名为 `hanai-investment-dsh`，默认安装到 DSH 的 `web` Profile，与原生聊天和其它插件共存。当前已验证的 DSH 版本为 `0.2.1-rc.2`。
 
 品牌中的两条趋势线在证据点形成金叉：价格给出市场报价，研究帮助看见价值。每一份研判，都应能回到证据、方法与上下文。
 
@@ -183,7 +183,7 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 - **亮色/黑夜模式**：两套主题只替换语义色彩，不改变页面结构、图表数据或业务含义。
 - **全局搜索与深链接**：可按代码、名称或拼音搜索股票；`#/dashboard`、`#/watch`、`#/judgements`、`#/expert-chats`、`#/personas`、`#/settings` 及详情页支持刷新、前进、后退和直接打开。
 - **设置与诊断**：在工作台内管理 DSH Credentials、默认模型和主题，查看 Agent、数据源、缓存、本地存储与版本状态，并可打开数据目录或清理行情/估值缓存。
-- **完全自有界面**：使用 React 18、DSH Slot、Session Controller 与 Conversation Projection、ECharts 和 CSS Modules；不显示或复用 DSH 原生聊天 UI。
+- **完全自有界面**：使用 React 18、DSH Slot、Session Controller 与 Conversation Projection、ECharts 和 CSS Modules；值见内保留业务聊天呈现，返回 DSH 后可继续使用原生聊天与其它插件。
 
 ## 架构
 
@@ -191,7 +191,7 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 
 ```mermaid
 flowchart LR
-  U["用户"] --> W["Hanai React Workbench\nshell.overlay"]
+  U["用户"] --> W["Hanai React Workbench\nmain panel"]
   W --> R["/hanai Connection RPC"]
   W --> C["DSH Credentials / Models"]
   W --> S["DSH Session Runtime"]
@@ -220,7 +220,7 @@ flowchart LR
 - DeepSeek Harness `0.2.1-rc.2`；CLI、CLI 自带的 Web App 与 Hanai 声明的 DSH 依赖版本必须一致
 - 一个 DeepSeek API Key（只在实际运行 Agent 时需要）
 
-DSH 仍处于 pre-release，rc 之间不承诺兼容。安装器会在修改 Profile 前检查 CLI 是否为已验证的 `0.2.1-rc.2`。包内 `engines.dsh` 也限定同一版本，供 DSH 明确识别已验证的兼容版本。仓库把 Host、Client 和 profile 装配都纳入兼容性检查；升级时需运行完整门禁，并实际启动独立 Profile，不能只检查配置组合。
+DSH 仍处于 pre-release，rc 之间不承诺兼容。安装器会在修改 Profile 前检查 CLI 是否为已验证的 `0.2.1-rc.2`。包内 `engines.dsh` 也限定同一版本，供 DSH 明确识别已验证的兼容版本。仓库把 Host、Client 和 profile 装配都纳入兼容性检查；升级时需运行完整门禁，并实际启动隔离的 Web Profile，不能只检查配置组合。
 
 ## 从源码安装
 
@@ -232,26 +232,28 @@ pnpm install --frozen-lockfile
 pnpm run build
 pnpm run profile:install -- --package .
 pnpm run profile:verify
-dsh --profile hanai-investment --port 3080
+dsh web --port 3080
 ```
 
 已有源码时，从仓库根目录执行 `npm install -g` 起的命令即可。如果 pnpm 版本不符，可以通过已安装的 Corepack 执行 `corepack enable` 和 `corepack prepare pnpm@11.7.0 --activate`。
 
-安装器会创建或安全迁移独立的 `hanai-investment` Profile。最终 Bundle 顺序固定为 DSH Base、DSH Web App、Hanai；只有 `hanai-investment-dsh` 是 Profile dependency。Base 与 Web App 必须由当前 DSH CLI 的 installation-owned runtime resolution 提供，不能再用 `dsh plugin add @deepseek-ai/dsh-web-app` 安装到 Profile，否则相同版本的 DSH runtime 仍可能被加载成两个模块实例。安装器会拒绝修改 `web`、`headless` 等保留 Profile，也会在目标 Profile 含无关依赖或 Bundle 时停止。
+安装器默认通过 DSH CLI 将 Hanai 加入 `web`，保留已有插件、顺序和设置；自定义目标使用 `--profile <已有 Web Profile>`，验证时传同样参数。Base、Web App 必须由当前 DSH 安装提供，并在 Hanai 之前，三者不要求相邻。不要把内置 Web App 再装成 Profile dependency。安装器不自动删除或修复已有 DSH runtime 副本，发现冲突应先备份并单独排障。
+
+首次启动仍可能出现原生模型引导，可关闭后查看行情。点击 DSH 侧栏「值见」打开工作台，右上「返回 DSH」回到原生会话；加载失败时也能返回。工作台内部导航不修改 DSH URL；关闭或刷新后重新进入工作台从今日市场开始，未保存的表单不保留。后台宏观补取任务仍由宿主运行，不受关闭面板影响。
 
 ### 日常启动与停止
 
 完成安装后，可以在任意目录执行：
 
 ```bash
-dsh --profile hanai-investment --port 3080
+dsh web --port 3080
 ```
 
 保持终端进程运行，在该终端按 `Ctrl+C` 停止。端口被占用时，先停止占用它的服务，或改用 `--port 3081`。只看行情、自选和已有报告无需 DeepSeek Key；发起研判或发送专家消息前，在“设置与诊断”保存 Key 并选择默认模型。
 
 DSH 默认自动打开浏览器；需要自己打开时可加 `--no-open`，随后使用终端打印的完整启动地址。`--no-open` 只控制自动打开浏览器，认证仍然生效。
 
-通用 DSH Web 使用 `dsh web`，Hanai 使用上述独立 Profile。两者可以使用不同端口同时运行。详见 [ADR-0003](docs/adr/0003-isolated-dsh-profile.md)。
+同一 Profile 中使用原生 DSH 与值见，无需启动两个进程。旧独立 Profile 的背景见 [ADR-0003](docs/adr/0003-isolated-dsh-profile.md)；当前部署规则以 [插件部署指南](docs/dsh-profile-deployment.md) 为准。
 
 本仓库作为 fork 使用：分支划分、Windows 安装修复与 upstream 合并步骤见 [DSH Profile 部署与 upstream 合并指南](docs/dsh-profile-deployment.md)。
 
@@ -280,7 +282,7 @@ git pull --ff-only
 pnpm install --frozen-lockfile
 pnpm run check
 pnpm run profile:verify
-dsh --profile hanai-investment --port 3080
+dsh web --port 3080
 ```
 
 源码安装的 Profile 链接到本仓库，`pnpm run check` 包含生产构建；重新启动后使用新构建。日常启动无需重新安装 Profile。升级 DSH 或修复旧 Profile 时，则需要重新执行安装与校验。
@@ -296,16 +298,18 @@ dsh --profile hanai-investment --port 3080
 
 本次生成的六维流程、阅读量口径、三个核心模型、PB 的分母与盈利能力，以及实际模型验证的局限，集中整理在[东泰山 Skill v6 生成总结](docs/dong-taishan-skill-distillation-2026-10-01.md)。
 
-### 修复旧 Profile
+### 安装与卸载
 
-先停止 Hanai，在仓库根目录执行以下命令。安装器可重复运行，也会迁移早期错误安装过 Web App dependency 的 Profile：
+在仓库根目录构建后安装；安装器可重复运行，不重排其它插件。已有独立 Profile 如需继续使用，可显式传 `--profile hanai-investment`，前提是其已有 Base 和 Web App：
 
 ```bash
 pnpm run build
 pnpm run profile:install -- --package .
 pnpm run profile:verify
-dsh --profile hanai-investment --port 3080
+dsh web --port 3080
 ```
+
+卸载使用 `dsh plugin --profile web remove hanai-investment-dsh`，随后重启 DSH。业务数据库和报告保留，原生页面及其它插件继续可用。不要同时用两个宿主进程写同一个 Hanai 数据目录。
 
 需要安装已有发布包时，在本仓库中把 `--package .` 换成该包的完整名称与版本，或本地 `.tgz` 路径。不要手工执行 `dsh plugin ... add @deepseek-ai/dsh-web-app`；它会重新引入 Profile-local DSH runtime shadow。
 
@@ -432,7 +436,7 @@ docs/
 
 ## 当前边界
 
-- `shell.overlay` 是 DSH AppFrame 的全屏插件画布，不是弹窗、iframe 或命令行 Shell。它让 Hanai 在不 fork DSH 的前提下拥有完整页面；Workbench 通过 `location.hash` 提供页面深链接，不要求 DSH 增加通用 Router Slot。
+- Hanai 注册 DSH `sidebar.panellist` 入口和 `main` 面板，仅在选择值见时挂载全屏工作台；内部路由使用内存状态，不占用 DSH 的 Hash 或会话 URL。
 - DSH 尚未发布稳定的树外 Client Plugin 构建 SDK，因此仓库维护了一个最小、版本锁定的 bundler adapter。
 - DSH Session 删除与跨版本迁移能力仍有限；备份持续对话时，需要同时保留 Hanai 数据根和 DSH Session 数据。
 - 本项目是研究辅助工具，不构成投资建议，不承诺数据实时性、完整性或投资收益。
