@@ -37,6 +37,11 @@ export class ProviderCache<T extends { meta: ProviderMeta }> {
     return { ...value, meta: { ...value.meta, cacheState: value.meta.cacheState === 'fresh' ? 'cached' : value.meta.cacheState } }
   }
 
+  peek(key: string): T | null {
+    const value = this.entries.get(key)?.value
+    return value == null ? null : this.cached(value)
+  }
+
   clear(): number {
     const count = this.entries.size
     this.entries.clear()

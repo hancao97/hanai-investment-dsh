@@ -1,3 +1,4 @@
+import type { PromptContentPart } from '@deepseek-ai/dsh-api-session-controller/types'
 import {
   createContext,
   memo,
@@ -46,7 +47,7 @@ const CODE_LABELS = {
 } as const
 const MARKDOWN_LABELS = { code: CODE_LABELS, footnotes: '脚注' } as const
 
-export type ChatPanelVariant = 'judgement' | 'open-chat'
+export type ChatPanelVariant = 'judgement' | 'open-chat' | 'research' | 'screener'
 
 interface ChatPanelCopy {
   sectionLabel: string
@@ -111,6 +112,27 @@ const OPEN_CHAT_COPY: ChatPanelCopy = {
   composerPlaceholder: '继续追问判断依据、反证或下一步观察点…',
 }
 
+const RESEARCH_COPY: ChatPanelCopy = {
+  ...OPEN_CHAT_COPY, sectionLabel: 'AI研究助手', recordLabel: '研究对话记录', participant: '研究助手',
+  participantRunning: '研究助手 · 思考中', participantOutput: '研究助手 · 输出中', runningStatus: '研究助手正在分析',
+  generatedImage: '研究助手生成的图片', idleDetail: '新建研究对话后即可开始提问。', loading: '正在载入研究对话…',
+  maxTokens: '本轮达到最大输出长度，可发送“继续”让研究助手接着回答。',
+  approvalFallback: '研究助手希望调用', questionLead: '研究助手需要你的补充',
+  composerLabel: '向研究助手提问', composerPlaceholder: '研究公司、行业、市场，或说明需要怎样分析已上传的材料…',
+}
+
+interface MessagePreparation {
+  initialDraft?: string
+  prepareMessage?: (text: string) => Promise<PromptContentPart[]>
+  onMessageSent?: (text: string) => void
+}
+
+const SCREENER_COPY: ChatPanelCopy = {
+  ...RESEARCH_COPY, sectionLabel: 'AI选股', recordLabel: '选股查询记录', participant: '选股助手',
+  participantRunning: '选股助手 · 思考中', participantOutput: '选股助手 · 输出中', runningStatus: '正在分析选股条件',
+  composerLabel: '补充选股条件', composerPlaceholder: '补充行业、财务、估值或量价条件，继续核实候选…',
+}
+
 const ChatCopyContext = createContext<ChatPanelCopy>(JUDGEMENT_COPY)
 
 function useChatCopy(): ChatPanelCopy {
@@ -118,7 +140,7 @@ function useChatCopy(): ChatPanelCopy {
 }
 
 /** Stable workbench-facing integration contract. */
-export interface ChatPanelProps {
+export interface ChatPanelProps extends MessagePreparation {
   clientContext: ClientContext
   sessionId: string
   compact?: boolean
@@ -136,6 +158,9 @@ export interface ChatPanelProps {
 
 /** Workbench adapter: pass the browser plugin Context and judgement Session id. */
 export function ChatPanel({
+  initialDraft,
+  prepareMessage,
+  onMessageSent,
   clientContext,
   sessionId,
   compact = false,
@@ -155,6 +180,9 @@ export function ChatPanel({
       compact={compact}
       variant={variant}
       hideHeader={hideHeader}
+      {...initialDraft === undefined ? {} : { initialDraft }}
+      {...prepareMessage === undefined ? {} : { prepareMessage }}
+      {...onMessageSent === undefined ? {} : { onMessageSent }}
       {...readOnlyReason === undefined ? {} : { readOnlyReason }}
       {...title === undefined ? {} : { title }}
       {...intro === undefined ? {} : { intro }}
@@ -164,7 +192,7 @@ export function ChatPanel({
   )
 }
 
-export interface DshChatPanelProps {
+export interface DshChatPanelProps extends MessagePreparation {
   /** DSH browser runtime's `ctx.sessions` service. */
   sessions: ChatSessions
   /** Persistent Session id associated with a judgement/report. */
@@ -200,6 +228,9 @@ export function DshChatPanel(props: DshChatPanelProps) {
  * It imports no DSH Chat renderer, primitive component, Tailwind, or shadcn code.
  */
 function DshChatPanelInstance({
+  initialDraft,
+  prepareMessage,
+  onMessageSent,
   sessions,
   sessionId,
   title,
@@ -213,7 +244,7 @@ function DshChatPanelInstance({
   onClose,
 }: DshChatPanelProps) {
   const state = useDshChatSession({ sessions, sessionId })
-  const copy = variant === 'open-chat' ? OPEN_CHAT_COPY : JUDGEMENT_COPY
+  const copy = variant === 'screener' ? SCREENER_COPY : variant === 'research' ? RESEARCH_COPY : variant === 'open-chat' ? OPEN_CHAT_COPY : JUDGEMENT_COPY
   const rootClassName = [css.panel, compact ? css.compact : '', className ?? '']
     .filter(Boolean)
     .join(' ')
@@ -259,6 +290,9 @@ function DshChatPanelInstance({
           actions={state.actions}
           actionError={state.actionError}
           clearActionError={state.clearActionError}
+          {...initialDraft === undefined ? {} : { initialDraft }}
+          {...prepareMessage === undefined ? {} : { prepareMessage }}
+          {...onMessageSent === undefined ? {} : { onMessageSent }}
           intro={intro}
           {...readOnlyReason === undefined ? {} : { readOnlyReason }}
         />
@@ -285,7 +319,7 @@ function EmptyState({
   )
 }
 
-interface SessionViewProps {
+interface SessionViewProps extends MessagePreparation {
   session: SessionFace
   actions: ChatSessionActions
   actionError: Error | null
@@ -295,6 +329,9 @@ interface SessionViewProps {
 }
 
 const SessionView = memo(function SessionView({
+  initialDraft,
+  prepareMessage,
+  onMessageSent,
   session,
   actions,
   actionError,
@@ -443,7 +480,7 @@ const SessionView = memo(function SessionView({
         )}
         {readOnlyReason !== null
           ? <div className={css.readOnlyNotice}>{readOnlyReason}</div>
-          : <Composer actions={actions} running={running} canSteer={subagent === null} />}
+          : <Composer {...initialDraft === undefined ? {} : { initialDraft }} actions={actions} running={running} canSteer={subagent === null} {...prepareMessage === undefined ? {} : { prepareMessage }} {...onMessageSent === undefined ? {} : { onMessageSent }} />}
       </div>
     </div>
   )
@@ -1149,6 +1186,9 @@ function QuestionCard({ wait }: { wait: QuestionWait }) {
 }
 
 function Composer({
+  initialDraft,
+  prepareMessage,
+  onMessageSent,
   actions,
   running,
   canSteer,
@@ -1156,9 +1196,9 @@ function Composer({
   actions: ChatSessionActions
   running: boolean
   canSteer: boolean
-}) {
+} & MessagePreparation) {
   const copy = useChatCopy()
-  const [draft, setDraft] = useState('')
+  const [draft, setDraft] = useState(initialDraft ?? '')
   const [mode, setMode] = useState<'queue' | 'steer'>('queue')
   const [busy, setBusy] = useState(false)
   const [stopping, setStopping] = useState(false)
@@ -1181,13 +1221,16 @@ function Composer({
     setError(null)
     setDraft('')
     try {
-      await actions.send(text, canSteer ? mode : 'queue')
+      const content = prepareMessage === undefined ? undefined : await prepareMessage(text)
+      await actions.send(text, canSteer ? mode : 'queue', content)
     } catch (cause) {
       setDraft(current => current === '' ? text : current)
       setError(toError(cause).message)
+      return
     } finally {
       setBusy(false)
     }
+    onMessageSent?.(text)
   }
 
   const submit = (event: FormEvent) => {

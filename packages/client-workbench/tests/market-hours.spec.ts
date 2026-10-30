@@ -1,7 +1,18 @@
-import { describe, expect, it } from 'vitest'
-import { isMarketOpen } from '../src/market-hours.ts'
+import { describe, expect, it, vi } from 'vitest'
+import { isMarketOpen, isMarketResting } from '../src/market-hours.ts'
 
 describe('isMarketOpen', () => {
+  it('uses resting cache through lunch and resumes at 13:00', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-10-30T11:29:00+08:00'))
+      expect(isMarketResting()).toBe(false)
+      vi.setSystemTime(new Date('2026-10-30T11:30:00+08:00'))
+      expect(isMarketResting()).toBe(true)
+      vi.setSystemTime(new Date('2026-10-30T13:00:00+08:00'))
+      expect(isMarketResting()).toBe(false)
+    } finally { vi.useRealTimers() }
+  })
   it('treats Beijing trading hours on a weekday as open', () => {
     // 2026-10-23 周五；UTC 时刻对应北京时间 = UTC + 8。
     expect(isMarketOpen(new Date('2026-10-23T01:25:00Z'))).toBe(true) // 09:25

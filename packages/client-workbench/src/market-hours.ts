@@ -6,13 +6,7 @@ import { useEffect, useState } from 'react'
  * 收盘后即视为闭市，前端轮询据此停发行情请求。
  * 用 UTC 分量显式换算，不依赖宿主机时区设置。
  */
-export function isMarketOpen(now: Date = new Date()): boolean {
-  const bj = new Date(now.getTime() + 8 * 3_600_000)
-  const day = bj.getUTCDay()
-  if (day === 0 || day === 6) return false
-  const minutes = bj.getUTCHours() * 60 + bj.getUTCMinutes()
-  return minutes >= 9 * 60 + 25 && minutes <= 15 * 60 + 5
-}
+export { isMarketOpen, isMarketResting } from '../../contracts/src/market-hours.ts'
 
 /**
  * 手动刷新冷却：触发后 `seconds` 秒内 canRefresh 为 false。

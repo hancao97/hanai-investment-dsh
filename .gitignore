@@ -10,3 +10,6 @@ __pycache__/
 .env.*
 !.env.example
 .idea
+.planning
+.playwright-mcp
+.codex

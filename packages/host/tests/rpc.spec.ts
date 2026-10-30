@@ -1,7 +1,54 @@
 import { describe, expect, it } from 'vitest'
 import { parseHanaiRequest } from '../src/rpc.ts'
+import { DEFAULT_SCAN_QUERY } from '../../contracts/src/market-scan.ts'
 
 describe('Hanai RPC request validation', () => {
+  it('bounds financial scanning without accepting arbitrary source URLs or unsupported upper bounds', () => {
+    expect(parseHanaiRequest('market.scan.query', { query: DEFAULT_SCAN_QUERY })).toEqual({ query: DEFAULT_SCAN_QUERY })
+    for (const payload of [{ query: { ...DEFAULT_SCAN_QUERY, ranges: { grossMargin: { max: 20 } } } }, { query: { ...DEFAULT_SCAN_QUERY, page: 0 } }, { query: DEFAULT_SCAN_QUERY, url: 'https://example.com' }, { query: DEFAULT_SCAN_QUERY, date: '2026-02-30' }, { query: { ...DEFAULT_SCAN_QUERY, ranges: { pe: { min: 30, max: 10 } } } }]) expect(() => parseHanaiRequest('market.scan.query', payload)).toThrow()
+  })
+  it('accepts only bounded screening questions and scoped identifiers', () => {
+    expect(parseHanaiRequest('screener.create', { openingMessage: ' 银行股 ' })).toEqual({ openingMessage: '银行股' })
+    expect(() => parseHanaiRequest('screener.create', { masterId: 'some-master' })).toThrow()
+    expect(() => parseHanaiRequest('screener.create', { openingMessage: 'a'.repeat(4001) })).toThrow()
+    expect(() => parseHanaiRequest('screener.remove', { id: '../chat' })).toThrow()
+    expect(() => parseHanaiRequest('screener.list', { url: 'https://example.com' })).toThrow()
+    expect(() => parseHanaiRequest('screener.rename', { id: 'chat', title: '' })).toThrow()
+  })
+  it('bounds research requests and keeps their conversation scope separate', () => {
+    expect(parseHanaiRequest('research-chat.create', { openingMessage: ' 研究现金流 ' })).toEqual({ openingMessage: '研究现金流' })
+    expect(parseHanaiRequest('research-chat.upload', { id: 'chat-1', name: '报告.txt', data: 'YWJj' })).toEqual({ id: 'chat-1', name: '报告.txt', data: 'YWJj' })
+    expect(() => parseHanaiRequest('research-chat.create', { masterId: 'some-master' })).toThrow()
+    expect(() => parseHanaiRequest('research-chat.remove', { id: '../chat-1' })).toThrow()
+    expect(() => parseHanaiRequest('research-chat.upload', { id: 'chat-1', name: '报告.txt', data: 'a'.repeat(6990509) })).toThrow()
+    expect(() => parseHanaiRequest('research-chat.rename', { id: 'chat-1', title: ' ' })).toThrow()
+  })
+  it('accepts only registered economic topics and bounded calendar ranges', () => {
+    const range = { from: '2020-01-01', to: '2025-01-01' }
+    expect(parseHanaiRequest('market.macro.indicators', { topic: 'credit', range, refresh: true })).toEqual({ topic: 'credit', range, refresh: true })
+    for (const payload of [{ topic: 'unknown', range }, { topic: 'prices', range, url: 'https://example.com' }, { topic: 'activity', range: { from: '2010-01-01', to: '2025-01-01' } }, { topic: 'credit', range: { from: '2025-02-30', to: '2025-03-01' } }]) expect(() => parseHanaiRequest('market.macro.indicators', payload)).toThrow()
+  })
+  it('limits market activity to fixed public index and news requests', () => {
+    for (const endpoint of ['market.intraday', 'market.signals'] as const) {
+      expect(parseHanaiRequest(endpoint, {})).toEqual({})
+      expect(() => parseHanaiRequest(endpoint, { date: '2026-10-26' })).toThrow()
+      expect(() => parseHanaiRequest(endpoint, { url: 'https://example.com' })).toThrow()
+    }
+  })
+  it('accepts only a fixed global index batch, never arbitrary symbols or URLs', () => {
+    expect(parseHanaiRequest('market.indices', {})).toEqual({})
+    expect(() => parseHanaiRequest('market.indices', { url: 'https://example.com' })).toThrow()
+    expect(() => parseHanaiRequest('market.indices', { symbols: ['hf_GC'] })).toThrow()
+  })
+  it('accepts local market history reads only with real calendar dates', () => {
+    expect(parseHanaiRequest('market.history.list', {})).toEqual({})
+    expect(parseHanaiRequest('market.history.get', { date: '2024-02-29' })).toEqual({ date: '2024-02-29' })
+    for (const date of ['2026-02-29', '2026-02-30', '2026-13-01', '../2026-10-26', '20261026']) {
+      expect(() => parseHanaiRequest('market.history.get', { date })).toThrow()
+    }
+    expect(() => parseHanaiRequest('market.history.list', { url: 'https://example.com' })).toThrow()
+    expect(() => parseHanaiRequest('market.history.get', { date: '2026-10-26', refresh: true })).toThrow()
+  })
   it('accepts an independent breadth request and rejects arbitrary parameters', () => {
     expect(parseHanaiRequest('market.breadth', {})).toEqual({})
     expect(() => parseHanaiRequest('market.breadth', { url: 'https://example.com' })).toThrow()

@@ -19,10 +19,13 @@ function loadEChartsRuntime(): Promise<EChartsRuntime> {
     import('echarts/charts'),
     import('echarts/components'),
     import('echarts/renderers'),
-  ]).then(([echarts, charts, components, renderers]) => {
+    import('echarts/features'),
+  ]).then(([echarts, charts, components, renderers, features]) => {
     echarts.use([
       charts.TreemapChart,
       charts.LineChart,
+      charts.ScatterChart,
+      features.LabelLayout,
       charts.BarChart,
       charts.CandlestickChart,
       charts.RadarChart,
@@ -42,6 +45,8 @@ function loadEChartsRuntime(): Promise<EChartsRuntime> {
 
 export interface EChartProps {
   option: EChartsCoreOption | null
+  /** Opt in to coalesced series/axis updates; change this key when date or chart structure changes. */
+  mergeKey?: string
   className?: string
   style?: CSSProperties
   ariaLabel?: string
@@ -54,6 +59,7 @@ export interface EChartProps {
 /** A lifecycle-safe, tree-shaken ECharts canvas for the workbench. */
 export function EChart({
   option,
+  mergeKey,
   className,
   style,
   ariaLabel = '数据图表',
@@ -68,10 +74,13 @@ export function EChart({
   const dataZoomHandlerRef = useRef(onDataZoom)
   const axisPointerHandlerRef = useRef(onAxisPointerUpdate)
   const optionRef = useRef(option)
+  const mergeKeyRef = useRef(mergeKey)
+  const appliedMergeKey = useRef<string | undefined>(undefined)
   clickHandlerRef.current = onChartClick
   dataZoomHandlerRef.current = onDataZoom
   axisPointerHandlerRef.current = onAxisPointerUpdate
   optionRef.current = option
+  mergeKeyRef.current = mergeKey
 
   useEffect(() => {
     const element = elementRef.current
@@ -86,6 +95,7 @@ export function EChart({
       const currentOption = optionRef.current
       if (currentOption) chart.setOption(currentOption, { notMerge: true })
       else chart.clear()
+      appliedMergeKey.current = currentOption ? mergeKeyRef.current : undefined
       const handleChartClick = (params: unknown) => clickHandlerRef.current?.(params)
       const handleDataZoom = (params: unknown) => dataZoomHandlerRef.current?.(params)
       const handleAxisPointerUpdate = (params: unknown) => axisPointerHandlerRef.current?.(params)
@@ -137,9 +147,18 @@ export function EChart({
   useEffect(() => {
     const chart = chartRef.current
     if (!chart) return
-    if (option) chart.setOption(option, { notMerge: true })
-    else chart.clear()
-  }, [option])
+    if (!option) {
+      chart.clear()
+      appliedMergeKey.current = undefined
+    } else if (mergeKey === undefined || mergeKey !== appliedMergeKey.current) {
+      chart.setOption(option, { notMerge: true })
+      appliedMergeKey.current = mergeKey
+    } else {
+      // Keep user zoom/legend state and coalesce nearby trend/news responses into one paint.
+      const timer = window.setTimeout(() => chart.setOption({ xAxis: option.xAxis, series: option.series, tooltip: option.tooltip }, { replaceMerge: ['series'], lazyUpdate: true }), 80)
+      return () => window.clearTimeout(timer)
+    }
+  }, [option, mergeKey])
 
   return (
     <div

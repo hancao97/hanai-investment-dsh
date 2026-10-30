@@ -4,7 +4,7 @@ import { dateTime } from './format.ts'
 import styles from './styles.module.css'
 
 const CACHE_LABELS = { fresh: '最近返回数据', cached: '本地缓存', stale: '旧快照 / 延迟数据', unavailable: '本次不可用' }
-const SCOPE_LABELS = { market: '行情', security: '主数据', valuation: '估值', breadth: '市场宽度' }
+const SCOPE_LABELS = { market: '行情', security: '主数据', valuation: '估值', breadth: '市场宽度', indices: '海外指数' }
 
 function SnapshotSource({ label, sources }: { label: string; sources: ProviderMeta[] }) {
   const names = [...new Set(sources.filter(meta => meta.cacheState !== 'unavailable').map(meta => meta.sourceName))]

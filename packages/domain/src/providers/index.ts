@@ -1,3 +1,11 @@
+import { MarketLadderProvider } from './market-ladder.ts'
+import type { MacroRange } from '../../../contracts/src/macro-range.ts'
+import type { MacroIndicatorId } from '../../../contracts/src/macro-indicators.ts'
+import { MacroIndicatorProvider } from './macro-indicators.ts'
+import { fetchArms } from './market-arms.ts'
+import { fetchDistribution } from './market-distribution.ts'
+import type { MarketDistributionData } from '../../../contracts/src/market-distribution.ts'
+import type { MarketArmsData } from '../../../contracts/src/market-arms.ts'
 import type {
   DashboardData,
   KLinePeriod,
@@ -29,6 +37,19 @@ import { EastmoneyFinancialProvider } from './financials.ts'
 import { ProviderCache } from './cache.ts'
 import { leguBreadth, type BreadthSnapshot } from './market-breadth.ts'
 import { SourceCircuit, type SourceCircuitOptions, type SourceId } from './source-circuit.ts'
+import { DOMESTIC_INDICES } from '../../../contracts/src/market-indices.ts'
+import { GlobalIndexProvider } from './global-indices.ts'
+import { MarketMacroInputs } from './market-macro-inputs.ts'
+import { MarketMacroAllDailyProvider } from './market-macro-all-daily.ts'
+import { MarketMacroAllProvider } from './market-macro-all.ts'
+import { MarketMacroCapitalProvider } from './market-macro-capital.ts'
+import { MarketMacroCapitalReferenceProvider } from './market-macro-capital-reference.ts'
+import { MarketMacroDailyProvider } from './market-macro-daily.ts'
+import type { MacroAllDailyData, MacroEtfInputs, MacroCapitalData, MacroDailyEtfData } from '../../../contracts/src/market-macro.ts'
+import { MarketMacroProvider } from './market-macro.ts'
+import { MarketActivityProvider } from './market-activity.ts'
+import { MarketScanProvider } from './market-scan.ts'
+import type { MarketScanQuery } from '../../../contracts/src/market-scan.ts'
 
 export { EastmoneyProvider, type EastmoneyProviderOptions } from './eastmoney.ts'
 export {
@@ -74,6 +95,19 @@ async function optional<T>(promise: Promise<T>): Promise<T | null> {
 
 /** Facade consumed by the Host; all external transport and time are injectable for deterministic tests. */
 export class MarketDataService {
+  private readonly scan: MarketScanProvider
+  getMarketScan(query: MarketScanQuery, refresh = false) { return this.scan.get(query, refresh) }
+  private readonly macroIndicators: MacroIndicatorProvider
+  getMacroIndicator(id: MacroIndicatorId, range: MacroRange, signal?: AbortSignal) { return this.macroIndicators.get(id, range, signal) }
+  readonly macroInputs: MarketMacroInputs
+  readonly macroAllDaily: MarketMacroAllDailyProvider
+  readonly macroAll: MarketMacroAllProvider
+  readonly macroCapital: MarketMacroCapitalProvider
+  readonly macroDaily: MarketMacroDailyProvider
+  readonly macro: MarketMacroProvider
+  readonly activity: MarketActivityProvider
+  readonly ladder: MarketLadderProvider
+  readonly globalIndices: GlobalIndexProvider
   readonly eastmoney: EastmoneyProvider
   readonly tencent: TencentProvider
   readonly gurufocus: GuruFocusProvider
@@ -83,21 +117,41 @@ export class MarketDataService {
   private readonly circuit: SourceCircuit
   private readonly securitiesCircuit: SourceCircuit
   private readonly breadthCache: ProviderCache<BreadthSnapshot>
+  private readonly armsCache: ProviderCache<MarketArmsData>
+  private readonly distributionCache: ProviderCache<MarketDistributionData>
   private readonly http: HttpClient
   private readonly breadthTimeoutMs: number
 
   constructor(options: MarketDataServiceOptions = {}) {
     const http = options.http ?? new NodeFetchHttpClient()
     this.http = http
+    this.ladder = new MarketLadderProvider(http, options.clock ?? systemClock, Math.min(options.timeoutMs ?? 5000, 5000), secIds => this.getQuotes(secIds))
+    this.globalIndices = new GlobalIndexProvider(http, options.clock ?? systemClock, Math.min(options.timeoutMs ?? 5000, 5000), options.circuit)
     this.breadthTimeoutMs = options.timeoutMs ?? 10_000
     this.clock = options.clock ?? systemClock
     this.circuit = new SourceCircuit({ ...options.circuit, clock: this.clock })
+    this.scan = new MarketScanProvider(http, this.clock, this.circuit)
+    this.macroInputs = new MarketMacroInputs(http, this.clock, this.circuit)
+    this.macroIndicators = new MacroIndicatorProvider(http, this.clock, this.circuit)
+    this.macroAll = new MarketMacroAllProvider(http, this.clock, this.circuit)
+    this.macroCapital = new MarketMacroCapitalProvider(http, this.clock, this.circuit, new MarketMacroCapitalReferenceProvider(http, this.clock, this.circuit, range => this.macro.getIndex(range)))
+    this.macroDaily = new MarketMacroDailyProvider(http, this.clock, this.circuit, range => this.macro.getIndex(range), this.macroInputs)
+    this.macroAllDaily = new MarketMacroAllDailyProvider(http, this.clock, this.circuit, this.macroAll, this.macroInputs, range => this.macro.getIndex(range))
+    this.macro = new MarketMacroProvider(http, this.clock, this.circuit, before => this.getKline('1.000300', 'daily', before))
+    this.activity = new MarketActivityProvider(http, this.clock, this.circuit, () => this.getTrend('1.000001'))
     this.breadthCache = new ProviderCache(this.clock, () => {
       const beijing = new Date(this.clock.now() + 8 * 3_600_000)
       const minutes = beijing.getUTCHours() * 60 + beijing.getUTCMinutes()
       const open = beijing.getUTCDay() > 0 && beijing.getUTCDay() < 6 && minutes >= 565 && minutes <= 905
       return open ? 25_000 : 6 * 60 * 60_000
     })
+    const domesticTtl = () => {
+      const bj = new Date(this.clock.now() + 8 * 3_600_000)
+      const minutes = bj.getUTCHours() * 60 + bj.getUTCMinutes()
+      return bj.getUTCDay() > 0 && bj.getUTCDay() < 6 && minutes >= 565 && minutes <= 905 ? 25_000 : 6 * 3_600_000
+    }
+    this.armsCache = new ProviderCache(this.clock, domesticTtl)
+    this.distributionCache = new ProviderCache(this.clock, domesticTtl)
     // 行情成功不能重置主数据列表的失败次数。
     this.securitiesCircuit = new SourceCircuit({ ...options.circuit, clock: this.clock })
     this.tencent = new TencentProvider(http, this.clock, options.timeoutMs ?? 10_000)
@@ -143,13 +197,35 @@ export class MarketDataService {
       ['gurufocus', '价值大师网', 'valuation'],
       ['sina', '新浪', 'security'], ['eastmoney-push2', '东方财富', 'security'],
       ['legu', '乐咕乐股（AKShare 同源）', 'breadth'],
+      ['88ai-arms', '88AI投（成交额版阿姆氏指标）', 'breadth'],
+      ['88ai-scan', '88AI投（公开财务扫描汇总）', 'market'],
+      ['sina', '新浪涨跌分布', 'breadth'],
+      ['tencent', '腾讯涨跌分布', 'breadth'],
+      ['eastmoney-push2', '东方财富涨跌分布（兜底）', 'breadth'],
+      ['sse-etf', '上交所ETF日份额', 'market'],
+      ['szse-etf', '深交所ETF日份额', 'market'],
+      ['eastmoney-fund', '东方财富基金规模', 'market'],
+      ['eastmoney-macro', '东方财富宏观经济与国债', 'market'],
+      ['mofcom-macro', '商务部社融（原始来源：人民银行）', 'market'],
+      ['ths-news', '同花顺板块异动快讯', 'market'],
       ['eastmoney-push2ex', '东方财富 push2ex（兜底）', 'breadth'],
     ] as const
-    return sources.map(([source, sourceName, scope]) => ({
+    return [...sources.map(([source, sourceName, scope]) => ({
       source, sourceName, scope,
       ...(scope === 'security' ? this.securitiesCircuit : this.circuit).snapshot(source),
-    }))
+    })), ...(['ths-limit-reason', 'ths-limit-previous', 'ths-hot-reason', 'eastmoney-limit-up', 'eastmoney-limit-previous', 'eastmoney-limit-broken'] as const).map(source => ({ source, sourceName: `${source}（涨停梯队）`, scope: 'market' as const, ...this.ladder.circuit.snapshot(source) })), ...(['tencent', 'sina', 'eastmoney-push2'] as const).map(source => ({ source, sourceName: `${source}（海外指数）`, scope: 'indices' as const, ...this.globalIndices.circuit.snapshot(source) }))]
   }
+
+  getMacroAllEtfs(range?: MacroRange) { return this.macroAll.get(range) }
+  getMacroCapital(previous: MacroCapitalData | null, retryMissing = false, range?: MacroRange) { return this.macroCapital.get(previous, retryMissing, range) }
+  getMacroInputs() { return this.macroInputs.snapshot() }
+  getMacroAllDaily(previous: MacroAllDailyData | null, inputs: MacroEtfInputs | null, retryMissing = false, range?: MacroRange) { return this.macroAllDaily.get(previous, inputs, retryMissing, range) }
+  getMacroDaily(previous: MacroDailyEtfData | null, inputs: MacroEtfInputs | null = null, range?: MacroRange) { return this.macroDaily.get(previous, inputs, range) }
+  getMacroEtfs(range?: MacroRange) { return this.macro.getEtfs(range) }
+  getMacroIndex(range?: MacroRange) { return this.macro.getIndex(range) }
+  getGlobalIndices(cacheOnly = false) { return this.globalIndices.get(cacheOnly) }
+  getMarketIntraday() { return this.activity.getIntraday() }
+  getMarketSignals() { return this.activity.getSignals() }
 
   getMarketBreadth(): Promise<BreadthSnapshot | null> {
     return this.breadthCache.get('market', async () => {
@@ -161,8 +237,29 @@ export class MarketDataService {
     })
   }
 
+  getMarketLadder(date?: string) { return this.ladder.get(date) }
+
+  getMarketDistribution(): Promise<MarketDistributionData | null> {
+    return this.distributionCache.get('market', async () => {
+      const result = await this.circuit.first([
+        { source: 'tencent', run: () => fetchDistribution(this.http, this.clock, 'tencent', this.breadthTimeoutMs) },
+        { source: 'sina', run: () => fetchDistribution(this.http, this.clock, 'sina', this.breadthTimeoutMs) },
+        { source: 'eastmoney-push2', run: () => fetchDistribution(this.http, this.clock, 'eastmoney', this.breadthTimeoutMs) },
+      ])
+      if (result === null) throw new Error('涨跌分布来源均不可用')
+      return result
+    })
+  }
+
+  getMarketArms(): Promise<MarketArmsData | null> {
+    return this.armsCache.get('market', async () => {
+      const result = await this.circuit.run('88ai-arms', () => fetchArms(this.http, this.clock, 'intraday'))
+      return { point: result.points.at(-1)!, meta: result.meta }
+    })
+  }
+
   private async getMarketOverview(): Promise<MarketOverview> {
-    const ids = ['1.000001', '0.399001', '0.399006', '1.000300', '1.000688', '0.899050']
+    const ids = DOMESTIC_INDICES.map(item => item.secId)
     const result = await this.getQuotes(ids)
     const byId = new Map(result.quotes.map(quote => [quote.secId, quote]))
     const indices = ids.flatMap(id => {
@@ -345,7 +442,7 @@ export class MarketDataService {
   }
 
   clearMarketCache(): number {
-    return this.eastmoney.clearQuoteCache() + this.breadthCache.clear() + this.tencent.clearQuoteMetrics() + this.sina.clearCache() + this.financials.clearCache()
+    return this.scan.clear() + this.ladder.clear() + this.eastmoney.clearQuoteCache() + this.breadthCache.clear() + this.armsCache.clear() + this.distributionCache.clear() + this.tencent.clearQuoteMetrics() + this.sina.clearCache() + this.financials.clearCache() + this.globalIndices.clear() + this.activity.clear() + this.macro.clear() + this.macroDaily.clear() + this.macroCapital.clear() + this.macroAll.clear()
   }
 
   async syncSecurities(

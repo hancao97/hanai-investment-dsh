@@ -13,6 +13,7 @@ import type {
 import { fetchJson, isoNow, systemClock, type Clock, type HttpClient } from '../http.ts'
 import { TencentProvider } from './tencent.ts'
 import { eastmoneyBreadth, type BreadthSnapshot } from './market-breadth.ts'
+import { isMarketDate } from '../../../contracts/src/market-history.ts'
 
 const HEADERS = { Referer: 'https://quote.eastmoney.com/' }
 const STOCK_FIELDS = 'f2,f3,f4,f5,f6,f8,f9,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23'
@@ -715,12 +716,17 @@ export class EastmoneyProvider {
       fields2: 'f51,f53,f56,f58',
     }).catch(() => null)
     const rawLines = Array.isArray(response?.value.trends) ? response.value.trends : []
+    let sourceTimestamp: string | null = null
     const points: TrendPoint[] = rawLines.flatMap(rawLine => {
       if (typeof rawLine !== 'string') return []
       const [rawTime, rawPrice, rawVolume, rawAveragePrice] = rawLine.split(',')
       const price = finiteNumberString(rawPrice)
       const volume = finiteNumberString(rawVolume)
       if (rawTime === undefined || price === null || volume === null) return []
+      const [date, time] = rawTime.split(' ')
+      if (isMarketDate(date ?? '') && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time ?? '')) {
+        sourceTimestamp = new Date(`${date}T${time}:00+08:00`).toISOString()
+      }
       return [{
         time: rawTime.split(' ')[1] ?? rawTime,
         price,
@@ -732,7 +738,7 @@ export class EastmoneyProvider {
       return {
         points,
         prevClose: finiteNumber(response.value.preClose),
-        meta: this.meta(response.source),
+        meta: { ...this.meta(response.source), sourceTimestamp },
       }
     }
     const fallback = await this.tencent.getTrend(secId)

@@ -1,3 +1,4 @@
+import type { PromptContentPart } from '@deepseek-ai/dsh-api-session-controller/types'
 import {
   useCallback,
   useEffect,
@@ -27,7 +28,7 @@ export interface UseDshChatSessionOptions {
 }
 
 export interface ChatSessionActions {
-  send(text: string, mode: 'queue' | 'steer'): Promise<void>
+  send(text: string, mode: 'queue' | 'steer', content?: PromptContentPart[]): Promise<void>
   cancel(): Promise<void>
   loadOlder(): Promise<void>
   editQueue(item: QueuedMessage, text: string): Promise<void>
@@ -169,8 +170,8 @@ export function useDshChatSession({
   }, [])
 
   const actions = useMemo<ChatSessionActions | null>(() => session === null ? null : ({
-    send: (text, mode) => run(async () => {
-      const result = await session.prompt([{ type: 'text', text }], mode)
+    send: (text, mode, content) => run(async () => {
+      const result = await session.prompt(content ?? [{ type: 'text', text }], mode)
       assertAccepted('session.prompt', result)
     }),
     cancel: () => run(async () => {

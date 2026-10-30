@@ -1,4 +1,17 @@
+import type { ResearchAttachment } from './research-assistant.ts'
+import type { ScreeningRun } from './ai-screener.ts'
+import type { MarketScanQuery, MarketScanResult } from './market-scan.ts'
+import type { MarketLadderData } from './market-ladder.ts'
+import type { MacroRange } from './macro-range.ts'
+import type { MacroSeriesData } from './macro-series.ts'
+import type { EconomicTopic, MacroIndicatorQuery } from './macro-indicators.ts'
 /** JSON-safe contracts shared by the Hanai Host and browser client. */
+import type { MarketHistorySnapshot, MarketHistorySummary } from './market-history.ts'
+import type { MacroGenerationStatus, MacroAllDailyData, MacroAllEtfData, MacroCapitalData, MacroEtfData, MacroIndexData, MacroDailyEtfData } from './market-macro.ts'
+import type { GlobalIndicesData } from './market-indices.ts'
+import type { MarketIntradayData, MarketSignalsData } from './market-activity.ts'
+import type { MarketArmsData } from './market-arms.ts'
+import type { MarketDistributionData } from './market-distribution.ts'
 
 /** Conventional application appearance. Theme changes must not alter layout or product semantics. */
 export type ThemeId = 'light' | 'dark'
@@ -14,6 +27,7 @@ export interface ProviderMeta {
 }
 
 export interface IndexQuote {
+  meta?: ProviderMeta
   code: string
   name: string
   price: number | null
@@ -374,7 +388,7 @@ export interface DashboardData {
 export interface SourceDiagnostic {
   source: string
   sourceName: string
-  scope: 'market' | 'security' | 'valuation' | 'breadth'
+  scope: 'market' | 'security' | 'valuation' | 'breadth' | 'indices'
   lastAttemptAt: string | null
   lastSuccessAt: string | null
   lastError: string | null
@@ -452,7 +466,27 @@ export interface CreateExpertChatInput {
 export interface HanaiEndpointMap {
   'bootstrap': { request: Record<string, never>; response: BootstrapData }
   'dashboard.get': { request: { refresh?: boolean }; response: DashboardData }
+  'market.scan.query': { request: { query: MarketScanQuery; date?: string; refresh?: boolean }; response: MarketScanResult }
+  'market.scan.history': { request: { query: MarketScanQuery }; response: MarketHistorySummary[] }
   'market.breadth': { request: Record<string, never>; response: MarketBreadthData | null }
+  'market.arms': { request: Record<string, never>; response: MarketArmsData | null }
+  'market.ladder': { request: Record<string, never>; response: MarketLadderData | null }
+  'market.distribution': { request: Record<string, never>; response: MarketDistributionData | null }
+  'market.indices': { request: Record<string, never>; response: GlobalIndicesData }
+  'market.macro.query': { request: { range: MacroRange; refresh?: boolean }; response: { data: MacroSeriesData; task: MacroGenerationStatus; taskRange: MacroRange | null; activeRange: MacroRange | null; queued: MacroRange[] } }
+  'market.macro.indicators': { request: { topic: EconomicTopic; range: MacroRange; refresh?: boolean }; response: MacroIndicatorQuery }
+  'market.macro.generate': { request: Record<string, never>; response: MacroGenerationStatus }
+  'market.macro.generation': { request: Record<string, never>; response: MacroGenerationStatus }
+  'market.macro.allDaily': { request: { retryMissing?: boolean }; response: MacroAllDailyData | null }
+  'market.macro.all': { request: Record<string, never>; response: MacroAllEtfData | null }
+  'market.macro.capital': { request: { retryMissing?: boolean }; response: MacroCapitalData | null }
+  'market.macro.daily': { request: Record<string, never>; response: MacroDailyEtfData | null }
+  'market.macro.etf': { request: Record<string, never>; response: MacroEtfData | null }
+  'market.macro.index': { request: Record<string, never>; response: MacroIndexData | null }
+  'market.intraday': { request: Record<string, never>; response: MarketIntradayData | null }
+  'market.signals': { request: Record<string, never>; response: MarketSignalsData | null }
+  'market.history.list': { request: Record<string, never>; response: { snapshots: MarketHistorySummary[] } }
+  'market.history.get': { request: { date: string }; response: MarketHistorySnapshot | null }
   'sector.stocks': { request: { sectorCode: string }; response: { stocks: StockQuote[]; meta: ProviderMeta } }
   'security.sync': { request: { force?: boolean }; response: { count: number; updatedAt: string | null } }
   'security.search': { request: { query: string }; response: SearchResult[] }
@@ -482,6 +516,19 @@ export interface HanaiEndpointMap {
   'judgement.get': { request: { id: string }; response: JudgementDetail }
   'judgement.revise': { request: { id: string; instruction: string }; response: Judgement }
   'judgement.remove': { request: { id: string }; response: Judgement[] }
+  'research-chat.list': { request: Record<string, never>; response: ExpertChat[] }
+  'screener.list': { request: Record<string, never>; response: ExpertChat[] }
+  'screener.result': { request: { id: string }; response: ScreeningRun | null }
+  'screener.execute': { request: { id: string }; response: ScreeningRun }
+  'screener.create': { request: Omit<CreateExpertChatInput, 'masterId'>; response: ExpertChat }
+  'screener.get': { request: { id: string }; response: ExpertChat }
+  'screener.remove': { request: { id: string }; response: ExpertChat[] }
+  'screener.rename': { request: { id: string; title: string }; response: ExpertChat }
+  'research-chat.create': { request: Omit<CreateExpertChatInput, 'masterId'>; response: ExpertChat }
+  'research-chat.get': { request: { id: string }; response: ExpertChat }
+  'research-chat.remove': { request: { id: string }; response: ExpertChat[] }
+  'research-chat.rename': { request: { id: string; title: string }; response: ExpertChat }
+  'research-chat.upload': { request: { id: string; name: string; data: string }; response: ResearchAttachment }
   'expert-chat.list': { request: Record<string, never>; response: ExpertChat[] }
   'expert-chat.create': { request: CreateExpertChatInput; response: ExpertChat }
   'expert-chat.get': { request: { id: string }; response: ExpertChat }

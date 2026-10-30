@@ -17,6 +17,19 @@ const tencentQuotes = readFileSync(new URL('../fixtures/tencent-quotes.txt', imp
 const NOW = new Date('2026-08-15T10:00:00+08:00').getTime()
 
 describe('EastmoneyProvider', () => {
+  it('takes trend time from the last valid row instead of failing on trailing garbage', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-27T18:00:00+08:00'))
+    try {
+      const http = new HandlerHttpClient(() => jsonResponse({ data: { preClose: 3600, trends: [
+        '2026-10-27 15:00,3610,0,3605', '2026-10-27 15:01,-,100,3605', 'bad line',
+      ] } }))
+      const provider = new EastmoneyProvider(http, { clock: new FakeClock(Date.now()), minIntervalMs: 0 })
+      const result = await provider.getTrend('1.000001')
+      expect(result.points).toEqual([{ time: '15:00', price: 3610, avgPrice: 3605, volume: 0 }])
+      expect(result.meta.sourceTimestamp).toBe('2026-10-27T07:00:00.000Z')
+    } finally { vi.useRealTimers() }
+  })
   it('falls back to the delay cluster and preserves breadth and amount semantics', async () => {
     const clock = new FakeClock(NOW)
     const http = new HandlerHttpClient(url => {

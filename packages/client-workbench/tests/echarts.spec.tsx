@@ -41,7 +41,10 @@ vi.mock('echarts/charts', () => ({
   LineChart: {},
   RadarChart: {},
   TreemapChart: {},
+  ScatterChart: {},
 }))
+
+vi.mock('echarts/features', () => ({ LabelLayout: {} }))
 vi.mock('echarts/components', () => ({
   AxisPointerComponent: {},
   DataZoomComponent: {},
@@ -79,10 +82,63 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   vi.unstubAllGlobals()
 })
 
 describe('EChart', () => {
+  it('coalesces same-key streaming updates without overwriting zoom, and replaces on date changes', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-30T10:00:00+08:00'))
+    runtimeGate.release()
+    const option = (value: number) => ({ xAxis: { data: ['09:30'] }, dataZoom: [{ start: 0, end: 100 }], series: [{ id: 'price', type: 'line', data: [value] }, { id: 'signals', type: 'scatter', data: value === 3 ? [] : [[0, value]] }] })
+    const view = render(<EChart option={option(1)} mergeKey="2026-10-30" />)
+    await act(async () => {})
+    expect(echartsMock.chart.setOption).toHaveBeenCalledTimes(1)
+    view.rerender(<EChart option={option(2)} mergeKey="2026-10-30" />)
+    await act(async () => { await vi.advanceTimersByTimeAsync(40) })
+    view.rerender(<EChart option={option(3)} mergeKey="2026-10-30" />)
+    await act(async () => { await vi.advanceTimersByTimeAsync(80) })
+    expect(echartsMock.init).toHaveBeenCalledTimes(1)
+    expect(echartsMock.chart.setOption).toHaveBeenCalledTimes(2)
+    const [patch, settings] = echartsMock.chart.setOption.mock.calls.at(-1)!
+    expect(patch).not.toHaveProperty('dataZoom')
+    expect(patch.series[0].data).toEqual([3])
+    expect(patch.series[1].data).toEqual([])
+    expect(settings).toEqual({ replaceMerge: ['series'], lazyUpdate: true })
+    const nextDate = option(4)
+    view.rerender(<EChart option={nextDate} mergeKey="2026-11-02" />)
+    expect(echartsMock.chart.setOption).toHaveBeenLastCalledWith(nextDate, { notMerge: true })
+  })
+
+  it('cancels pending streaming updates on clearing and unmounting', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-30T10:00:00+08:00'))
+    runtimeGate.release()
+    const option = { series: [{ id: 'price', type: 'line', data: [1] }] }
+    const view = render(<EChart option={option} mergeKey="today" />)
+    await act(async () => {})
+    view.rerender(<EChart option={{ series: [] }} mergeKey="today" />)
+    view.rerender(<EChart option={null} mergeKey="today" />)
+    await act(async () => { await vi.advanceTimersByTimeAsync(100) })
+    expect(echartsMock.chart.setOption).toHaveBeenCalledTimes(1)
+    expect(echartsMock.chart.clear).toHaveBeenCalledTimes(1)
+    view.rerender(<EChart option={option} mergeKey="today" />)
+    view.rerender(<EChart option={{ series: [] }} mergeKey="today" />)
+    view.unmount()
+    await act(async () => { await vi.advanceTimersByTimeAsync(100) })
+    expect(echartsMock.chart.setOption).toHaveBeenCalledTimes(2)
+  })
+
+  it('fully initializes streaming charts when the first data arrives after an empty mount', async () => {
+    runtimeGate.release()
+    const view = render(<EChart option={null} mergeKey="today" />)
+    await act(async () => {})
+    const option = { xAxis: {}, yAxis: {}, series: [{ id: 'price', type: 'line', data: [1] }] }
+    view.rerender(<EChart option={option} mergeKey="today" />)
+    expect(echartsMock.chart.setOption).toHaveBeenLastCalledWith(option, { notMerge: true })
+  })
+
   it('loads only after mount, applies the latest option, and ignores an instance unmounted while loading', async () => {
     const first = { series: [{ type: 'line', data: [1] }] }
     const latest = { series: [{ type: 'line', data: [2] }] }
