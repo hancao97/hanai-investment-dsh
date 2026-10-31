@@ -72,6 +72,7 @@
     "test:coverage": "vitest run --coverage",
     "check": "pnpm run typecheck && pnpm run build && pnpm run test && pnpm run pack:check",
     "pack:check": "tsx scripts/verify-package.ts",
+    "pack:plugin": "pnpm run build && tsx scripts/pack.ts",
     "profile:install": "node lib/install-profile.js",
     "profile:verify": "node lib/verify-profile.js",
     "prepare": "pnpm run build"

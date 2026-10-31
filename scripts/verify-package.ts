@@ -189,6 +189,7 @@ export function verifyClientBundle(bundleFile: string): ClientHandoff {
 
 /** Verify the real npm allowlist, build outputs, source map, and data-root isolation. */
 export function verifyPackedArtifacts(packedFiles: readonly string[]): void {
+  verifyPublicationPaths(packedFiles)
   const packed = new Set(packedFiles)
   for (const required of REQUIRED_PACKED_FILES) {
     invariant(packed.has(required), `npm package is missing required artifact: ${required}`)
@@ -200,17 +201,6 @@ export function verifyPackedArtifacts(packedFiles: readonly string[]): void {
   }
 
   for (const file of packed) {
-    invariant(
-      file === 'package.json'
-        || file === 'README.md'
-        || file === 'LICENSE'
-        || file === 'THIRD_PARTY_NOTICES.md'
-        || file === 'cordis.patch.yml'
-        || file.startsWith('lib/')
-        || file.startsWith('packages/masters/assets/'),
-      `npm package contains a file outside the publication allowlist: ${file}`,
-    )
-    invariant(!file.split('/').includes('..'), `npm package contains an unsafe path: ${file}`)
     const absolute = resolve(PROJECT_ROOT, ...file.split('/'))
     invariant(existsSync(absolute), `npm dry-run reported a missing file: ${file}`)
     const source = readFileSync(absolute, 'utf8')
@@ -284,7 +274,7 @@ function walkFiles(root: string): string[] {
   return output.sort()
 }
 
-function npmDryRunFiles(): string[] {
+export function npmDryRunFiles(): string[] {
   const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
   const result = spawnSyncShell(npm, ['pack', '--dry-run', '--ignore-scripts', '--json', '--loglevel', 'notice'], {
     cwd: PROJECT_ROOT,
@@ -298,6 +288,22 @@ function npmDryRunFiles(): string[] {
   )
 
   return parseNpmPackFiles(String(result.stdout), String(result.stderr))
+}
+
+/** Reject development state even when nested inside an allowed output directory. */
+export function verifyPublicationPaths(files: readonly string[]): void {
+  for (const file of files) {
+    const parts = file.split('/')
+    invariant(!file.includes('\\') && !file.includes(':') && !parts.some(part => part === '' || part === '.' || part === '..'),
+      `npm package contains an unsafe path: ${file}`)
+    invariant(!parts.some(part => ['node_modules', '.pnpm', '.git', '.codex', '.planning', '.idea', '.vscode', 'coverage'].includes(part)
+      || /^\.env(?:\.|$)/.test(part)
+      || ['.npmrc', '.pnpmfile.cjs', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package-lock.json'].includes(part)),
+    `npm package contains development environment files: ${file}`)
+    invariant(['package.json', 'README.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'cordis.patch.yml'].includes(file)
+      || file.startsWith('lib/') || file.startsWith('packages/masters/assets/'),
+    `npm package contains a file outside the publication allowlist: ${file}`)
+  }
 }
 
 /** npm releases use an array or a package-name map; older ones print notices. */
