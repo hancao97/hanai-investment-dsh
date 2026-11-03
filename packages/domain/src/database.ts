@@ -2,7 +2,10 @@ import { chmodSync, existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite'
 import type {
-  ExpertChat, Judgement, ReportStatus, ReportVersion, SecurityMaster, ThemeId, TurnStatus, WatchGroup,
+  DashboardData, ExpertChat, Judgement, ReportStatus, ReportVersion, SecurityMaster, ThemeId, TurnStatus,
+  TradingDayAnalysisData, TradingDayContextData, TradingDayDragonTigerData, TradingDayLimitPoolsData,
+  TradingDaySnapshotPayload, TradingDaySnapshotRecord, TradingDaySnapshotSummary, TradingDayStatus,
+  TradingDayThemesData, WatchGroup,
 } from '../../contracts/src/index.ts'
 
 interface WatchGroupRow {
@@ -111,6 +114,22 @@ export interface ExpertChatUpdate {
   turnStatus?: TurnStatus
   errorCode?: string | null
   errorMessage?: string | null
+}
+
+interface TradingDaySnapshotRow {
+  trade_date: string
+  captured_at: string
+  status: TradingDayStatus
+  schema_version: number
+  payload: string
+}
+
+export interface UpsertTradingDaySnapshotInput {
+  tradeDate: string
+  capturedAt: string
+  status: TradingDayStatus
+  schemaVersion: number
+  payload: TradingDaySnapshotPayload
 }
 
 export interface SecuritySnapshotRow extends SecurityMaster {
@@ -223,6 +242,13 @@ export class HanaiDatabase {
         error_message TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_expert_chats_updated ON expert_chats(updated_at DESC);
+      CREATE TABLE IF NOT EXISTS trading_day_snapshots (
+        trade_date TEXT PRIMARY KEY,
+        captured_at TEXT NOT NULL,
+        status TEXT NOT NULL,
+        schema_version INTEGER NOT NULL,
+        payload TEXT NOT NULL
+      );
     `)
     const version = this.sqlite.prepare('SELECT MAX(version) AS value FROM schema_migrations').get() as
       | { value: number | null }
@@ -233,6 +259,10 @@ export class HanaiDatabase {
     }
     if ((version?.value ?? 0) < 2) {
       this.sqlite.prepare('INSERT INTO schema_migrations(version, applied_at) VALUES(2, ?)')
+        .run(new Date().toISOString())
+    }
+    if ((version?.value ?? 0) < 3) {
+      this.sqlite.prepare('INSERT INTO schema_migrations(version, applied_at) VALUES(3, ?)')
         .run(new Date().toISOString())
     }
     this.ensureDefaultWatchGroup()
@@ -678,6 +708,68 @@ export class HanaiDatabase {
     }))
   }
 
+  /** Insert or replace one trading-day snapshot, then retain the newest 90 trade dates. */
+  upsertTradingDaySnapshot(input: UpsertTradingDaySnapshotInput): TradingDaySnapshotRecord {
+    this.transaction(() => {
+      this.sqlite.prepare(`
+        INSERT INTO trading_day_snapshots(trade_date, captured_at, status, schema_version, payload)
+        VALUES(?, ?, ?, ?, ?)
+        ON CONFLICT(trade_date) DO UPDATE SET
+          captured_at = excluded.captured_at,
+          status = excluded.status,
+          schema_version = excluded.schema_version,
+          payload = excluded.payload
+      `).run(
+        input.tradeDate,
+        input.capturedAt,
+        input.status,
+        input.schemaVersion,
+        JSON.stringify(input.payload),
+      )
+      this.sqlite.prepare(`
+        DELETE FROM trading_day_snapshots WHERE trade_date NOT IN (
+          SELECT trade_date FROM trading_day_snapshots ORDER BY trade_date DESC LIMIT 90
+        )
+      `).run()
+    })
+    return {
+      tradeDate: input.tradeDate,
+      capturedAt: input.capturedAt,
+      status: input.status,
+      schemaVersion: input.schemaVersion,
+      payload: input.payload,
+    }
+  }
+
+  getTradingDaySnapshot(tradeDate: string): TradingDaySnapshotRecord | null {
+    const row = this.sqlite.prepare(`
+      SELECT trade_date, captured_at, status, schema_version, payload
+      FROM trading_day_snapshots WHERE trade_date = ?
+    `).get(tradeDate) as TradingDaySnapshotRow | undefined
+    if (row === undefined) return null
+    const payload = parseTradingDayPayload(row.payload)
+    if (payload === null) return null
+    return {
+      tradeDate: row.trade_date,
+      capturedAt: row.captured_at,
+      status: row.status,
+      schemaVersion: row.schema_version,
+      payload,
+    }
+  }
+
+  listTradingDaySnapshots(): TradingDaySnapshotSummary[] {
+    const rows = this.sqlite.prepare(`
+      SELECT trade_date, captured_at, status
+      FROM trading_day_snapshots ORDER BY trade_date DESC
+    `).all() as unknown as Array<Omit<TradingDaySnapshotRow, 'schema_version' | 'payload'>>
+    return rows.map(row => ({
+      tradeDate: row.trade_date,
+      capturedAt: row.captured_at,
+      status: row.status,
+    }))
+  }
+
   private transaction(fn: () => void): void {
     this.sqlite.exec('BEGIN IMMEDIATE')
     try {
@@ -737,5 +829,25 @@ function expertChatFromRow(row: ExpertChatRow): ExpertChat {
     updatedAt: row.updated_at,
     errorCode: row.error_code,
     errorMessage: row.error_message,
+  }
+}
+
+/** A corrupted snapshot payload is treated as absent rather than crashing the panel. */
+function parseTradingDayPayload(raw: string): TradingDaySnapshotPayload | null {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return null
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+  const payload = parsed as Record<string, unknown>
+  return {
+    context: (payload.context ?? null) as TradingDayContextData | null,
+    limitPools: (payload.limitPools ?? null) as TradingDayLimitPoolsData | null,
+    themes: (payload.themes ?? null) as TradingDayThemesData | null,
+    dragonTiger: (payload.dragonTiger ?? null) as TradingDayDragonTigerData | null,
+    analysis: (payload.analysis ?? null) as TradingDayAnalysisData | null,
+    dashboard: (payload.dashboard ?? null) as DashboardData | null,
   }
 }

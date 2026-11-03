@@ -40,6 +40,7 @@ const EXPECTED_FILES = [
 const EXPECTED_INJECT = [
   '@deepseek-ai/dsh-api-session-controller',
   '@deepseek-ai/dsh-api-remotes',
+  '@deepseek-ai/dsh-client-ui-slots',
   '@deepseek-ai/dsh-client-ui-layout',
   '@deepseek-ai/dsh-client-connection',
   '@deepseek-ai/dsh-client-ui-conversation',
@@ -286,10 +287,11 @@ function walkFiles(root: string): string[] {
 
 function npmDryRunFiles(): string[] {
   const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-  const result = spawnSync(npm, ['pack', '--dry-run', '--ignore-scripts', '--loglevel', 'notice'], {
+  const result = spawnSync(npm, ['pack', '--dry-run', '--json', '--ignore-scripts', '--loglevel', 'notice'], {
     cwd: PROJECT_ROOT,
     encoding: 'utf8',
     maxBuffer: 10 * 1024 * 1024,
+    shell: process.platform === 'win32',
   })
   invariant(result.error === undefined, `failed to start npm pack --dry-run: ${result.error?.message ?? ''}`)
   invariant(
@@ -297,9 +299,15 @@ function npmDryRunFiles(): string[] {
     `npm pack --dry-run failed with status ${result.status ?? 'unknown'}\n${result.stderr.trim()}`,
   )
 
-  // npm 7's `pack --json` prints only the tarball name, while newer npm emits
-  // structured JSON. The notice-level Contents block is stable across both
-  // and preserves Unicode paths, so parse that actual packlist instead.
+  // npm 12 returns a JSON array describing the packlist. Older npm versions
+  // only print a notice-level Contents block, so keep that as a fallback.
+  const packed = parsePackJson(result.stdout)
+  if (packed !== null) {
+    invariant(packed.length > 0, 'npm pack --dry-run reported an empty package')
+    invariant(new Set(packed).size === packed.length, 'npm pack report contains duplicate file paths')
+    return packed.sort()
+  }
+
   const contentsStart = '=== Tarball Contents ==='
   const contentsEnd = '=== Tarball Details ==='
   const report = result.stderr.includes(contentsStart) ? result.stderr : result.stdout
@@ -314,6 +322,31 @@ function npmDryRunFiles(): string[] {
   invariant(paths.length > 0, 'npm pack --dry-run reported an empty package')
   invariant(new Set(paths).size === paths.length, 'npm pack report contains duplicate file paths')
   return paths.sort()
+}
+
+function parsePackJson(stdout: string): string[] | null {
+  const text = stdout.trim()
+  if (!text.startsWith('[') && !text.startsWith('{')) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return null
+  }
+  let record: unknown = Array.isArray(parsed) ? parsed[0] : parsed
+  if (record !== null && typeof record === 'object' && !Array.isArray(record) && !('files' in record)) {
+    // npm 12 keys the report by package name.
+    record = Object.values(record)[0]
+  }
+  if (record === null || typeof record !== 'object') return null
+  const files = (record as { files?: unknown }).files
+  if (!Array.isArray(files)) return null
+  return files.flatMap((item) => {
+    if (typeof item === 'string') return [item]
+    if (item === null || typeof item !== 'object') return []
+    const path = (item as { path?: unknown }).path
+    return typeof path === 'string' ? [path] : []
+  })
 }
 
 export function main(): void {

@@ -1,4 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
+import { join } from 'node:path'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import type {} from '@deepseek-ai/dsh-client-connection'
@@ -8,6 +9,8 @@ import { HanaiDatabase } from '../../domain/src/database.ts'
 import { resolveHanaiPaths, ensureHanaiLayout } from '../../domain/src/paths.ts'
 import { ReportStore } from '../../domain/src/reports.ts'
 import { ExpertChatStore } from '../../domain/src/expert-chats.ts'
+import { CircuitBreakingHttpClient, NodeFetchHttpClient } from '../../domain/src/http.ts'
+import { readHttpFixtureMode, withHttpFixtures } from '../../domain/src/http-cache.ts'
 import { MarketDataService } from '../../domain/src/providers/index.ts'
 import {
   resolveMasterAssetsRoot,
@@ -42,7 +45,15 @@ export function apply(ctx: Context, config: Config = {}): void {
   const database = new HanaiDatabase(paths.databasePath)
   const reports = new ReportStore(paths, assetsRoot, config.reportMinChars ?? 800)
   const expertChats = new ExpertChatStore(paths, assetsRoot)
+  const fixtureMode = readHttpFixtureMode(process.env.HANAI_DSH_HTTP)
+  const fixtureDir = process.env.HANAI_DSH_HTTP_FIXTURES?.trim() || join(paths.tmpDir, 'http-fixtures')
+  const baseHttp = new NodeFetchHttpClient()
+  // 回放模式不发任何网络请求，不需要熔断；录制与正常模式都挂熔断，避免限流时继续重试。
+  const http = fixtureMode === 'replay'
+    ? withHttpFixtures(baseHttp, { mode: fixtureMode, directory: fixtureDir })
+    : withHttpFixtures(new CircuitBreakingHttpClient(baseHttp), { mode: fixtureMode, directory: fixtureDir })
   const market = new MarketDataService({
+    http,
     valuationCacheDir: paths.valuationCacheDir,
     eastmoney: { timeoutMs: config.requestTimeoutMs ?? 12_000 },
     gurufocus: { timeoutMs: config.requestTimeoutMs ?? 12_000 },
@@ -55,6 +66,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     sessions: new DshSessionGateway(ctx),
     defaultModel: ctx.agentDefaultModel,
     market,
+    tradingDay: market,
     version: VERSION,
   })
 

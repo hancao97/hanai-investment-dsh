@@ -9,9 +9,9 @@
 
 Hanai Worth · 值见当前以兼容包名 `hanai-investment-dsh` 实现为一个树外 DeepSeek Harness Bundle。它复用 DSH 的模型、凭据、Agent、Session、会话历史、流式事件和 Web Client 插件机制；Hanai Worth 自己拥有股票、行情、估值、自选、大师研判、专家开放对谈、报告版本和聊天呈现等业务能力。
 
-新 UI 全部使用 React 重写，并保留旧版五页基线；2026-08-23 新增一级“专家对谈”，当前导航为“今日市场、自选与发现、大师研判、专家对谈、专家中心、设置与诊断”。个股、研判和对谈详情都是可直接访问的详情路由。`hanai-investment` Profile 启动后在 `shell.overlay` 中自动挂载全屏常驻的 Hanai 工作台；Workbench 自己同步 Hash 路由，因此无需 DSH 新增通用 Router Slot。Hanai 自己渲染消息时间线和 composer，所有轮次仍发送给绑定的 DSH Session。
+新 UI 全部使用 React 重写，并保留旧版五页基线；2026-08-23 新增一级“专家对谈”，当前导航为“今日市场、自选与发现、大师研判、专家对谈、专家中心、设置与诊断”。个股、研判和对谈详情都是可直接打开的页面。`hanai-investment` Profile 启动后先显示 DSH 原生对话页面；侧栏的“值见”入口注册在 `sidebar.panellist`，点击后在 `main` 面板中打开 Hanai 工作台，右上角“关闭”通过 `ctx.layout.selectPanel(null)` 返回对话。Workbench 的页面导航保存在组件状态中，不修改浏览器 URL。Hanai 自己渲染消息时间线和 composer，所有轮次仍发送给绑定的 DSH Session。
 
-该结构不向 Hanai 用户展示 DSH 原生聊天页面，但仍复用 DSH 的 Session 持久化、Agent、队列、取消、恢复和事件流。Hanai 只重写呈现和交互层，不实现第二套 Agent 运行时或聊天存储。
+Hanai 工作台不显示或复用 DSH 原生聊天渲染，但仍复用 DSH 的 Session 持久化、Agent、队列、取消、恢复和事件流。Hanai 只重写呈现和交互层，不实现第二套 Agent 运行时或聊天存储。
 
 ## 2. 目标与非目标
 
@@ -25,7 +25,7 @@ Hanai Worth · 值见当前以兼容包名 `hanai-investment-dsh` 实现为一�
 - 每份报告与一个持久 DSH Session 绑定，报告完成后可以和原大师持续对话。
 - 每次开放对谈与一个独立持久 DSH Session 和专家快照绑定，但不创建或封存 `REPORT.md`。
 - 正式报告通过校验、哈希和原子封存保持不可变；版本机制是内部实现边界，不作为新增的一级产品能力。
-- 通过 `location.hash` 提供旧路由语义对应的 deep-link、刷新恢复以及浏览器前进/后退。
+- 通过组件状态提供旧路由语义对应的页面导航，不读写 `location.hash` 或浏览器 URL。
 - 提供普通亮色和黑夜模式；主题切换只替换语义 token，不改变 DOM、尺寸、顺序、图表数据或业务色。
 - 新旧数据目录完全隔离，新版只初始化自己的空数据根。
 - 桌面和本地优先，不建设 Hanai 云端业务后端。
@@ -43,7 +43,7 @@ Hanai Worth · 值见当前以兼容包名 `hanai-investment-dsh` 实现为一�
 
 ```mermaid
 flowchart LR
-    User["用户"] --> Workbench["Hanai React 工作台\nshell.overlay"]
+    User["用户"] --> Workbench["Hanai React 工作台\nsidebar.panellist + main"]
     Workbench --> ReportView["Hanai 报告页面"]
     Workbench --> Chat["Hanai 聊天页面"]
 
@@ -129,35 +129,35 @@ DSH 当前没有发布稳定的树外 Client Plugin 构建 SDK。首版在本仓
 
 ### 6.1 入口和页面容器
 
-`client-workbench` 在 `shell.overlay` 注册 Hanai 工作台，并在插件激活后直接显示。生产配置中工作台没有“关闭并返回 DSH”动作；它是 `hanai-investment` Profile 唯一的产品界面。开发配置可以显式启用宿主调试出口，但默认关闭，且不得成为用户导航的一部分。
+`client-workbench` 在 DSH 的 `sidebar.panellist` 注册“值见”入口，并在 `main` 槽注册 Hanai 工作台面板；两者共享同一个 id/key `hanai-investment-workbench`。Profile 启动后仍显示 DSH 原生对话页面；点击侧栏入口时由 DSH 布局切换到 Hanai 面板，工作台右上角的“关闭”调用 `ctx.layout.selectPanel(null)` 返回对话。Hanai 不再占用 `shell.overlay`，也不会在启动后自动接管整个页面。
 
-`shell.overlay` 里的 “shell” 指 DSH 的页面框架，不是命令行 Shell。它是 `ui-layout` 在 Sidebar、Conversation 和 Details 之上声明的一个列表 Slot；Hanai 插件在这个最上层 Slot 中常驻渲染覆盖整个 Frame 的工作台。
+`sidebar.panellist` 是 `ui-sidebar` 声明的列表面板入口 Slot，`main` 是 `ui-layout` 声明的按 key 选择的主面板 Slot。工作台组件通过 portal 固定渲染到 `document.body`，因此在面板打开时覆盖整个 Frame：
 
 ```text
 DSH AppFrame
 ├── sidebar
-├── conversation
-├── details
-└── shell.overlay            # 最上层；Hanai Workbench 打开时占满 Frame
+│   └── sidebar.panellist           # “值见”入口；id 与 main key 相同
+└── main
+    └── hanai-investment-workbench  # Hanai Workbench；固定层覆盖 Frame
 ```
 
-它的交互效果是完整的全屏应用，不是新窗口或 iframe。工作台根元素负责恢复 pointer events、焦点管理、滚动管理和窄屏布局；生产模式下 Escape 不会退出到 DSH 原生聊天。若工作台启动失败，必须渲染 Hanai 自己的故障页和重试/诊断操作，不得把原生 DSH Conversation 当作降级界面。
+它的交互效果是完整的全屏应用，不是新窗口或 iframe。工作台根元素负责恢复 pointer events、焦点管理、滚动管理和窄屏布局。关闭按钮始终位于右上角，回到 DSH 原生对话；若工作台启动失败，故障页同样提供“关闭并返回”，避免把用户困在面板里。
 
-工作台是一个完整、常驻的 React Surface，内部导航状态与 `location.hash` 双向同步。空 Hash 默认进入 `#/dashboard`；刷新、直接访问、浏览器前进和后退均恢复同一页面。路由与旧版语义一一对应：
+工作台是一个完整的 React Surface，内部导航保存在组件状态中，不读写 `location.hash`，也不使用 `history.pushState`。打开、切换页面和关闭面板都不会改变浏览器 URL；每次打开默认进入“今日市场”。旧有路由语义对应如下内部键：
 
-| 页面 | Hash 路由 | 结构边界 |
+| 页面 | 内部路由键 | 结构边界 |
 | --- | --- | --- |
-| 今日市场 | `#/dashboard` | 六大指数 → 市场宽度 → 左侧板块热力图、右侧榜单 |
-| 自选与发现 | `#/watch` | 分组工具栏 → 原字段/排序语义的自选表格 |
-| 大师研判 | `#/judgements` | 股票/分析人筛选 → 三列研判卡片；详情为 `#/judgements/:id` |
-| 专家对谈 | `#/expert-chats` | 对谈记录 → 专家选择或开放聊天；详情为 `#/expert-chats/:id` |
-| 专家中心 | `#/personas` | 普通页头 → 两列专家信息卡 |
-| 设置与诊断 | `#/settings` | Agent、数据源、本地存储、关于声明；DSH 凭据嵌入此页 |
-| 个股详情 | `#/stock/:secId` | 行情与基本面左列、估值与价值曲线右列；不是一级导航 |
+| 今日市场 | `/dashboard` | 六大指数 → 市场宽度 → 左侧板块热力图、右侧榜单 |
+| 自选与发现 | `/watch` | 分组工具栏 → 原字段/排序语义的自选表格 |
+| 大师研判 | `/judgements` | 股票/分析人筛选 → 三列研判卡片；详情为 `/judgements/:id` |
+| 专家对谈 | `/expert-chats` | 对谈记录 → 专家选择或开放聊天；详情为 `/expert-chats/:id` |
+| 专家中心 | `/personas` | 普通页头 → 两列专家信息卡 |
+| 设置与诊断 | `/settings` | Agent、数据源、本地存储、关于声明；DSH 凭据嵌入此页 |
+| 个股详情 | `/stock/:secId` | 行情与基本面左列、估值与价值曲线右列；不是一级导航 |
 
 全局壳层也遵循旧版几何基线：176px 左侧栏、46px 顶栏、顶栏左侧股票搜索和一致的内容起点。主题按钮可以使用旧顶栏右侧空位，但不能挤压搜索或改变内容布局。
 
-Overlay 只是 DSH 当前缺少通用业务页槽时的容器选择，不改变业务组件边界或 Hash 深链接。未来若 DSH 提供 `shell.page`，工作台各页面可以迁入新 Slot，而 Host、Domain、RPC、路由语义和页面组件保持不变。
+工作台容器是 DSH 的 `main` 面板；内部路由键只用于组件状态切换，不暴露到浏览器 URL，也不改变 DSH 的对话地址。Host、Domain、RPC 和页面组件边界与路由键语义保持独立。
 
 ### 6.2 报告与 Hanai 自有聊天
 
@@ -443,7 +443,7 @@ Provider 传输层使用 Node/DSH Host 能力重写，不能继续依赖 Electro
 
 - 从发布产物安装 Hanai Bundle 到临时 DSH Profile；
 - 启动 Host 和 Web Client Plugin；
-- 验证 `shell.overlay` 自动常驻、原生 Conversation 不可见和 Hanai 聊天页面；
+- 验证 `sidebar.panellist` 入口出现、点击打开 Hanai `main` 面板、关闭后返回原生 Conversation；
 - 验证 Client Bundle 没有第二份 React；
 - 验证 CSS 在卸载/HMR 后清理；
 - 验证缺少 Host 注入时启动明确失败。
@@ -465,7 +465,7 @@ Provider 传输层使用 Node/DSH Host 能力重写，不能继续依赖 Electro
 | --- | --- | --- |
 | 树外 Bundle / Client Bundle | 已实现 | 根包 sibling roles、单文件 `lib/client.js`、ModuleLoader 协议测试 |
 | Domain / SQLite / 数据隔离 | 已实现 | 路径权限、migration、Provider 与报告封存测试 |
-| 六页壳层与 Hash 路由 | 已实现 | 保留旧版五页并新增 `#/expert-chats`；全部详情路由可刷新并支持前进/后退 |
+| 六页壳层与页面内导航 | 已实现 | 保留旧版五页并新增“专家对谈”；一级页与详情页在工作台内部切换，不改变浏览器 URL |
 | 市场、自选、个股、估值 | 已实现 | 旧版布局、字段与真实 Provider 降级链；所有来源必须显示 fresh/stale/fallback |
 | ECharts 图表 | 已实现 | treemap、分时/K 线、雷达和价值曲线；图表语义由固定 fixture 约束 |
 | 大师研判与报告版本 | 已实现 | 独立工作区、能力包快照、同一 Session、原子封存与 SHA-256 |

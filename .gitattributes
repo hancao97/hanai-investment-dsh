@@ -1,2 +1,3 @@
 # Master assets are immutable byte-for-byte snapshots. Markdown hard breaks intentionally use two trailing spaces.
-packages/masters/assets/** whitespace=-trailing-space
+# The migration manifest seals SHA-256 over LF bytes, so never let core.autocrlf rewrite this tree.
+packages/masters/assets/** whitespace=-trailing-space text eol=lf

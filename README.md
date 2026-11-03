@@ -144,7 +144,7 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 
 - **不必先选股票**：可直接讨论行业周期、商业模式、市场情绪、决策困境或近期事件，不生成 `REPORT.md`。
 - **持久开放会话**：每次对谈绑定独立专家快照与 DSH Session，支持正常追问、检索、工具调用、队列、steer、取消、审批和历史恢复。
-- **专用对谈工作台**：左侧保留对谈历史，右侧消息区占满剩余高度；支持深链接和刷新恢复，思考与工具过程默认折叠，输入区固定在当前会话底部。
+- **专用对谈工作台**：左侧保留对谈历史，右侧消息区占满剩余高度；重新打开面板时从本地索引恢复历史，思考与工具过程默认折叠，输入区固定在当前会话底部。
 - **七位对谈专家**：段永平、混江龙、查理·芒格、沃伦·巴菲特、散户乙、东泰山均支持研判与开放对谈；孙宇晨视角仅进入开放对谈。
 - **散户乙视角**：按 nuwa 的本地语料流程，从《从冲浪到潜水》发言汇编提炼股权思维、可持续 ROE、分红复利和底线回报；保留 PDF 页码、观点演化和汇编归属边界。详见[能力包](packages/masters/assets/sanhu-yi-perspective/SKILL.md)与[蒸馏记录](packages/masters/assets/sanhu-yi-perspective/references/provenance.md)。
 - **东泰山视角**：按 nuwa 六维流程，从2025年起“蜗牛成长笔记”的已保存正文、作者回复及已核读附件，提炼PB分母与盈利能力、PB/PE双锚的条件综合、周期利润与兑现；保留位置分层及成长/研发/现金分支。支持股票研判与开放对谈，首次回答说明 AI 视角；不复制付费全文、不冒充本人实时观点或业绩。详见[能力包](packages/masters/assets/dong-taishan-perspective/SKILL.md)与[来源及验证记录](packages/masters/assets/dong-taishan-perspective/references/provenance.md)。
@@ -165,7 +165,7 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 
 - **统一交互系统**：按钮、输入框、选择器、焦点、禁用和危险操作使用一致的语义色与明暗主题 token，并保留 A 股红涨绿跌业务色。
 - **亮色/黑夜模式**：两套主题只替换语义色彩，不改变页面结构、图表数据或业务含义。
-- **全局搜索与深链接**：可按代码、名称或拼音搜索股票；`#/dashboard`、`#/watch`、`#/judgements`、`#/expert-chats`、`#/personas`、`#/settings` 及详情页支持刷新、前进、后退和直接打开。
+- **全局搜索与页面内导航**：可按代码、名称或拼音搜索股票；一级页面与详情页都在工作台内部切换，不修改浏览器 URL，也不影响 DSH 的对话地址。
 - **设置与诊断**：在工作台内管理 DSH Credentials、默认模型和主题，查看 Agent、数据源、缓存、本地存储与版本状态，并可打开数据目录或清理行情/估值缓存。
 - **完全自有界面**：使用 React 18、DSH Slot、Session Controller 与 Conversation Projection、ECharts 和 CSS Modules；不显示或复用 DSH 原生聊天 UI。
 
@@ -175,7 +175,7 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 
 ```mermaid
 flowchart LR
-  U["用户"] --> W["Hanai React Workbench\nshell.overlay"]
+  U["用户"] --> W["Hanai React Workbench\nsidebar.panellist + main"]
   W --> R["/hanai Connection RPC"]
   W --> C["DSH Credentials / Models"]
   W --> S["DSH Session Runtime"]
@@ -412,7 +412,7 @@ docs/
 
 ## 当前边界
 
-- `shell.overlay` 是 DSH AppFrame 的全屏插件画布，不是弹窗、iframe 或命令行 Shell。它让 Hanai 在不 fork DSH 的前提下拥有完整页面；Workbench 通过 `location.hash` 提供页面深链接，不要求 DSH 增加通用 Router Slot。
+- Hanai 通过 DSH 官方扩展点接入：`sidebar.panellist` 提供“值见”入口，`main` 提供工作台面板，`ctx.layout.selectPanel(null)` 返回原生对话。工作台在自己的 `main` 面板中全屏呈现，不是弹窗、iframe 或命令行 Shell；页面导航保存在组件状态中，打开、切换和关闭都不会改变浏览器 URL。
 - DSH 尚未发布稳定的树外 Client Plugin 构建 SDK，因此仓库维护了一个最小、版本锁定的 bundler adapter。
 - DSH Session 删除与跨版本迁移能力仍有限；备份持续对话时，需要同时保留 Hanai 数据根和 DSH Session 数据。
 - 本项目是研究辅助工具，不构成投资建议，不承诺数据实时性、完整性或投资收益。

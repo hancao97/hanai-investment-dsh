@@ -43,7 +43,7 @@ GitHub Pages 研究站点：<https://hancao97.github.io/hanai-investment-dsh/>
 1. Agent 运行时由 DeepSeek Harness 提供，不保留 Codex app-server 适配层。
 2. 新 UI 使用 React 18 和 DSH Client Plugin 机制，不迁移旧 Vue 组件。
 3. 一级导航为“今日市场、自选与发现、大师研判、专家对谈、专家中心、设置与诊断”；个股、研判与对谈详情保持可直接访问的详情结构。
-4. Workbench 使用 `location.hash` 保留 `/dashboard`、`/watch`、`/stock/:secId`、`/judgements`、`/judgements/:id`、`/expert-chats`、`/expert-chats/:id`、`/personas`、`/settings` 的路由语义和 deep-link。
+4. Workbench 内部保留 `/dashboard`、`/watch`、`/stock/:secId`、`/judgements`、`/judgements/:id`、`/expert-chats`、`/expert-chats/:id`、`/personas`、`/settings` 的页面语义；导航使用组件状态，不修改浏览器 URL。
 5. ECharts 负责 treemap、分时/K 线、雷达和价值曲线；React 重写不得更换图表类型、计算或数据含义。
 6. UI 遵循 DSH 的 Slot、共享 React、CSS Modules 与宿主语义令牌；普通亮色/黑夜模式只切换 Workbench 内的 `--hanai-*` token，不改变布局，也不引入 shadcn/Tailwind 或全局 reset。
 7. 一次大师研判对应一个持久 DSH Session；报告 `ready` 后 Session 继续存在，Hanai 自有聊天页向同一 Session 追问。

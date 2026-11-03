@@ -10,6 +10,11 @@ import type {
   StockQuote,
   StockTrendData,
   StockValuationData,
+  TradingDayAnalysisData,
+  TradingDayContextData,
+  TradingDayDragonTigerData,
+  TradingDayLimitPoolsData,
+  TradingDayThemesData,
 } from '../../../contracts/src/index.ts'
 import type { HanaiDatabase } from '../database.ts'
 import { isoNow, NodeFetchHttpClient, systemClock, type Clock, type HttpClient } from '../http.ts'
@@ -24,6 +29,8 @@ import {
 import { TencentProvider } from './tencent.ts'
 import { SinaProvider } from './sina.ts'
 import { EastmoneyFinancialProvider } from './financials.ts'
+import { TradingDayProvider } from './trading-day.ts'
+import { SourceCircuit, type SourceCircuitOptions, type SourceId } from './source-circuit.ts'
 
 export { EastmoneyProvider, type EastmoneyProviderOptions } from './eastmoney.ts'
 export {
@@ -38,6 +45,8 @@ export {
 export { TencentProvider, tencentSymbol } from './tencent.ts'
 export { SinaProvider } from './sina.ts'
 export { EastmoneyFinancialProvider } from './financials.ts'
+export { TradingDayProvider, type TradingDayProviderOptions } from './trading-day.ts'
+export { SourceCircuit, SourceCircuitOpenError, SOURCE_PRIORITY, type SourceId } from './source-circuit.ts'
 
 export interface MarketDataServiceOptions {
   http?: HttpClient
@@ -46,6 +55,8 @@ export interface MarketDataServiceOptions {
   timeoutMs?: number
   eastmoney?: Omit<EastmoneyProviderOptions, 'clock' | 'tencent'>
   gurufocus?: Omit<GuruFocusProviderOptions, 'clock' | 'cache'>
+  /** 数据源熔断参数；默认连续 3 次失败跳过 5 分钟。 */
+  circuit?: Omit<SourceCircuitOptions, 'clock'>
 }
 
 function inferredSecurity(secId: string): Pick<SecurityMaster, 'exchange' | 'code'> {
@@ -71,11 +82,14 @@ export class MarketDataService {
   readonly gurufocus: GuruFocusProvider
   readonly sina: SinaProvider
   readonly financials: EastmoneyFinancialProvider
+  readonly tradingDay: TradingDayProvider
   private readonly clock: Clock
+  private readonly circuit: SourceCircuit
 
   constructor(options: MarketDataServiceOptions = {}) {
     const http = options.http ?? new NodeFetchHttpClient()
     this.clock = options.clock ?? systemClock
+    this.circuit = new SourceCircuit({ ...options.circuit, clock: this.clock })
     this.tencent = new TencentProvider(http, this.clock, options.timeoutMs ?? 10_000)
     this.sina = new SinaProvider(http, this.clock, options.timeoutMs ?? 10_000)
     this.financials = new EastmoneyFinancialProvider(http, this.clock, options.timeoutMs ?? 10_000)
@@ -94,11 +108,24 @@ export class MarketDataService {
       cache,
       timeoutMs: options.gurufocus?.timeoutMs ?? options.timeoutMs ?? 15_000,
     })
+    this.tradingDay = new TradingDayProvider(http, {
+      clock: this.clock,
+      timeoutMs: options.timeoutMs ?? 12_000,
+    })
+  }
+
+  /** 包住单个数据源调用：熔断期间直接跳过，异常计入该源失败次数。 */
+  private async callSource<T>(source: SourceId, task: () => Promise<T>): Promise<T | null> {
+    try {
+      return await this.circuit.run(source, task)
+    } catch {
+      return null
+    }
   }
 
   async getDashboard(): Promise<DashboardData> {
     const [overview, industry, concept, gainers, losers, amount, turnover] = await Promise.all([
-      optional(this.eastmoney.getMarketOverview()),
+      this.callSource('eastmoney-push2his', () => this.eastmoney.getMarketOverview()),
       this.getSectorBoard('industry'),
       this.getSectorBoard('concept'),
       this.getRankList('gainers'),
@@ -129,22 +156,24 @@ export class MarketDataService {
   }
 
   private async getSectorBoard(type: 'industry' | 'concept') {
-    const primary = await optional(this.eastmoney.getSectorBoard(type))
+    const primary = await this.callSource('eastmoney-push2his', () => this.eastmoney.getSectorBoard(type))
     if (primary !== null && primary.sectors.some(sector => sector.amount !== null && sector.amount > 0)) return primary
-    return await this.sina.getSectorBoard(type) ?? primary
+    return await this.callSource('sina', () => this.sina.getSectorBoard(type)) ?? primary
   }
 
   private async getRankList(kind: 'gainers' | 'losers' | 'amount' | 'turnover') {
-    const primary = await optional(this.eastmoney.getRankList(kind))
+    const primary = await this.callSource('eastmoney-push2his', () => this.eastmoney.getRankList(kind))
     if (primary !== null && primary.entries.length > 0) return primary
-    return await this.sina.getRankList(kind) ?? primary
+    return await this.callSource('sina', () => this.sina.getRankList(kind)) ?? primary
   }
 
   async getSectorStocks(sectorCode: string): Promise<{ stocks: StockQuote[]; meta: ProviderMeta }> {
     if (sectorCode.startsWith('SINA:')) {
-      return await this.sina.getSectorStocks(sectorCode) ?? { stocks: [], meta: this.unavailableMeta('sina-fallback', '新浪行情（备源）') }
+      return await this.callSource('sina', () => this.sina.getSectorStocks(sectorCode))
+        ?? { stocks: [], meta: this.unavailableMeta('sina-fallback', '新浪行情（备源）') }
     }
-    return this.eastmoney.getSectorStocks(sectorCode)
+    return await this.callSource('eastmoney-push2his', () => this.eastmoney.getSectorStocks(sectorCode))
+      ?? { stocks: [], meta: this.unavailableMeta() }
   }
 
   async getStockDetail(secId: string, security?: SecurityMaster | null): Promise<StockDetail> {
@@ -181,7 +210,7 @@ export class MarketDataService {
   async getStockQuoteMetrics(secId: string): Promise<StockQuoteMetricsData> {
     const [quotes, primaryMetrics] = await Promise.all([
       optional(this.getQuotes([secId])),
-      optional(this.eastmoney.getStockMetrics(secId)),
+      this.callSource('eastmoney-push2his', () => this.eastmoney.getStockMetrics(secId)),
     ])
     const quote = quotes?.quotes.find(item => item.secId === secId) ?? null
     if (primaryMetrics === null && quote !== null && quote.meta?.providerId !== 'tencent-fallback') {
@@ -200,7 +229,9 @@ export class MarketDataService {
   }
 
   async getTrend(secId: string): Promise<StockTrendData> {
-    const result = await optional(this.eastmoney.getTrend(secId))
+    // 东财不可用时按熔断顺序切到腾讯分时。
+    const result = await this.callSource('eastmoney-push2his', () => this.eastmoney.getTrend(secId))
+      ?? await this.callSource('tencent', () => this.tencent.getTrend(secId))
     return {
       trend: result?.points ?? [],
       trendPrevClose: result?.prevClose ?? null,
@@ -210,7 +241,9 @@ export class MarketDataService {
 
   async getKline(secId: string, period: KLinePeriod, before?: string): Promise<StockKLineData> {
     const klt = period === 'daily' ? '101' : period === 'weekly' ? '102' : '103'
-    const result = await optional(this.eastmoney.getKline(secId, klt, before))
+    // 东财不可用时按熔断顺序切到腾讯 K 线。
+    const result = await this.callSource('eastmoney-push2his', () => this.eastmoney.getKline(secId, klt, before))
+      ?? await this.callSource('tencent', () => this.tencent.getKline(secId, klt, before))
     return {
       period,
       bars: result?.bars ?? [],
@@ -229,11 +262,13 @@ export class MarketDataService {
   }
 
   async getQuotes(secIds: readonly string[]): Promise<{ quotes: StockQuote[]; meta: ProviderMeta }> {
-    const primary = await optional(this.eastmoney.getQuotes(secIds))
+    // 东财熔断时跳过主源，直接按顺序切到腾讯。
+    const primary = await this.callSource('eastmoney-push2his', () => this.eastmoney.getQuotes(secIds))
     const available = new Map((primary?.quotes ?? []).map(quote => [quote.secId, quote]))
     const missing = secIds.filter(id => available.get(id)?.price == null || primary?.meta.providerId.includes('memory-cache'))
     if (missing.length === 0 && primary !== null) return primary
-    const fallback = await this.tencent.getQuotes(missing)
+    const fallback = await this.callSource('tencent', () => this.tencent.getQuotes(missing))
+      ?? { quotes: [], meta: this.unavailableMeta('tencent-fallback', '腾讯行情（备源）') }
     if (fallback.quotes.length === 0) return primary ?? { quotes: [], meta: this.unavailableMeta() }
     for (const quote of fallback.quotes) available.set(quote.secId, quote)
     const quotes = secIds.flatMap(id => available.has(id) ? [available.get(id)!] : [])
@@ -254,7 +289,28 @@ export class MarketDataService {
   }
 
   clearMarketCache(): number {
-    return this.eastmoney.clearQuoteCache() + this.tencent.clearQuoteMetrics() + this.sina.clearCache() + this.financials.clearCache()
+    return this.eastmoney.clearQuoteCache() + this.tencent.clearQuoteMetrics() + this.sina.clearCache()
+      + this.financials.clearCache() + this.tradingDay.clearCache()
+  }
+
+  tradingDayContext(): Promise<TradingDayContextData> {
+    return this.tradingDay.tradingDayContext()
+  }
+
+  tradingDayLimitPools(): Promise<TradingDayLimitPoolsData> {
+    return this.tradingDay.tradingDayLimitPools()
+  }
+
+  tradingDayThemes(): Promise<TradingDayThemesData> {
+    return this.tradingDay.tradingDayThemes()
+  }
+
+  tradingDayDragonTiger(): Promise<TradingDayDragonTigerData> {
+    return this.tradingDay.tradingDayDragonTiger()
+  }
+
+  tradingDayAnalysis(): Promise<TradingDayAnalysisData> {
+    return this.tradingDay.tradingDayAnalysis()
   }
 
   syncSecurities(

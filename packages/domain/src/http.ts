@@ -145,3 +145,84 @@ export async function postJson<T>(
 export function isoNow(clock: Clock): string {
   return new Date(clock.now()).toISOString()
 }
+
+export interface CircuitBreakerOptions {
+  /** 连续失败多少次后熔断该 host。 */
+  failureThreshold?: number
+  /** 熔断后的冷却时长。 */
+  cooldownMs?: number
+  clock?: Clock
+}
+
+export class CircuitOpenError extends Error {
+  constructor(
+    readonly host: string,
+    readonly openUntil: number,
+  ) {
+    super(`上游 ${host} 已熔断，${new Date(openUntil).toISOString()} 后重试`)
+    this.name = 'CircuitOpenError'
+  }
+}
+
+const FAILURE_STATUSES = new Set([403, 429])
+
+/** 403/429/5xx 视为上游不可用；其余状态码说明链路本身是通的。 */
+function isUpstreamFailure(status: number): boolean {
+  return FAILURE_STATUSES.has(status) || status >= 500
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host
+  } catch {
+    return url
+  }
+}
+
+/**
+ * 按 host 熔断：上游连续失败后直接短路，避免限流时继续重试把 IP 彻底封掉。
+ * 某个 host 熔断不影响其他数据源。
+ */
+export class CircuitBreakingHttpClient implements HttpClient {
+  private readonly failureThreshold: number
+  private readonly cooldownMs: number
+  private readonly clock: Clock
+  private readonly states = new Map<string, { failures: number; openUntil: number }>()
+
+  constructor(
+    private readonly base: HttpClient,
+    options: CircuitBreakerOptions = {},
+  ) {
+    this.failureThreshold = options.failureThreshold ?? 3
+    this.cooldownMs = options.cooldownMs ?? 5 * 60_000
+    this.clock = options.clock ?? systemClock
+  }
+
+  async request(url: string, request: HttpRequest = {}): Promise<HttpResponse> {
+    const host = hostOf(url)
+    const state = this.states.get(host)
+    if (state !== undefined && state.openUntil > this.clock.now()) {
+      throw new CircuitOpenError(host, state.openUntil)
+    }
+    try {
+      const response = await this.base.request(url, request)
+      if (isUpstreamFailure(response.status)) this.recordFailure(host)
+      else this.states.delete(host)
+      return response
+    } catch (error) {
+      this.recordFailure(host)
+      throw error
+    }
+  }
+
+  private recordFailure(host: string): void {
+    const state = this.states.get(host) ?? { failures: 0, openUntil: 0 }
+    state.failures += 1
+    if (state.failures >= this.failureThreshold) {
+      state.openUntil = this.clock.now() + this.cooldownMs
+      state.failures = 0
+    }
+    this.states.set(host, state)
+  }
+}
+

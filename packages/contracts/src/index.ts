@@ -1,5 +1,18 @@
 /** JSON-safe contracts shared by the Hanai Host and browser client. */
 
+import type {
+  TradingDayAnalysisData,
+  TradingDayContextData,
+  TradingDayDragonTigerData,
+  TradingDayGroupRequest,
+  TradingDayLimitPoolsData,
+  TradingDaySnapshotRecord,
+  TradingDaySnapshotSummary,
+  TradingDayThemesData,
+} from './trading-day.ts'
+
+export * from './trading-day.ts'
+
 /** Conventional application appearance. Theme changes must not alter layout or product semantics. */
 export type ThemeId = 'light' | 'dark'
 export type MarketStatus = 'pre' | 'trading' | 'break' | 'closed' | 'unknown'
@@ -425,6 +438,19 @@ export interface CreateExpertChatInput {
 export interface HanaiEndpointMap {
   'bootstrap': { request: Record<string, never>; response: BootstrapData }
   'dashboard.get': { request: { refresh?: boolean }; response: DashboardData }
+  'tradingDay.context': { request: TradingDayGroupRequest; response: TradingDayContextData }
+  'tradingDay.limitPools': { request: TradingDayGroupRequest; response: TradingDayLimitPoolsData }
+  'tradingDay.themes': { request: TradingDayGroupRequest; response: TradingDayThemesData }
+  'tradingDay.dragonTiger': { request: TradingDayGroupRequest; response: TradingDayDragonTigerData }
+  'tradingDay.analyze': { request: TradingDayGroupRequest; response: TradingDayAnalysisData }
+  'tradingDay.snapshots': {
+    request: Record<string, never>
+    response: { snapshots: TradingDaySnapshotSummary[] }
+  }
+  'tradingDay.snapshot': {
+    request: { date: string }
+    response: TradingDaySnapshotRecord | null
+  }
   'sector.stocks': { request: { sectorCode: string }; response: { stocks: StockQuote[]; meta: ProviderMeta } }
   'security.sync': { request: { force?: boolean }; response: { count: number; updatedAt: string | null } }
   'security.search': { request: { query: string }; response: SearchResult[] }

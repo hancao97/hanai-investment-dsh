@@ -30,6 +30,15 @@ import type {
   StockQuote,
   StockTrendData,
   StockValuationData,
+  TradingDayAnalysisData,
+  TradingDayContextData,
+  TradingDayDragonTigerData,
+  TradingDayGroupRequest,
+  TradingDayLimitPoolsData,
+  TradingDaySnapshotPayload,
+  TradingDaySnapshotRecord,
+  TradingDayStatus,
+  TradingDayThemesData,
   WatchQuote,
   WatchValuation,
 } from '../../contracts/src/index.ts'
@@ -38,6 +47,7 @@ import { HanaiDatabase } from '../../domain/src/database.ts'
 import type { HanaiPaths } from '../../domain/src/paths.ts'
 import { ReportStore, ReportValidationError } from '../../domain/src/reports.ts'
 import { ExpertChatStore } from '../../domain/src/expert-chats.ts'
+import type { TradingDayFacade } from '../../domain/src/trading-day.ts'
 
 const MARKET_SUCCESS_SETTING = 'market.latestSuccess'
 const VALUATION_SUCCESS_SETTING = 'valuation.latestSuccess'
@@ -80,6 +90,10 @@ export interface HanaiServiceOptions {
   sessions: SessionFacade
   defaultModel: DefaultModelFacade
   market: MarketFacade
+  /** Intraday trading-data providers. Production passes the market service itself. */
+  tradingDay?: TradingDayFacade
+  /** Test seam: 判断是否开市、以及快照日期归属用的当前时间。 */
+  now?: () => number
   version: string
   /** Test seam and platform integration; the service always supplies paths.root itself. */
   openDirectory?: (directory: string) => Promise<void>
@@ -94,6 +108,8 @@ export class HanaiService {
   private readonly sessions: SessionFacade
   private readonly defaultModel: DefaultModelFacade
   private readonly market: MarketFacade
+  private readonly tradingDay: TradingDayFacade
+  private readonly now: () => number
   private readonly version: string
   private readonly openDirectory: (directory: string) => Promise<void>
   private readonly reportJobs = new Map<string, Promise<void>>()
@@ -106,6 +122,8 @@ export class HanaiService {
     this.sessions = options.sessions
     this.defaultModel = options.defaultModel
     this.market = options.market
+    this.tradingDay = options.tradingDay ?? options.market as unknown as TradingDayFacade
+    this.now = options.now ?? Date.now
     this.version = options.version
     this.openDirectory = options.openDirectory ?? openDirectoryWithSystem
   }
@@ -217,6 +235,9 @@ export class HanaiService {
       case 'bootstrap': return this.bootstrap()
       case 'dashboard.get': {
         const input = request as HanaiRequest<'dashboard.get'>
+        // 非开市时段直接用最近一个快照里的行情，避免周末/收盘后反复请求上游。
+        const storedDashboard = this.storedTradingDaySnapshot()?.payload.dashboard
+        if (storedDashboard !== null && storedDashboard !== undefined) return storedDashboard
         const result = await this.market.getDashboard(input.refresh)
         this.recordProviderSuccess(MARKET_SUCCESS_SETTING, [
           result.overview.meta,
@@ -225,6 +246,52 @@ export class HanaiService {
         ])
         return result
       }
+      case 'tradingDay.context': {
+        const input = request as HanaiRequest<'tradingDay.context'>
+        const stored = this.storedTradingDaySnapshot()?.payload.context
+        if (stored !== null && stored !== undefined) return stored
+        const result = await this.tradingDay.tradingDayContext()
+        await this.saveTradingDayContext(input, result)
+        return result
+      }
+      case 'tradingDay.limitPools': {
+        const input = request as HanaiRequest<'tradingDay.limitPools'>
+        const stored = this.storedTradingDaySnapshot()?.payload.limitPools
+        if (stored !== null && stored !== undefined) return stored
+        const result = await this.tradingDay.tradingDayLimitPools()
+        await this.saveTradingDaySnapshot(input, result.tradeDate, payload => ({ ...payload, limitPools: result }))
+        return result
+      }
+      case 'tradingDay.themes': {
+        const input = request as HanaiRequest<'tradingDay.themes'>
+        const stored = this.storedTradingDaySnapshot()?.payload.themes
+        if (stored !== null && stored !== undefined) return stored
+        const result = await this.tradingDay.tradingDayThemes()
+        await this.saveTradingDaySnapshot(input, result.tradeDate, payload => ({ ...payload, themes: result }))
+        return result
+      }
+      case 'tradingDay.dragonTiger': {
+        const input = request as HanaiRequest<'tradingDay.dragonTiger'>
+        const stored = this.storedTradingDaySnapshot()?.payload.dragonTiger
+        if (stored !== null && stored !== undefined) return stored
+        const result = await this.tradingDay.tradingDayDragonTiger()
+        await this.saveTradingDaySnapshot(input, result.tradeDate, payload => ({ ...payload, dragonTiger: result }))
+        return result
+      }
+      case 'tradingDay.analyze': {
+        const input = request as HanaiRequest<'tradingDay.analyze'>
+        const stored = this.storedTradingDaySnapshot()?.payload.analysis
+        if (stored !== null && stored !== undefined) return stored
+        const result = await this.tradingDay.tradingDayAnalysis()
+        await this.saveTradingDaySnapshot(input, result.tradeDate, payload => ({ ...payload, analysis: result }))
+        return result
+      }
+      case 'tradingDay.snapshots': return {
+        snapshots: this.database.listTradingDaySnapshots(),
+      }
+      case 'tradingDay.snapshot': return this.database.getTradingDaySnapshot(
+        (request as HanaiRequest<'tradingDay.snapshot'>).date,
+      )
       case 'sector.stocks': {
         const result = await this.market.getSectorStocks(
           (request as HanaiRequest<'sector.stocks'>).sectorCode,
@@ -479,6 +546,56 @@ export class HanaiService {
     const previous = previousValue === null ? NaN : Date.parse(previousValue)
     if (Number.isFinite(previous) && previous >= next) return
     this.database.setSetting(setting, new Date(next).toISOString())
+  }
+
+  /** 非开市时段返回最近一个交易日的快照；开市时段返回 null，继续走实时链路。 */
+  private storedTradingDaySnapshot(): TradingDaySnapshotRecord | null {
+    if (isMarketOpenAt(this.now())) return null
+    const latest = this.database.listTradingDaySnapshots()[0]
+    return latest === undefined ? null : this.database.getTradingDaySnapshot(latest.tradeDate)
+  }
+
+  private async saveTradingDayContext(
+    input: TradingDayGroupRequest,
+    data: TradingDayContextData,
+  ): Promise<void> {
+    if (!shouldPersistTradingDaySnapshot(input, data.tradeDate, this.now())) return
+    let dashboard: DashboardData | null = null
+    try {
+      dashboard = await this.market.getDashboard()
+    } catch {
+      // A dashboard outage must not discard the context group of the snapshot.
+    }
+    await this.writeTradingDaySnapshot(data.tradeDate, payload => ({ ...payload, context: data, dashboard }))
+  }
+
+  private async saveTradingDaySnapshot(
+    input: TradingDayGroupRequest,
+    tradeDate: string,
+    merge: (payload: TradingDaySnapshotPayload) => TradingDaySnapshotPayload,
+  ): Promise<void> {
+    if (!shouldPersistTradingDaySnapshot(input, tradeDate, this.now())) return
+    await this.writeTradingDaySnapshot(tradeDate, merge)
+  }
+
+  /** Merge one group into the day's existing payload; persistence failures never fail the RPC. */
+  private async writeTradingDaySnapshot(
+    tradeDate: string,
+    merge: (payload: TradingDaySnapshotPayload) => TradingDaySnapshotPayload,
+  ): Promise<void> {
+    try {
+      const existing = this.database.getTradingDaySnapshot(tradeDate)
+      const payload = merge(existing?.payload ?? emptyTradingDayPayload())
+      this.database.upsertTradingDaySnapshot({
+        tradeDate,
+        capturedAt: new Date().toISOString(),
+        status: tradingDaySnapshotStatus(payload),
+        schemaVersion: 1,
+        payload,
+      })
+    } catch (error) {
+      console.error('[hanai-investment-dsh] failed to persist trading-day snapshot:', error)
+    }
   }
 
   private async watchQuotes(groupId: string): Promise<HanaiResponse<'watch.quotes'>> {
@@ -846,6 +963,59 @@ function emptyQuote(secId: string, code: string, name: string): StockQuote {
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function emptyTradingDayPayload(): TradingDaySnapshotPayload {
+  return { context: null, limitPools: null, themes: null, dragonTiger: null, analysis: null, dashboard: null }
+}
+
+/**
+ * 快照只在「首次加载 / 手动刷新」（save=true）时写入。
+ * 除当日外，还允许补写最近 7 天内的交易日：周末或次日打开页面时，拿到的仍是最近交易日的
+ * 行情与分时数据，这些数据应落到那一天的历史快照里，而不是被丢弃。
+ */
+function shouldPersistTradingDaySnapshot(
+  input: TradingDayGroupRequest,
+  tradeDate: string,
+  nowMs: number,
+): boolean {
+  if (input.save !== true) return false
+  const today = shanghaiToday(new Date(nowMs))
+  if (today === tradeDate) return true
+  const gap = Date.parse(`${today}T00:00:00+08:00`) - Date.parse(`${tradeDate}T00:00:00+08:00`)
+  return Number.isFinite(gap) && gap > 0 && gap <= 7 * 24 * 60 * 60 * 1000
+}
+
+/** 北京时间工作日 09:25–15:05 视为开市时段；节假日无法离线判断，按工作日处理。 */
+function isMarketOpenAt(nowMs: number): boolean {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    hour: '2-digit',
+    minute: '2-digit',
+    weekday: 'short',
+    hour12: false,
+  }).formatToParts(new Date(nowMs))
+  const part = (type: string): string => parts.find(entry => entry.type === type)?.value ?? ''
+  const weekday = part('weekday')
+  if (weekday === 'Sat' || weekday === 'Sun') return false
+  const minutes = Number(part('hour')) * 60 + Number(part('minute'))
+  return minutes >= 9 * 60 + 25 && minutes < 15 * 60 + 5
+}
+
+function tradingDaySnapshotStatus(payload: TradingDaySnapshotPayload): TradingDayStatus {
+  const groups = [payload.context, payload.limitPools, payload.themes, payload.dragonTiger, payload.analysis]
+  return groups.every(group => group !== null && group.status === 'complete') ? 'complete' : 'partial'
+}
+
+function shanghaiToday(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const part = (type: string): string => parts.find(entry => entry.type === type)?.value ?? ''
+  return `${part('year')}-${part('month')}-${part('day')}`
 }
 
 function assertNever(value: never): never {

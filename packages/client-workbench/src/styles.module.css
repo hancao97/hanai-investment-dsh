@@ -131,7 +131,8 @@
 
 .app {
   position: fixed;
-  inset: 0;
+  inset: var(--dsh-frame-chrome-top, 0px) 0 0 0;
+  z-index: 2147483000;
   display: flex;
   min-width: 940px;
   overflow: hidden;
@@ -250,6 +251,24 @@
 .themeToggle:hover,
 .fullscreenToggle:hover { border-color: var(--control-border-hover) !important; color: var(--gold-strong); background: var(--control-bg-hover); }
 .fullscreenToggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.closeApp {
+  display: flex;
+  height: 31px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 11px;
+  border: 1px solid var(--control-border) !important;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 11px;
+  background: var(--control-bg);
+  box-shadow: var(--control-shadow);
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+.closeApp:hover { border-color: var(--control-border-hover) !important; color: var(--gold-strong); background: var(--control-bg-hover); }
+.closeApp span { font-size: 15px; line-height: 1; }
+.closeApp b { font-weight: 550; }
 .content { min-width: 0; min-height: 0; flex: 1; }
 .page { width: 100%; height: 100%; overflow: auto; padding: 20px 24px 40px; background: var(--bg); }
 
@@ -307,7 +326,19 @@
 .indexChange { display: flex; gap: 8px; margin-top: 8px; color: currentColor; font: 11px ui-monospace, monospace; }
 .indexAmount { margin-top: 8px; color: var(--faint); font-size: 10px; }
 
+.indexCardClickable { cursor: pointer; }
+.indexCardClickable:hover { border-color: var(--border-strong); background: var(--panel-soft); }
+.indexCardActive { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-soft) inset; }
+
 .breadthCard { margin-bottom: 12px; }
+/* 指数分时与下方「板块热力」左对齐，市场宽度与「榜单」右对齐：列宽、间距保持一致。 */
+.overviewSplit { display: grid; grid-template-columns: minmax(0, 1.72fr) minmax(330px, 1fr); gap: 14px; margin-bottom: 12px; }
+.overviewSplit .breadthCard { display: flex; flex-direction: column; margin-bottom: 0; }
+.breadthFinance { display: grid; gap: 5px; margin-top: auto; padding: 10px 16px 13px; border-top: 1px solid var(--border); color: var(--faint); font-size: 10px; }
+.breadthFinanceItem { display: flex; min-width: 0; align-items: baseline; gap: 8px; }
+.breadthFinanceItem b { color: var(--text); font: 650 13px ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.breadthFinanceItem small { min-width: 0; margin-left: auto; color: var(--faint); font-size: 9px; white-space: nowrap; }
+.breadthFinanceItem em { font-style: normal; font-weight: 600; }
 .breadthBar { display: flex; height: 12px; gap: 2px; margin: 14px 16px 10px; overflow: hidden; border-radius: 999px; background: var(--bg-soft); }
 .breadthBar i { display: block; height: 100%; }
 .breadthLimitUp { background: #c43142; }
@@ -827,12 +858,14 @@
 .empty > b { margin-top: 10px; font-size: 13px; }
 .empty > p { max-width: 440px; margin: 7px 0 14px; color: var(--muted); font-size: 10px; line-height: 1.6; }
 
-.splash { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; background: var(--bg); }
+.splash { position: fixed; inset: var(--dsh-frame-chrome-top, 0px) 0 0 0; z-index: 2147483001; display: flex; align-items: center; justify-content: center; flex-direction: column; background: var(--bg); }
 .splashMark { width: 52px; height: 52px; }
 .splash > p { margin: 13px 0 22px; color: var(--gold); font-size: 9px; letter-spacing: .24em; }
 .splash h1 { margin: 0; font-size: 18px; }
 .splash > span { margin-top: 8px; color: var(--muted); font-size: 10px; }
 .splash button { margin-top: 18px; padding: 7px 14px; border: 1px solid var(--control-border); border-radius: 7px; color: var(--text); background: var(--control-bg); box-shadow: var(--control-shadow); }
+.splashActions { display: flex; gap: 10px; margin-top: 18px; }
+.splashActions button { margin-top: 0; }
 
 .skeletonGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .skeletonGrid > div { height: 150px; padding: 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); }
@@ -872,6 +905,13 @@
   .personaCard { min-height: 0; }
 }
 
+/* The shell is laid out for a 940px minimum; below that a fixed width would be
+   clipped by the viewport. Let narrow windows follow the frame instead. */
+@media (max-width: 939px) {
+  .app { min-width: 0; }
+  .indexGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 980px) {
   .stockDetailGrid { grid-template-columns: 1fr; }
   .settingsGrid {
@@ -893,4 +933,5 @@
   .expertChatHistory { max-height: 240px; }
   .expertChatSurface { height: 620px; }
   .expertChatExpertGrid { grid-template-columns: 1fr; }
+  .overviewSplit { grid-template-columns: minmax(0, 1fr); }
 }

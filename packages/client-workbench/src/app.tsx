@@ -20,6 +20,13 @@ import type {
   StockDetail,
   StockQuote,
   ThemeId,
+  TradingDayAnalysisData,
+  TradingDayContextData,
+  TradingDayDragonTigerData,
+  TradingDayLimitPoolsData,
+  TradingDaySnapshotRecord,
+  TradingDaySnapshotSummary,
+  TradingDayThemesData,
   WatchGroup,
   WatchQuote,
   WatchValuation,
@@ -35,6 +42,7 @@ import {
   getChartPalette,
   treemapLegendStops,
   treemapTargetFromEvent,
+  type ChartPalette,
   type KlineViewWindow,
 } from './chart-options.ts'
 import { EChart } from './echarts.tsx'
@@ -43,6 +51,8 @@ import { MarkdownView } from './markdown.tsx'
 import { describeDataStatus } from './data-status.ts'
 import { classForChange, dateTime, money, number, percent, quantity, ratio } from './format.ts'
 import styles from './styles.module.css'
+import { IndexIntradayCard, LimitPoolHighlights, TradingDayPanel, type TradingDayGroupErrors, type TradingDayGroupKey, type TradingDayMode } from './trading-day.tsx'
+import tradingStyles from './trading-day.module.css'
 
 type TopPage = 'dashboard' | 'watch' | 'judgements' | 'expert-chats' | 'personas' | 'settings'
 type AppRoute =
@@ -66,11 +76,15 @@ const NAV: ReadonlyArray<{ page: TopPage; path: string; icon: string; label: str
 
 export interface HanaiWorkbenchProps {
   client: HanaiClient
+  /** Return to the stock DSH conversation surface. */
+  onClose?: (() => void) | undefined
+  /** Initial internal page; used by tests and embeds, never reflected into the browser URL. */
+  initialPath?: string | undefined
 }
 
-export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
+export function HanaiWorkbench({ client, onClose, initialPath }: HanaiWorkbenchProps) {
   const [bootstrap, setBootstrap] = useState<BootstrapData | null>(null)
-  const [route, setRoute] = useState<AppRoute>(() => routeFromHash(window.location.hash))
+  const [route, setRoute] = useState<AppRoute>(() => routeFromHash(initialPath ?? ''))
   const [searchOpen, setSearchOpen] = useState(false)
   const [launchRequest, setLaunchRequest] = useState<JudgementLaunchRequest | null>(null)
   const [loading, setLoading] = useState(true)
@@ -95,11 +109,8 @@ export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
     }
   }, [client])
 
-  const navigate = useCallback((path: string, replace = false) => {
-    const hash = `#${path}`
-    if (replace) window.history.replaceState(null, '', hash)
-    else if (window.location.hash !== hash) window.history.pushState(null, '', hash)
-    setRoute(routeFromHash(hash))
+  const navigate = useCallback((path: string) => {
+    setRoute(routeFromHash(`#${path}`))
     setSearchOpen(false)
   }, [])
 
@@ -111,16 +122,6 @@ export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
   useEffect(() => {
     document.title = `${routeTitle(route)} — ${BRAND_NAME}`
   }, [route])
-  useEffect(() => {
-    if (window.location.hash === '' || window.location.hash === '#') navigate('/dashboard', true)
-    const syncRoute = () => setRoute(routeFromHash(window.location.hash))
-    window.addEventListener('hashchange', syncRoute)
-    window.addEventListener('popstate', syncRoute)
-    return () => {
-      window.removeEventListener('hashchange', syncRoute)
-      window.removeEventListener('popstate', syncRoute)
-    }
-  }, [navigate])
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
@@ -144,9 +145,14 @@ export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
   }, [])
   const clearLaunchRequest = useCallback(() => setLaunchRequest(null), [])
 
-  if (loading) return <Splash title="正在启动 Hanai Worth" detail="连接本地价值研究工作台…" />
+  if (loading) return <Splash title="正在启动 Hanai Worth" detail="连接本地价值研究工作台…" action={onClose === undefined ? undefined : <button onClick={onClose}>关闭并返回</button>} />
   if (fatal !== null || bootstrap === null) {
-    return <Splash title="Hanai Worth 暂时无法启动" detail={fatal ?? '未知错误'} action={<button onClick={() => void reload()}>重新连接</button>} />
+    return <Splash title="Hanai Worth 暂时无法启动" detail={fatal ?? '未知错误'} action={(
+      <div className={styles['splashActions']}>
+        <button onClick={() => void reload()}>重新连接</button>
+        {onClose !== undefined && <button onClick={onClose}>关闭并返回</button>}
+      </div>
+    )} />
   }
 
   const openStock = (stock: Pick<SecurityMaster, 'secId'>) => navigate(`/stock/${encodeURIComponent(stock.secId)}`)
@@ -198,6 +204,18 @@ export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
                   .catch(error => notify(messageOf(error), 'error'))
               }}
             />
+            {onClose !== undefined && (
+              <button
+                type="button"
+                className={styles['closeApp']}
+                onClick={onClose}
+                title="关闭值见并返回 DeepSeek"
+                aria-label="关闭值见并返回 DeepSeek"
+              >
+                <span aria-hidden="true">×</span>
+                <b>关闭</b>
+              </button>
+            )}
           </div>
         </header>
 
@@ -280,17 +298,54 @@ export function HanaiWorkbench({ client }: HanaiWorkbenchProps) {
   )
 }
 
+interface TradingDayGroups {
+  context: TradingDayContextData | null
+  limitPools: TradingDayLimitPoolsData | null
+  themes: TradingDayThemesData | null
+  dragonTiger: TradingDayDragonTigerData | null
+}
+
+const EMPTY_TRADING_GROUPS: TradingDayGroups = {
+  context: null,
+  limitPools: null,
+  themes: null,
+  dragonTiger: null,
+}
+
+const TRADING_GROUP_KEYS: TradingDayGroupKey[] = ['context', 'limitPools', 'themes', 'dragonTiger']
+
 function DashboardPage({ client, theme, onStock, notify }: { client: HanaiClient; theme: ThemeId; onStock: (stock: SearchResult) => void; notify: Notify }) {
+  const today = useMemo(() => todayString(), [])
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState<string | null>(null)
-  const [rank, setRank] = useState<keyof DashboardData['ranks']>('gainers')
-  const [sectorType, setSectorType] = useState<'industry' | 'concept'>('industry')
-  const [sectorLoading, setSectorLoading] = useState(false)
-  const [drill, setDrill] = useState<{ code: string; name: string; stocks: StockQuote[] | null; meta: ProviderMeta | null } | null>(null)
-  const drillGeneration = useRef(0)
-  const drillController = useRef<AbortController | null>(null)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [snapshots, setSnapshots] = useState<TradingDaySnapshotSummary[]>([])
+  const [snapshot, setSnapshot] = useState<TradingDaySnapshotRecord | null>(null)
+  const [snapshotError, setSnapshotError] = useState<string | null>(null)
+  const [snapshotLoading, setSnapshotLoading] = useState(false)
+  const [snapshotRetry, setSnapshotRetry] = useState(0)
+  const [groups, setGroups] = useState<TradingDayGroups>(EMPTY_TRADING_GROUPS)
+  const [groupErrors, setGroupErrors] = useState<TradingDayGroupErrors>({})
+  const [analysis, setAnalysis] = useState<TradingDayAnalysisData | null>(null)
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [tradingLoading, setTradingLoading] = useState(false)
+  const [trendCode, setTrendCode] = useState('sh000001')
+  const timerBusy = useRef(false)
+  const analysisRun = useRef<Promise<boolean> | null>(null)
+  const [cooldownUntil, setCooldownUntil] = useState(0)
+  const [clockTick, setClockTick] = useState(() => Date.now())
+  const live = selectedDate === null
+  const cooldownLeft = cooldownUntil > clockTick ? Math.ceil((cooldownUntil - clockTick) / 1000) : 0
+
+  useEffect(() => {
+    if (cooldownUntil <= Date.now()) return
+    const timer = window.setInterval(() => setClockTick(Date.now()), 1_000)
+    return () => window.clearInterval(timer)
+  }, [cooldownUntil])
+
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true)
     try {
@@ -306,27 +361,334 @@ function DashboardPage({ client, theme, onStock, notify }: { client: HanaiClient
     }
   }, [client, notify])
 
+  const loadGroup = useCallback(async (key: TradingDayGroupKey, save: boolean): Promise<boolean> => {
+    try {
+      if (key === 'context') {
+        const value = await client.call('tradingDay.context', { save })
+        setGroups(current => ({ ...current, context: value }))
+      } else if (key === 'limitPools') {
+        const value = await client.call('tradingDay.limitPools', { save })
+        setGroups(current => ({ ...current, limitPools: value }))
+      } else if (key === 'themes') {
+        const value = await client.call('tradingDay.themes', { save })
+        setGroups(current => ({ ...current, themes: value }))
+      } else {
+        const value = await client.call('tradingDay.dragonTiger', { save })
+        setGroups(current => ({ ...current, dragonTiger: value }))
+      }
+      setGroupErrors(current => {
+        const next = { ...current }
+        delete next[key]
+        return next
+      })
+      return true
+    } catch (error) {
+      setGroupErrors(current => ({ ...current, [key]: messageOf(error) }))
+      return false
+    }
+  }, [client])
+
+  const loadGroups = useCallback(async (save: boolean): Promise<boolean> => {
+    const results = await Promise.all(TRADING_GROUP_KEYS.map(key => loadGroup(key, save)))
+    return results.every(Boolean)
+  }, [loadGroup])
+
+  const loadAnalysis = useCallback((save: boolean): Promise<boolean> => {
+    const current = analysisRun.current
+    if (current !== null) return current
+    setAnalyzing(true)
+    const run = client.call('tradingDay.analyze', { save })
+      .then((value): boolean => {
+        setAnalysis(value)
+        setAnalysisError(null)
+        return true
+      })
+      .catch((error): boolean => {
+        setAnalysisError(messageOf(error))
+        return false
+      })
+      .finally(() => {
+        setAnalyzing(false)
+        analysisRun.current = null
+      })
+    analysisRun.current = run
+    return run
+  }, [client])
+
+  const loadSnapshots = useCallback(async () => {
+    try {
+      const result = await client.call('tradingDay.snapshots', {})
+      setSnapshots(result.snapshots)
+    } catch {
+      // A missing snapshot index must never block the live dashboard.
+    }
+  }, [client])
+
   useEffect(() => {
-    void load()
-    const timer = window.setInterval(() => void load(), 30_000)
+    void loadSnapshots()
+  }, [loadSnapshots])
+
+  useEffect(() => {
+    if (!live) return
+    setTradingLoading(true)
+    void (async () => {
+      await Promise.all([load(false), loadGroups(true)])
+      const analyzed = await loadAnalysis(true)
+      if (analyzed) void loadSnapshots()
+      setTradingLoading(false)
+    })()
+  }, [live, load, loadGroups, loadAnalysis, loadSnapshots])
+
+  useEffect(() => {
+    if (live || selectedDate === null) return
+    let cancelled = false
+    setSnapshotLoading(true)
+    setSnapshot(null)
+    setSnapshotError(null)
+    void client.call('tradingDay.snapshot', { date: selectedDate })
+      .then(record => {
+        if (cancelled) return
+        if (record === null) setSnapshotError('该交易日暂无保存的快照')
+        else setSnapshot(record)
+      })
+      .catch(error => {
+        if (!cancelled) setSnapshotError(messageOf(error))
+      })
+      .finally(() => {
+        if (!cancelled) setSnapshotLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [live, selectedDate, snapshotRetry, client])
+
+  useEffect(() => {
+    if (!live) return
+    const timer = window.setInterval(() => {
+      // 只在开市时段自动刷新；非开市时段直接沿用历史快照，不再请求上游。
+      if (!isMarketOpenNow()) return
+      if (document.visibilityState === 'hidden') return
+      if (timerBusy.current) return
+      timerBusy.current = true
+      void Promise.all([load(false), loadGroups(false)]).finally(() => {
+        timerBusy.current = false
+      })
+    }, 60_000)
     return () => window.clearInterval(timer)
-  }, [load])
-  useEffect(() => () => {
-    drillGeneration.current += 1
-    drillController.current?.abort()
-  }, [])
+  }, [live, load, loadGroups])
 
-  const palette = useMemo(() => getChartPalette(theme), [theme])
-  const sector = data === null ? null : sectorType === 'industry' ? data.industry : data.concept
-  const treemapOption = useMemo(() => buildTreemapOption(sector, palette), [palette, sector])
-  const legendStops = useMemo(() => treemapLegendStops(palette), [palette])
+  const refreshAll = useCallback(async () => {
+    // 开市时段限制手动刷新频率；冷却中直接忽略点击。
+    if (cooldownUntil > Date.now()) return
+    if (isMarketOpenNow()) {
+      setCooldownUntil(Date.now() + MARKET_OPEN_REFRESH_COOLDOWN_MS)
+      setClockTick(Date.now())
+    }
+    setRefreshing(true)
+    try {
+      await Promise.all([load(true), loadGroups(true)])
+      const analyzed = await loadAnalysis(true)
+      if (analyzed) await loadSnapshots()
+    } finally {
+      setRefreshing(false)
+    }
+  }, [cooldownUntil, load, loadGroups, loadAnalysis, loadSnapshots])
 
-  if (loading && data === null) return <Page><PageSkeleton cards={6} /></Page>
-  if (data === null) {
+  const retryAnalysis = useCallback(() => {
+    void loadAnalysis(true).then(analyzed => {
+      if (analyzed) void loadSnapshots()
+    })
+  }, [loadAnalysis, loadSnapshots])
+
+  const savedDates = useMemo(() => {
+    const seen = new Set<string>()
+    const dates: string[] = []
+    for (const item of snapshots) {
+      if (item.tradeDate === today || seen.has(item.tradeDate)) continue
+      seen.add(item.tradeDate)
+      dates.push(item.tradeDate)
+    }
+    return dates.sort((left, right) => right.localeCompare(left))
+  }, [snapshots, today])
+
+  if (live && loading && data === null) return <Page><PageSkeleton cards={6} /></Page>
+  if (live && data === null) {
     return <Page><PageHeader title="今日市场" /><Empty title="市场数据暂不可用" detail={refreshError ?? '行情源尚未返回可用数据。'} action={<button className={styles['button']} onClick={() => void load(true)}>重新加载</button>} /></Page>
   }
+  if (!live && snapshot === null && snapshotLoading) return <Page><PageHeader title="今日市场" /><PageSkeleton cards={6} /></Page>
+  if (!live && snapshot === null) {
+    return <Page>
+      <PageHeader
+        title="今日市场"
+        meta={<span className={tradingStyles['historyBadge']}>历史快照 · {selectedDate}</span>}
+        action={<button className={styles['button']} onClick={() => setSelectedDate(null)}>回到今日</button>}
+      />
+      <Empty
+        title="历史快照暂不可用"
+        detail={snapshotError ?? '该交易日没有保存快照。'}
+        action={<button className={styles['button']} onClick={() => setSnapshotRetry(current => current + 1)}>重新加载快照</button>}
+      />
+    </Page>
+  }
 
+  const payload = snapshot?.payload ?? null
+  const viewData = live ? data : payload?.dashboard ?? null
+  const context = live ? groups.context : payload?.context ?? null
+  const limitPools = live ? groups.limitPools : payload?.limitPools ?? null
+  const themesData = live ? groups.themes : payload?.themes ?? null
+  const dragonTiger = live ? groups.dragonTiger : payload?.dragonTiger ?? null
+  const viewAnalysis = live ? analysis : payload?.analysis ?? null
+  const tradingDate = context?.tradeDate ?? null
+  const sessionNotice = live && data !== null && data.overview.marketStatus !== 'trading' && tradingDate !== null
+    ? `非交易时段 · 最近交易日 ${tradingDate}`
+    : null
+  const updatedAt = live
+    ? context?.generatedAt ?? analysis?.generatedAt ?? data?.overview.meta.fetchedAt ?? null
+    : snapshot?.capturedAt ?? null
+  const refreshFailed = live
+    && (groups.context !== null || groups.limitPools !== null || groups.themes !== null || groups.dragonTiger !== null)
+    && Object.values(groupErrors).some(error => error !== undefined && error !== '')
+
+  return <Page>
+    <PageHeader
+      title="今日市场"
+      meta={live
+        ? <><DataStateBadge meta={data?.overview.meta} {...(data?.overview.marketStatus === undefined ? {} : { marketStatus: data.overview.marketStatus })} refreshFailed={refreshError !== null} /><DataSourceText meta={data?.overview.meta} /></>
+        : <span className={tradingStyles['historyBadge']}>历史快照 · 保存于 {dateTime(snapshot?.capturedAt ?? null)}</span>}
+      action={<div className={tradingStyles['dashboardControls']}>
+        <select
+          className={tradingStyles['controlSelect']}
+          aria-label="交易日选择"
+          value={selectedDate ?? ''}
+          onChange={event => {
+            const value = event.target.value
+            setSelectedDate(value === '' || value === today ? null : value)
+          }}
+        >
+          <option value="">今日 · {today}</option>
+          {savedDates.map(date => <option key={date} value={date}>{date}</option>)}
+        </select>
+        <select
+          className={tradingStyles['controlSelect']}
+          aria-label="已保存交易日"
+          value=""
+          disabled={snapshots.length === 0}
+          onChange={event => {
+            const value = event.target.value
+            if (value !== '') setSelectedDate(value === today ? null : value)
+          }}
+        >
+          <option value="">已保存 {snapshots.length} 天</option>
+          {snapshots.map(item => <option key={item.tradeDate} value={item.tradeDate}>{item.tradeDate}</option>)}
+        </select>
+        {live
+          ? <button className={`${styles['button']} ${styles['buttonGhost']}`} disabled={refreshing || cooldownLeft > 0} onClick={() => void refreshAll()}>{refreshing ? '刷新中' : cooldownLeft > 0 ? `刷新 ${cooldownLeft}s` : '刷新'}</button>
+          : <button className={`${styles['button']} ${styles['buttonGhost']}`} onClick={() => setSelectedDate(null)}>回到今日</button>}
+        <span className={tradingStyles['updateTime']}>更新 {dateTime(updatedAt)}</span>
+      </div>}
+    />
+    {refreshError !== null && <div className={styles['errorCard']}><b>行情获取失败：</b>{refreshError}<span>请检查网络后点击刷新；其他面板保留最近成功的数据。</span></div>}
+    {viewData === null
+      ? <Empty title="历史行情暂不可用" detail="该快照未包含市场概览数据。" />
+      : <>
+        <DashboardOverviewView
+          data={viewData}
+          context={context}
+          error={live ? groupErrors.context : undefined}
+          loading={live && tradingLoading}
+          mode={live ? 'live' : 'history'}
+          palette={getChartPalette(theme)}
+          trendCode={trendCode}
+          onTrendCode={setTrendCode}
+          limitPools={limitPools}
+          limitPoolsError={live ? groupErrors.limitPools : undefined}
+          onRetryContext={() => { void loadGroup('context', true) }}
+          onRetryLimitPools={() => { void loadGroup('limitPools', true) }}
+        />
+        <DashboardBoardsView data={viewData} theme={theme} client={client} onStock={onStock} notify={notify} interactive={live} />
+        <TradingDayPanel
+          mode={live ? 'live' : 'history'}
+          limitPools={limitPools}
+          themes={themesData}
+          dragonTiger={dragonTiger}
+          analysis={viewAnalysis}
+          errors={live ? groupErrors : {}}
+          analysisError={live ? analysisError : null}
+          loading={live && tradingLoading}
+          analyzing={live && analyzing}
+          sessionNotice={sessionNotice}
+          refreshFailed={refreshFailed}
+          onRetryGroup={key => { void loadGroup(key, true) }}
+          onRetryAnalysis={retryAnalysis}
+        />
+      </>}
+  </Page>
+}
+
+function todayString(): string {
+  const date = new Date()
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+/** 开市时段两次手动刷新之间的最短间隔：限制刷新次数，避免高频调用被上游限流。 */
+const MARKET_OPEN_REFRESH_COOLDOWN_MS = 60_000
+
+/** 北京时间工作日 09:25–15:05 视为开市时段；节假日无法离线判断，按工作日处理。 */
+function isMarketOpenNow(): boolean {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    hour: '2-digit',
+    minute: '2-digit',
+    weekday: 'short',
+    hour12: false,
+  }).formatToParts(new Date())
+  const part = (type: string): string => parts.find(entry => entry.type === type)?.value ?? ''
+  const weekday = part('weekday')
+  if (weekday === 'Sat' || weekday === 'Sun') return false
+  const minutes = Number(part('hour')) * 60 + Number(part('minute'))
+  return minutes >= 9 * 60 + 25 && minutes < 15 * 60 + 5
+}
+
+const TREND_TICKERS: Record<string, string> = {
+  '000001': 'sh000001',
+  '399001': 'sz399001',
+  '399006': 'sz399006',
+  '000300': 'sh000300',
+  '000688': 'sh000688',
+  '899050': 'bj899050',
+}
+
+function DashboardOverviewView({
+  data,
+  context,
+  error,
+  loading,
+  mode,
+  palette,
+  trendCode,
+  onTrendCode,
+  limitPools,
+  limitPoolsError,
+  onRetryContext,
+  onRetryLimitPools,
+}: {
+  data: DashboardData
+  context: TradingDayContextData | null
+  error: string | undefined
+  loading: boolean
+  mode: TradingDayMode
+  palette: ChartPalette
+  trendCode: string
+  onTrendCode: (code: string) => void
+  limitPools: TradingDayLimitPoolsData | null
+  limitPoolsError: string | undefined
+  onRetryContext: () => void
+  onRetryLimitPools: () => void
+}) {
   const breadth = data.overview.breadth
+  const margin = context?.margin ?? null
+  const turnover = context?.turnover ?? null
+  const turnoverChange = turnover !== null && turnover.amount !== null && turnover.previousAmount !== null
+    ? turnover.amount - turnover.previousAmount
+    : null
   const limitUp = Math.max(0, breadth.limitUp ?? 0)
   const limitDown = Math.max(0, breadth.limitDown ?? 0)
   const breadthSegments = {
@@ -338,7 +700,135 @@ function DashboardPage({ client, theme, onStock, notify }: { client: HanaiClient
   }
   const breadthTotal = Object.values(breadthSegments).reduce((sum, value) => sum + value, 0)
 
+  return <>
+    <div className={styles['indexGrid']}>
+      {data.overview.indices.map(index => {
+        const ticker = TREND_TICKERS[index.code] ?? null
+        const active = ticker !== null && ticker === trendCode
+        return (
+          <article
+            className={[
+              styles['card'],
+              styles['indexCard'],
+              styles[classForChange(index.changePct)],
+              active ? styles['indexCardActive'] : '',
+              ticker === null ? '' : styles['indexCardClickable'],
+            ].filter(Boolean).join(' ')}
+            key={index.code}
+            role={ticker === null ? undefined : 'button'}
+            tabIndex={ticker === null ? undefined : 0}
+            aria-pressed={ticker === null ? undefined : active}
+            onClick={ticker === null ? undefined : () => onTrendCode(ticker)}
+            onKeyDown={ticker === null ? undefined : event => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                onTrendCode(ticker)
+              }
+            }}
+          >
+            <div className={styles['indexName']}>{index.name}</div>
+            <div className={styles['indexPrice']}>{number(index.price)}</div>
+            <div className={styles['indexChange']}><span>{signedNumber(index.change)}</span><span>{percent(index.changePct)}</span></div>
+            <div className={styles['indexAmount']}>成交 {money(index.amount)}</div>
+          </article>
+        )
+      })}
+    </div>
+
+    <div className={styles['overviewSplit']}>
+      <IndexIntradayCard
+        context={context}
+        error={error}
+        loading={loading}
+        mode={mode}
+        palette={palette}
+        selectedCode={trendCode}
+        sectorSignals={context?.sectorSignals ?? []}
+        onRetry={onRetryContext}
+      />
+      <article className={`${styles['card']} ${styles['breadthCard']}`}>
+        <PanelHead title="市场宽度" hint="东方财富口径 · 沪深北非 ST" />
+        {breadthTotal > 0 ? <>
+          <div className={styles['breadthBar']} aria-label="涨停、上涨、平盘、下跌、跌停分布">
+            {([
+              ['limitUp', breadthSegments.limitUp, 'breadthLimitUp'],
+              ['up', breadthSegments.up, 'breadthUp'],
+              ['flat', breadthSegments.flat, 'breadthFlat'],
+              ['down', breadthSegments.down, 'breadthDown'],
+              ['limitDown', breadthSegments.limitDown, 'breadthLimitDown'],
+            ] as const).map(([id, value, className]) => value > 0 ? <i key={id} className={styles[className]} style={{ width: `${value / breadthTotal * 100}%` }} /> : null)}
+          </div>
+          <div className={styles['breadthStats']}>
+            <span className={styles['limitUp']}>涨停 <b>{breadthSegments.limitUp}</b></span>
+            <span className={styles['up']}>上涨 <b>{breadthSegments.up}</b></span>
+            <span className={styles['flat']}>平盘 <b>{breadthSegments.flat}</b></span>
+            <span className={styles['down']}>下跌 <b>{breadthSegments.down}</b></span>
+            <span className={styles['limitDown']}>跌停 <b>{breadthSegments.limitDown}</b></span>
+          </div>
+        </> : <Empty compact title="暂无涨跌分布数据" detail="行情源尚未返回市场宽度。" />}
+        <LimitPoolHighlights
+          limitPools={limitPools}
+          error={limitPoolsError}
+          loading={loading}
+          mode={mode}
+          onRetry={onRetryLimitPools}
+        />
+        <div className={styles['breadthFinance']}>
+          <div className={styles['breadthFinanceItem']}>
+            <span>两市成交额</span>
+            <b>{money(turnover?.amount != null ? turnover.amount * 1e8 : null)}</b>
+            <small>
+              较前一交易日
+              <em className={styles[classForChange(turnover?.changePct ?? null)]}> {money(turnoverChange !== null ? turnoverChange * 1e8 : null)} {percent(turnover?.changePct ?? null)}</em>
+            </small>
+          </div>
+          <div className={styles['breadthFinanceItem']}>
+            <span>两市融资额</span>
+            <b>{money(margin?.marketTotal != null ? margin.marketTotal * 1e8 : null)}</b>
+            <small>
+              较前一交易日
+              <em className={styles[classForChange(margin?.marketChangePct ?? null)]}> {money(margin?.marketChange != null ? margin.marketChange * 1e8 : null)} {percent(margin?.marketChangePct ?? null)}</em>
+            </small>
+          </div>
+        </div>
+      </article>
+    </div>
+  </>
+}
+
+function DashboardBoardsView({
+  data,
+  theme,
+  client,
+  onStock,
+  notify,
+  interactive,
+}: {
+  data: DashboardData
+  theme: ThemeId
+  client: HanaiClient
+  onStock: (stock: SearchResult) => void
+  notify: Notify
+  interactive: boolean
+}) {
+  const [rank, setRank] = useState<keyof DashboardData['ranks']>('gainers')
+  const [sectorType, setSectorType] = useState<'industry' | 'concept'>('industry')
+  const [sectorLoading, setSectorLoading] = useState(false)
+  const [drill, setDrill] = useState<{ code: string; name: string; stocks: StockQuote[] | null; meta: ProviderMeta | null } | null>(null)
+  const drillGeneration = useRef(0)
+  const drillController = useRef<AbortController | null>(null)
+  useEffect(() => () => {
+    drillGeneration.current += 1
+    drillController.current?.abort()
+  }, [])
+
+  const palette = useMemo(() => getChartPalette(theme), [theme])
+  const sector = sectorType === 'industry' ? data.industry : data.concept
+  const treemapOption = useMemo(() => buildTreemapOption(sector, palette), [palette, sector])
+  const legendStops = useMemo(() => treemapLegendStops(palette), [palette])
+
   const openSector = (params: unknown) => {
+    if (!interactive) return
     const target = treemapTargetFromEvent(params)
     if (target === null) return
     const generation = ++drillGeneration.current
@@ -371,83 +861,41 @@ function DashboardPage({ client, theme, onStock, notify }: { client: HanaiClient
     window.setTimeout(() => setSectorLoading(false), 0)
   }
 
-  return <Page>
-    <PageHeader
-      title="今日市场"
-      meta={<><DataStateBadge meta={data.overview.meta} marketStatus={data.overview.marketStatus} refreshFailed={refreshError !== null} /><DataSourceText meta={data.overview.meta} /></>}
-      action={<button className={`${styles['button']} ${styles['buttonGhost']}`} disabled={refreshing} onClick={() => void load(true)}>{refreshing ? '刷新中' : '刷新'}</button>}
-    />
-    {refreshError !== null && <div className={styles['errorCard']}><b>行情获取失败：</b>{refreshError}<span>请检查网络后点击刷新；其他面板保留最近成功的数据。</span></div>}
-
-    <div className={styles['indexGrid']}>
-      {data.overview.indices.map(index => (
-        <article className={`${styles['card']} ${styles['indexCard']} ${styles[classForChange(index.changePct)]}`} key={index.code}>
-          <div className={styles['indexName']}>{index.name}</div>
-          <div className={styles['indexPrice']}>{number(index.price)}</div>
-          <div className={styles['indexChange']}><span>{signedNumber(index.change)}</span><span>{percent(index.changePct)}</span></div>
-          <div className={styles['indexAmount']}>成交 {money(index.amount)}</div>
-        </article>
-      ))}
-    </div>
-
-    <article className={`${styles['card']} ${styles['breadthCard']}`}>
-      <PanelHead title="市场宽度" hint="东方财富口径 · 沪深北非 ST" extra={<span className={styles['metaText']}>两市成交 {money(breadth.totalAmount)}</span>} />
-      {breadthTotal > 0 ? <>
-        <div className={styles['breadthBar']} aria-label="涨停、上涨、平盘、下跌、跌停分布">
-          {([
-            ['limitUp', breadthSegments.limitUp, 'breadthLimitUp'],
-            ['up', breadthSegments.up, 'breadthUp'],
-            ['flat', breadthSegments.flat, 'breadthFlat'],
-            ['down', breadthSegments.down, 'breadthDown'],
-            ['limitDown', breadthSegments.limitDown, 'breadthLimitDown'],
-          ] as const).map(([id, value, className]) => value > 0 ? <i key={id} className={styles[className]} style={{ width: `${value / breadthTotal * 100}%` }} /> : null)}
+  return <div className={styles['dashboardMainGrid']}>
+    <article className={`${styles['card']} ${styles['treemapCard']}`}>
+      <PanelHead
+        title={drill === null ? '板块热力' : `板块热力 · ${drill.name}`}
+        extra={drill === null ? <div className={styles['buttonGroup']}>
+          <button className={sectorType === 'industry' ? styles['buttonSelected'] : styles['button']} disabled={sectorLoading} onClick={() => selectSectorType('industry')}>行业</button>
+          <button className={sectorType === 'concept' ? styles['buttonSelected'] : styles['button']} disabled={sectorLoading} onClick={() => selectSectorType('concept')}>概念</button>
+        </div> : <button className={styles['button']} onClick={closeDrill}>← 返回板块</button>}
+      />
+      {drill === null ? <div className={styles['treemapBody']}>
+        <div className={styles['dataStrip']}><DataStateBadge meta={sector?.meta} liveCapable={sector?.meta.sourceTimestamp !== null} /><DataSourceText meta={sector?.meta} /></div>
+        {treemapOption === null ? <Empty compact title="暂无板块热力数据" detail={sector?.meta.cacheState === 'unavailable' ? '板块数据源暂不可用，其余行情可继续查看。' : '等待板块成交额与涨跌幅。'} /> : <EChart option={treemapOption} {...(styles['treemapChart'] === undefined ? {} : { className: styles['treemapChart'] })} ariaLabel="板块成交额热力图" {...(interactive ? { onChartClick: openSector } : {})} />}
+        <div className={styles['treemapLegend']}>
+          <span>涨</span>
+          {legendStops.map(stop => <i key={stop.value} style={{ background: stop.color }} title={stop.title} />)}
+          <span>跌</span>
+          <small>面积 = 板块成交额（个股可重叠）· 其他固定</small>
         </div>
-        <div className={styles['breadthStats']}>
-          <span className={styles['limitUp']}>涨停 <b>{breadthSegments.limitUp}</b></span>
-          <span className={styles['up']}>上涨 <b>{breadthSegments.up}</b></span>
-          <span className={styles['flat']}>平盘 <b>{breadthSegments.flat}</b></span>
-          <span className={styles['down']}>下跌 <b>{breadthSegments.down}</b></span>
-          <span className={styles['limitDown']}>跌停 <b>{breadthSegments.limitDown}</b></span>
-        </div>
-      </> : <Empty compact title="暂无涨跌分布数据" detail="行情源尚未返回市场宽度。" />}
+      </div> : <SectorDrill drill={drill} onStock={onStock} />}
     </article>
 
-    <div className={styles['dashboardMainGrid']}>
-      <article className={`${styles['card']} ${styles['treemapCard']}`}>
-        <PanelHead
-          title={drill === null ? '板块热力' : `板块热力 · ${drill.name}`}
-          extra={drill === null ? <div className={styles['buttonGroup']}>
-            <button className={sectorType === 'industry' ? styles['buttonSelected'] : styles['button']} disabled={sectorLoading} onClick={() => selectSectorType('industry')}>行业</button>
-            <button className={sectorType === 'concept' ? styles['buttonSelected'] : styles['button']} disabled={sectorLoading} onClick={() => selectSectorType('concept')}>概念</button>
-          </div> : <button className={styles['button']} onClick={closeDrill}>← 返回板块</button>}
-        />
-        {drill === null ? <div className={styles['treemapBody']}>
-          <div className={styles['dataStrip']}><DataStateBadge meta={sector?.meta} liveCapable={sector?.meta.sourceTimestamp !== null} /><DataSourceText meta={sector?.meta} /></div>
-          {treemapOption === null ? <Empty compact title="暂无板块热力数据" detail={sector?.meta.cacheState === 'unavailable' ? '板块数据源暂不可用，其余行情可继续查看。' : '等待板块成交额与涨跌幅。'} /> : <EChart option={treemapOption} {...(styles['treemapChart'] === undefined ? {} : { className: styles['treemapChart'] })} ariaLabel="板块成交额热力图" onChartClick={openSector} />}
-          <div className={styles['treemapLegend']}>
-            <span>涨</span>
-            {legendStops.map(stop => <i key={stop.value} style={{ background: stop.color }} title={stop.title} />)}
-            <span>跌</span>
-            <small>面积 = 板块成交额（个股可重叠）· 其他固定</small>
-          </div>
-        </div> : <SectorDrill drill={drill} onStock={onStock} />}
-      </article>
-
-      <article className={`${styles['card']} ${styles['rankCard']}`}>
-        <PanelHead title="榜单" extra={<div className={styles['buttonGroup']}>
-          {([['gainers', '涨幅榜'], ['losers', '跌幅榜'], ['amount', '成交额'], ['turnover', '换手率']] as const).map(([id, label]) => <button key={id} className={rank === id ? styles['buttonSelected'] : styles['button']} onClick={() => setRank(id)}>{label}</button>)}
-        </div>} />
-        <div className={styles['rankBody']}>
-          {data.rankSources !== undefined && <div className={styles['dataStrip']}><DataStateBadge meta={data.rankSources[rank]} liveCapable={data.rankSources[rank].sourceTimestamp !== null} /><DataSourceText meta={data.rankSources[rank]} /></div>}
-          <table className={styles['dataTable']}>
-            <thead><tr><th>名称</th><th>最新价</th><th>涨跌幅</th><th>{rank === 'turnover' ? '换手率' : '成交额'}</th></tr></thead>
-            <tbody>{data.ranks[rank].map(item => <tr key={item.secId} onClick={() => onStock(toSearchResult(item))}><td><b>{item.name}</b><small>{item.code}</small></td><td>{number(item.price)}</td><td className={styles[classForChange(item.changePct)]}>{percent(item.changePct)}</td><td>{rank === 'turnover' ? ratio(item.turnoverRate) : money(item.amount)}</td></tr>)}</tbody>
-          </table>
-          {data.ranks[rank].length === 0 && <Empty compact title="暂无榜单数据" detail="当前数据源未返回该榜单。" />}
-        </div>
-      </article>
-    </div>
-  </Page>
+    <article className={`${styles['card']} ${styles['rankCard']}`}>
+      <PanelHead title="榜单" extra={<div className={styles['buttonGroup']}>
+        {([['gainers', '涨幅榜'], ['losers', '跌幅榜'], ['amount', '成交额'], ['turnover', '换手率']] as const).map(([id, label]) => <button key={id} className={rank === id ? styles['buttonSelected'] : styles['button']} onClick={() => setRank(id)}>{label}</button>)}
+      </div>} />
+      <div className={styles['rankBody']}>
+        {data.rankSources !== undefined && <div className={styles['dataStrip']}><DataStateBadge meta={data.rankSources[rank]} liveCapable={data.rankSources[rank].sourceTimestamp !== null} /><DataSourceText meta={data.rankSources[rank]} /></div>}
+        <table className={styles['dataTable']}>
+          <thead><tr><th>名称</th><th>最新价</th><th>涨跌幅</th><th>{rank === 'turnover' ? '换手率' : '成交额'}</th></tr></thead>
+          <tbody>{data.ranks[rank].map(item => <tr key={item.secId} onClick={() => onStock(toSearchResult(item))}><td><b>{item.name}</b><small>{item.code}</small></td><td>{number(item.price)}</td><td className={styles[classForChange(item.changePct)]}>{percent(item.changePct)}</td><td>{rank === 'turnover' ? ratio(item.turnoverRate) : money(item.amount)}</td></tr>)}</tbody>
+        </table>
+        {data.ranks[rank].length === 0 && <Empty compact title="暂无榜单数据" detail="当前数据源未返回该榜单。" />}
+      </div>
+    </article>
+  </div>
 }
 
 function SectorDrill({ drill, onStock }: { drill: { name: string; stocks: StockQuote[] | null; meta: ProviderMeta | null }; onStock: (stock: SearchResult) => void }) {
