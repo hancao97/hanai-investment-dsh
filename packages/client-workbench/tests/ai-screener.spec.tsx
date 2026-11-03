@@ -43,7 +43,7 @@ it('fills editable starters and creates a DSH parsing task with the selected mod
 it('shows source-backed cards and coverage and only adds to watch after the user clicks', async () => {
   const view = setup('r1'); await act(async () => {})
   expect(screen.getByRole('heading', { name: '测试银行' })).not.toBeNull()
-  expect(screen.getByText(/源匹配 1 只/)).not.toBeNull()
+  expect(screen.getByText(/已核实条件命中 1 只/)).not.toBeNull()
   expect(screen.getByText(/字段覆盖/).textContent).toContain('ROE 1/1')
   expect(view.call.mock.calls.some(([key]) => key === 'watch.item.add')).toBe(false)
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: '加入当前自选' })) })
@@ -87,4 +87,83 @@ it('preserves the question after a create failure and requires confirmation befo
   expect(view.call.mock.calls.some(([key]) => key === 'screener.remove')).toBe(false)
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: '确认删除' })) })
   expect(view.call).toHaveBeenCalledWith('screener.remove', { id: 'r1' })
+})
+
+it('retries failed parsing with the original question and model, keeps the draft and prevents duplicate requests', async () => {
+  let release!: (value: ExpertChat) => void
+  const original = { ...chat, modelProvider: 'original-provider', model: 'original-model', reasoningEffort: 'high' }
+  const view = setup('r1', {
+    'screener.list': () => [original],
+    'screener.result': () => ({ ...run, status: 'failed', plan: null, result: null, error: '解析回合未完成：error' }),
+    'screener.create': () => new Promise(resolve => { release = resolve }),
+  })
+  await act(async () => {})
+  fireEvent.change(screen.getByLabelText('AI选股问题'), { target: { value: '尚未提交的新问题' } })
+  fireEvent.change(screen.getByLabelText('AI选股模型'), { target: { value: 'provider\0model' } })
+  const retry = screen.getByRole('button', { name: '重试解析' })
+  await act(async () => { fireEvent.click(retry); fireEvent.click(retry) })
+  expect(view.call.mock.calls.filter(([key]) => key === 'screener.create')).toHaveLength(1)
+  expect(view.call).toHaveBeenCalledWith('screener.create', {
+    openingMessage: run.question,
+    model: { provider: 'original-provider', model: 'original-model', reasoningEffort: 'high' },
+  })
+  expect(screen.getByRole('button', { name: '正在重试…' }).hasAttribute('disabled')).toBe(true)
+  await act(async () => { release({ ...original, id: 'retry-r1' }) })
+  expect(view.onOpen).toHaveBeenCalledWith('retry-r1')
+  expect((screen.getByLabelText('AI选股问题') as HTMLTextAreaElement).value).toBe('尚未提交的新问题')
+  expect(screen.getAllByRole('button', { name: `删除查询：${chat.title}` })).toHaveLength(2)
+  expect(view.call.mock.calls.some(([key]) => key === 'screener.execute' || key === 'screener.remove')).toBe(false)
+})
+
+it('keeps a failed parsing record retryable when creation fails, without using the unrelated composer model', async () => {
+  const view = setup('r1', {
+    'screener.result': () => ({ ...run, status: 'failed', plan: null, result: null, error: '解析失败' }),
+    'screener.create': () => { throw new Error('model offline') },
+  })
+  await act(async () => {})
+  fireEvent.change(screen.getByLabelText('AI选股模型'), { target: { value: 'provider\0model' } })
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: '重试解析' })) })
+  expect(view.call).toHaveBeenCalledWith('screener.create', { openingMessage: run.question })
+  expect(screen.getAllByRole('alert').some(node => node.textContent?.includes('model offline'))).toBe(true)
+  expect(screen.getByRole('button', { name: '重试解析' }).hasAttribute('disabled')).toBe(false)
+  expect(view.onOpen).not.toHaveBeenCalled()
+})
+
+it('retries candidate retrieval from a failed validated plan without creating another parsing task', async () => {
+  const view = setup('r1', { 'screener.result': () => ({ ...run, status: 'failed', error: '扫描失败' }) })
+  await act(async () => {})
+  expect(screen.queryByRole('button', { name: '重试解析' })).toBeNull()
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: '重试候选查询' })) })
+  expect(view.call).toHaveBeenCalledWith('screener.execute', { id: 'r1' })
+  expect(view.call.mock.calls.some(([key]) => key === 'screener.create')).toBe(false)
+})
+
+it('does not reopen a retry after the user has left its history record', async () => {
+  let release!: (value: ExpertChat) => void
+  const view = setup('r1', {
+    'screener.result': () => ({ ...run, status: 'failed', plan: null, result: null }),
+    'screener.create': () => new Promise(resolve => { release = resolve }),
+  })
+  await act(async () => {})
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: '重试解析' })) })
+  await act(async () => { view.select(null) })
+  await act(async () => { release({ ...chat, id: 'retry-r1' }) })
+  expect(view.onOpen).not.toHaveBeenCalled()
+})
+
+it('displays the AI-generated formula, requires confirmation, and renders persistent progress and per-stock evidence', async () => {
+  const formula = { match: 'all' as const, adjust: 'qfq' as const, rules: [{ kind: 'ma-cross' as const, short: 5, long: 20, direction: 'up' as const, within: 3 }] }
+  let current = { ...run, status: 'needs-confirmation' as ScreeningRun['status'], plan: { ...run.plan!, technical: formula, query: DEFAULT_SCAN_QUERY, assumptions: ['最近3日是建议窗口，请确认'] }, result: null as ScreeningRun['result'] }
+  const progress = { phase: 'finished' as const, asOf: '2026-10-29', catalogueDate: '2026-10-30', total: 5574, checked: 5574, matched: 1, unverified: 2, samples: [{ code: '600001', reason: '历史缺失' }], evidence: { '600000': [{ formula: 'MA5上穿MA20', matched: true, detail: '交叉日期2026-10-29' }] } }
+  const view = setup('r1', { 'screener.result': () => current, 'screener.execute': () => { current = { ...current, status: 'ready', result: run.result, progress } as typeof current; return current } })
+  await act(async () => {})
+  expect(screen.getByText(/最近3个交易日内MA5上穿MA20/)).not.toBeNull()
+  expect(view.call.mock.calls.some(([key]) => key === 'screener.execute')).toBe(false)
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: '确认公式并后台扫描' })) })
+  expect(view.call).toHaveBeenCalledWith('screener.execute', { id: 'r1' })
+  expect(screen.getByText(/已检查 5574\/5574/)).not.toBeNull()
+  expect(screen.getByText(/MA5上穿MA20：满足；交叉日期2026-10-29/)).not.toBeNull()
+  expect(screen.getByText(/600001：历史缺失/)).not.toBeNull()
+  expect(screen.getByText('本地快照价 · 2026-10-30')).not.toBeNull()
+  expect(screen.getByText('未附加财务或行业条件')).not.toBeNull()
 })

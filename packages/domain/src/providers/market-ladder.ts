@@ -6,6 +6,8 @@ import { isMarketOpen } from '../../../contracts/src/market-hours.ts'
 import { fetchJson, isoNow, type HttpClient, type Clock } from '../http.ts'
 import { ProviderCache } from './cache.ts'
 import { SourceCircuit } from './source-circuit.ts'
+import type { HistoricalLimitPool } from '../../../contracts/src/technical-screen.ts'
+import { defaultMacroRange } from '../../../contracts/src/macro-range.ts'
 
 const object = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v)
 const count = (v: unknown) => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0
@@ -24,6 +26,19 @@ export class MarketLadderProvider {
     this.cache = new ProviderCache(clock, () => isMarketOpen(new Date(clock.now())) ? 25_000 : 6 * 3_600_000)
   }
   clear() { return this.cache.clear() }
+  /** Historical membership needs neither continuous-board interpretation nor today's quotes. */
+  async historicalPool(date: string): Promise<HistoricalLimitPool> {
+    if (!isMarketDate(date) || date > defaultMacroRange(this.clock.now()).to) throw new Error('历史涨停池必须属于已收盘日期')
+    let codes: string[], source: string
+    try {
+      const { rows } = await this.circuit.run('ths-limit-reason', () => this.thsRows(date))
+      codes = rows.map(row => String(row.code)); source = 'ths-limit-reason'
+    } catch {
+      const rows = await this.circuit.run('eastmoney-limit-up', () => this.pool('getTopicZTPool', date))
+      codes = rows.map(row => String(row.c)); source = 'eastmoney-limit-up'
+    }
+    return { date, codes, source, fetchedAt: isoNow(this.clock), scope: 'source-pool-positive-only' }
+  }
   get(date?: string): Promise<MarketLadderData | null> {
     if (date === undefined) {
       const now = new Date(this.clock.now() + 8 * 3_600_000)

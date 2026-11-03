@@ -1,6 +1,9 @@
+import { LocalScreening } from './local-screening.ts'
 import { AiScreener } from './ai-screener.ts'
+import { StockDataSync } from './stock-data.ts'
+import { TechnicalData } from './technical-data.ts'
 import { MarketScanService } from './market-scan.ts'
-import type { MarketScanData, MarketScanQuery } from '../../contracts/src/market-scan.ts'
+import type { MarketScanData, MarketScanQuery, ScreeningFact } from '../../contracts/src/market-scan.ts'
 import { AI_SCREENER_ID } from '../../contracts/src/ai-screener.ts'
 import { RESEARCH_ASSISTANT_ID } from '../../contracts/src/research-assistant.ts'
 import { AI_SCREENER, RESEARCH_ASSISTANT, ResearchWorkspace } from '../../domain/src/research-assistant.ts'
@@ -59,6 +62,7 @@ import type { GlobalIndicesData } from '../../contracts/src/market-indices.ts'
 import type { MarketIntradayData, MarketSignalsData } from '../../contracts/src/market-activity.ts'
 import type { MarketArmsData } from '../../contracts/src/market-arms.ts'
 import { isMarketResting } from '../../contracts/src/market-hours.ts'
+import type { TechnicalBar, TechnicalHistoryInput, HistoricalLimitPool } from '../../contracts/src/technical-screen.ts'
 import type { MarketDistributionData } from '../../contracts/src/market-distribution.ts'
 
 const MARKET_SUCCESS_SETTING = 'market.latestSuccess'
@@ -70,6 +74,12 @@ const SECURITY_SYNC_AVAILABLE_AT_SETTING = 'security.master.manualSyncAvailableA
 const SECURITY_SYNC_COOLDOWN_MS = 60_000
 
 export interface MarketFacade {
+  syncScreeningSecurities?(database: HanaiDatabase, signal: AbortSignal, force?: boolean): Promise<{ count: number; updatedAt: string | null }>
+  getScreeningFacts?(code: string, asOf: string, signal: AbortSignal): Promise<Record<string, ScreeningFact>>
+  getTechnicalCalendar?(through: string, signal: AbortSignal): Promise<string[]>
+  getTechnicalBars?(code: string, adjust: 'qfq' | 'none', asOf: string, signal: AbortSignal): Promise<TechnicalBar[]>
+  getTechnicalHistory?(code: string, adjust: 'qfq' | 'none', asOf: string, signal: AbortSignal, limit?: number): Promise<TechnicalHistoryInput>
+  getTechnicalLimitPool?(date: string): Promise<HistoricalLimitPool | null>
   getMarketScan?(query: MarketScanQuery, refresh?: boolean): Promise<MarketScanData | null>
   getMacroIndicator?(id: MacroIndicatorId, range: MacroRange, signal?: AbortSignal): Promise<MacroIndicatorData>
   getMacroInputs(): MacroEtfInputs | null
@@ -89,7 +99,7 @@ export interface MarketFacade {
   getMarketDistribution?(): Promise<MarketDistributionData | null>
   getSectorStocks(sectorCode: string): Promise<{ stocks: StockQuote[]; meta: ProviderMeta }>
   getStockDetail(secId: string, security?: ReturnType<HanaiDatabase['getSecurity']>): Promise<StockDetail>
-  getStockQuoteMetrics(secId: string): Promise<StockQuoteMetricsData>
+  getStockQuoteMetrics(secId: string, preparation?: boolean): Promise<StockQuoteMetricsData>
   getTrend(secId: string): Promise<StockTrendData>
   getKline(secId: string, period: KLinePeriod, before?: string): Promise<StockKLineData>
   getValuation(
@@ -99,7 +109,7 @@ export interface MarketFacade {
   getQuotes(secIds: readonly string[]): Promise<{ quotes: StockQuote[]; meta: ProviderMeta }>
   clearMarketCache(): number
   getSourceDiagnostics(): SourceDiagnostic[]
-  syncSecurities(database: HanaiDatabase, force?: boolean): Promise<{ count: number; updatedAt: string | null }>
+  syncSecurities(database: HanaiDatabase, force?: boolean, signal?: AbortSignal): Promise<{ count: number; updatedAt: string | null }>
   searchSecurities(database: HanaiDatabase, query: string): Promise<SearchResult[]>
 }
 
@@ -145,13 +155,16 @@ export class HanaiService {
   private readonly marketHistory: MarketHistoryStore
   private marketDateContext: { date: string; observedOn: string } | null = null
   private readonly screener: AiScreener
+  private readonly localScreening: LocalScreening
   private readonly scan: MarketScanService
   private readonly macroSeries: MacroSeries
+  private readonly stockData: StockDataSync
+  private readonly technicalData: TechnicalData
   private readonly macroIndicators: MacroIndicators
-  startMacroUpdates(): void { this.macroSeries.start() }
+  startBackgroundUpdates(): void { this.macroSeries.start(); if ((this.market.getTechnicalBars || this.market.getTechnicalHistory) && this.market.getTechnicalCalendar) this.stockData.start() }
 
   private disposed = false
-  dispose(): void { this.disposed = true; this.screener.dispose(); this.macroSeries.dispose(); this.macroIndicators.dispose() }
+  dispose(): void { this.disposed = true; this.screener.dispose(); this.stockData.dispose(); this.technicalData.dispose(); this.macroSeries.dispose(); this.macroIndicators.dispose() }
 
   constructor(options: HanaiServiceOptions) {
     this.paths = options.paths
@@ -163,7 +176,31 @@ export class HanaiService {
     this.defaultModel = options.defaultModel
     this.market = options.market
     this.scan = new MarketScanService((query, refresh) => this.market.getMarketScan?.(query, refresh) ?? Promise.resolve(null), this.marketHistory, this.database)
-    this.screener = new AiScreener(this.database, new ResearchWorkspace(this.paths), this.scan)
+    const technicalSource = {
+      calendar: (through: string, signal: AbortSignal) => this.market.getTechnicalCalendar?.(through, signal) ?? Promise.reject(new Error('宿主未提供技术交易日历')),
+      bars: (code: string, adjust: 'qfq' | 'none', asOf: string, signal: AbortSignal, limit?: number) => this.market.getTechnicalHistory?.(code, adjust, asOf, signal, limit) ?? this.market.getTechnicalBars?.(code, adjust, asOf, signal) ?? Promise.reject(new Error('宿主未提供技术日线')),
+      pool: (date: string) => this.market.getMarketLadder?.(date) ?? Promise.resolve(null),
+      ...(this.market.getTechnicalLimitPool ? { limitPool: (date: string, _signal: AbortSignal) => this.market.getTechnicalLimitPool!(date) } : {}),
+    }
+    this.localScreening = new LocalScreening(this.database, () => this.stockData.ensure())
+    this.technicalData = new TechnicalData(this.database, technicalSource)
+    this.stockData = new StockDataSync(this.database, this.technicalData, async signal => {
+      const result = this.market.syncScreeningSecurities ? await this.market.syncScreeningSecurities(this.database, signal, false) : await this.market.syncSecurities(this.database, false, signal)
+      if (!result.updatedAt || !Number.isFinite(Date.parse(result.updatedAt)) || Date.parse(result.updatedAt) > Date.now() || Date.now() - Date.parse(result.updatedAt) >= 24 * 3600000) throw new Error('证券名录已过期且未确认更新，保留旧范围')
+    }, async (code, signal) => {
+      const row = this.database.getSecurity(`${code.startsWith('6') ? 1 : 0}.${code}`)
+      if (!row) throw new Error('证券已不在本地名录中')
+      let primary: Record<string, ScreeningFact> = {}
+      if (this.market.getScreeningFacts) {
+        try { primary = await this.market.getScreeningFacts(code, this.stockData.status().asOf!, signal) } catch { signal.throwIfAborted() }
+      }
+      // BaoStock daily valuation lacks market cap and the supported cumulative report metrics.
+      let input: StockQuoteMetricsData | null = null
+      try { input = await this.market.getStockQuoteMetrics(row.secId, true) } catch (cause) { signal.throwIfAborted(); if (!Object.keys(primary).length) throw cause }
+      signal.throwIfAborted()
+      this.localScreening.write(code, input, primary)
+    }, asOf => this.localScreening.readyCodes(asOf))
+    this.screener = new AiScreener(this.database, new ResearchWorkspace(this.paths), this.localScreening, this.technicalData)
     this.macroIndicators = new MacroIndicators((id, range, signal) => {
       if (!this.market.getMacroIndicator) return Promise.reject(new Error('当前行情服务未提供宏观经济指标能力'))
       return this.market.getMacroIndicator(id, range, signal)
@@ -210,6 +247,12 @@ export class HanaiService {
       this.enqueueReportJob(judgement.id)
     }
     for (const chat of this.database.listExpertChats()) {
+      if (chat.masterId === AI_SCREENER_ID && this.screener.has(chat.id)) {
+        try {
+          const run = this.screener.get(chat.id)
+          if (run?.status === 'scanning' && run.plan?.technical) { this.finishScreening(chat.id); continue }
+        } catch (cause) { this.database.updateExpertChat(chat.id, { errorCode: 'screening-recovery-failed', errorMessage: messageOf(cause) }); continue }
+      }
       if (chat.dshSessionId === null) {
         this.database.updateExpertChat(chat.id, {
           turnStatus: 'failed',
@@ -293,7 +336,7 @@ export class HanaiService {
     signal: AbortSignal,
   ): Promise<unknown> {
     switch (endpoint) {
-      case 'bootstrap': return this.bootstrap()
+      case 'bootstrap': return this.bootstrap(signal)
       case 'market.scan.query': {
         const { query, date, refresh } = request as HanaiRequest<'market.scan.query'>
         return this.scan.query(query, date, refresh)
@@ -426,6 +469,9 @@ export class HanaiService {
         this.archiveMarketPanel(`sector:${sectorCode}`, result, result.meta)
         return result
       }
+      case 'stock-data.status': return this.stockData.status()
+      case 'stock-data.sync': return this.stockData.request()
+      case 'stock-data.pause': return this.stockData.pause()
       case 'security.sync': {
         const input = request as HanaiRequest<'security.sync'>
         if (this.securitySyncInProgress) throw new Error('主数据正在同步，请等待完成')
@@ -435,7 +481,7 @@ export class HanaiService {
         this.database.setSetting(SECURITY_SYNC_AVAILABLE_AT_SETTING, new Date(Date.now() + SECURITY_SYNC_COOLDOWN_MS).toISOString())
         this.securitySyncInProgress = true
         try {
-          return await this.market.syncSecurities(this.database, input.force)
+          return this.market.syncScreeningSecurities ? await this.market.syncScreeningSecurities(this.database, signal, input.force ?? false) : await this.market.syncSecurities(this.database, input.force, signal)
         } finally {
           this.securitySyncInProgress = false
         }
@@ -572,10 +618,11 @@ export class HanaiService {
     }
   }
 
-  private async bootstrap(): Promise<BootstrapData> {
+  private async bootstrap(signal: AbortSignal): Promise<BootstrapData> {
     if (this.database.securityCount() === 0) {
       try {
-        await this.market.syncSecurities(this.database, false)
+        if (this.market.syncScreeningSecurities) await this.market.syncScreeningSecurities(this.database, signal, false)
+        else await this.market.syncSecurities(this.database, false, signal)
       } catch {
         // First-run market access may be offline; the workbench still boots and exposes manual retry.
       }

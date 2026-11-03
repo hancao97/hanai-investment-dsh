@@ -1223,7 +1223,7 @@ describe('HanaiWorkbench old-client parity', () => {
     })
     try {
       await act(async () => { renderAt('/settings', client) })
-      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '立即同步主数据' })) })
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '同步证券名录' })) })
       const cooling = screen.getByRole('button', { name: '主数据同步冷却 60s' })
       expect(cooling.hasAttribute('disabled')).toBe(true)
       fireEvent.click(cooling)
@@ -1234,7 +1234,7 @@ describe('HanaiWorkbench old-client parity', () => {
       await act(async () => { await vi.advanceTimersByTimeAsync(59_999) })
       expect(screen.getByRole('button', { name: '主数据同步冷却 1s' }).hasAttribute('disabled')).toBe(true)
       await act(async () => { await vi.advanceTimersByTimeAsync(1) })
-      expect(screen.getByRole('button', { name: '立即同步主数据' }).hasAttribute('disabled')).toBe(false)
+      expect(screen.getByRole('button', { name: '同步证券名录' }).hasAttribute('disabled')).toBe(false)
       expect(callsOf(client, 'security.sync')).toHaveLength(1)
       expect(callsOf(client, 'dashboard.get')).toHaveLength(0)
     } finally { cleanup(); vi.useRealTimers() }
@@ -1277,7 +1277,7 @@ describe('HanaiWorkbench old-client parity', () => {
     const keyInput = screen.getByLabelText('写入新的 API Key')
     expect(keyInput.getAttribute('type')).toBe('password')
     expect(keyInput.getAttribute('autocomplete')).toBe('off')
-    for (const action of ['重新检测连接', '安全保存', '移除', '立即同步主数据', '打开数据目录', '清理行情缓存', '清理估值缓存', '亮色模式', '黑夜模式']) {
+    for (const action of ['重新检测连接', '安全保存', '移除', '同步证券名录', '打开数据目录', '清理行情缓存', '清理估值缓存', '亮色模式', '黑夜模式']) {
       expect(screen.getByRole('button', { name: new RegExp(`^${action}`) })).not.toBeNull()
     }
     expect(screen.getByText('清理缓存不会删除自选、专家、对谈或研判报告。')).not.toBeNull()
@@ -1933,6 +1933,7 @@ function makeClient(overrides: Record<string, CallOverride> = {}): HanaiClient {
     switch (endpoint) {
       case 'bootstrap': return bootstrap
       case 'diagnostics.get': return bootstrap.diagnostics
+      case 'stock-data.status': return { phase: 'idle', asOf: null, latestCompleteDate: null, total: 0, checked: 0, completed: 0, failed: 0, updatedAt: null, availableAt: null, error: null, samples: [] }
       case 'dashboard.get': return dashboard
       case 'market.breadth': return { ...dashboard.overview.breadth, qdate: '2026-10-27', meta: fresh }
       case 'market.arms': return { meta: fresh, point: { date: '2026-10-27', time: '10:00', upCount: 100, downCount: 200, flatCount: 3, upAmount: 300, downAmount: 200, trin: 1 / 3, adRatio: 0.5, amountRatio: 1.5, estimated: false } }

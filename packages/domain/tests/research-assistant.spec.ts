@@ -31,6 +31,9 @@ it('persists the screening universe without treating master identities as metric
   expect(instructions).toContain('当前会话：AI选股')
   expect(instructions).toContain('不能混入已确认满足全部条件')
   expect(instructions).toContain('工具不能取得数据时停止')
+  expect(instructions).toContain('ma-spread')
+  expect(instructions).toContain('参数由你根据问题动态生成')
+  expect(instructions).toContain('不允许编写JS/Python/SQL')
 })
 it('rejects traversal, unsupported extensions, mismatched file signatures and oversize input', () => {
   const { store } = fixture(); store.prepare('r', null)

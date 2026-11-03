@@ -9,6 +9,8 @@ import { systemClock } from '../http.ts'
 
 export const SOURCE_PRIORITY = [
   'tencent',
+  'tencent-daily',
+  'tencent-calendar',
   'sina',
   'legu',
   'ths-news',
@@ -17,10 +19,18 @@ export const SOURCE_PRIORITY = [
   'csi-index',
   'sse-statistics',
   'baostock',
+  'baostock-transport',
+  'baostock-daily',
+  'baostock-calendar',
+  'baostock-securities',
   'eastmoney-valuation',
   'sse-etf',
   'szse-etf',
   'eastmoney-push2his',
+  'eastmoney-daily',
+  'eastmoney-calendar',
+  'eastmoney-financials',
+  'eastmoney-dividends',
   'eastmoney-push2',
   'eastmoney-push2ex',
   'eastmoney-limit-up',
@@ -37,6 +47,9 @@ export const SOURCE_PRIORITY = [
 ] as const
 
 export type SourceId = (typeof SOURCE_PRIORITY)[number]
+
+/** A valid response with a stock-specific coverage gap is not a provider outage. */
+export class SourceDataUnavailableError extends Error {}
 
 export interface SourceCircuitOptions {
   /** 连续失败多少次后跳过该源。 */
@@ -98,20 +111,22 @@ export class SourceCircuit {
   }
 
   /** 调用单个数据源；熔断期间直接抛错，由调用方的兜底链切到下一个源。 */
-  async run<T>(source: SourceId, task: () => Promise<T>): Promise<T> {
+  async run<T>(source: SourceId, task: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+    signal?.throwIfAborted()
     const state = this.states.get(source)
     if (state !== undefined && state.openUntil > this.clock.now()) {
       throw new SourceCircuitOpenError(source, state.openUntil)
     }
     try {
       const value = await task()
+      signal?.throwIfAborted()
       if (value === null) this.recordFailure(source, new Error('未返回可用数据'))
       else this.states.set(source, {
         failures: 0, openUntil: 0, lastAttemptAt: this.clock.now(), lastSuccessAt: this.clock.now(), lastError: null,
       })
       return value
     } catch (error) {
-      this.recordFailure(source, error)
+      if (!signal?.aborted && !(error instanceof SourceDataUnavailableError)) this.recordFailure(source, error)
       throw error
     }
   }

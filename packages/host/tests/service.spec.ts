@@ -1,3 +1,4 @@
+import { LocalScreening } from '../src/local-screening.ts'
 import { MarketHistoryStore } from '../../domain/src/market-history.ts'
 import {
   existsSync,
@@ -138,6 +139,30 @@ async function eventually(assertion: () => void): Promise<void> {
 }
 
 describe('HanaiService report lifecycle', () => {
+  it('prepares BaoStock facts first and keeps them when supplementary quotes fail', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-02T20:00:00+08:00'))
+    const { service, market, database } = fixture()
+    try {
+      market.syncScreeningSecurities = vi.fn(async () => {
+        const updatedAt = new Date().toISOString()
+        database.sqlite.prepare('INSERT INTO security_master VALUES(?,?,?,?,?,?,?)').run('1.600000', '600000', '浦发银行', 'SH', '', '', updatedAt)
+        database.setSetting('security.master.syncedAt', updatedAt)
+        return { count: 1, updatedAt }
+      })
+      const legacyMaster = vi.spyOn(market, 'syncSecurities')
+      market.getTechnicalCalendar = vi.fn(async () => ['2026-11-02'])
+      market.getTechnicalHistory = vi.fn(async () => ({ source: 'baostock', fetchedAt: new Date().toISOString(), bars: [{ date: '2026-11-02', open: 10, high: 10, low: 10, close: 10, volume: 100 }] }))
+      const order: string[] = []
+      market.getScreeningFacts = vi.fn(async () => { order.push('primary'); return { price: { value: 10, source: 'baostock', date: '2026-11-02', reportDate: null, fetchedAt: new Date().toISOString() } } })
+      vi.spyOn(market, 'getStockQuoteMetrics').mockImplementation(async () => { order.push('supplement'); throw new Error('offline') })
+      const signal = new AbortController().signal
+      await service.call('stock-data.sync', {}, signal)
+      await vi.waitFor(async () => { const status = await service.call('stock-data.status', {}, signal); expect(status.phase, JSON.stringify(status)).toBe('finished') })
+      expect(order).toEqual(['primary', 'supplement'])
+      expect(legacyMaster).not.toHaveBeenCalled()
+      expect(JSON.parse(database.getSetting('stock-data.metrics.600000')!)).toMatchObject({ price: { source: 'baostock', value: 10 } })
+    } finally { service.dispose(); database.close(); vi.useRealTimers() }
+  })
   it('keeps existing frozen charts intact while new updates only merge time-series observations', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-10-28T18:00:00+08:00'))
@@ -618,9 +643,15 @@ describe('HanaiService report lifecycle', () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-30T10:00:00+08:00'))
     const { database, service, market, paths } = fixture()
     const signal = new AbortController().signal
-    let release: (value: import('../../contracts/src/market-scan.ts').MarketScanData) => void = () => {}
-    let requested: import('../../contracts/src/market-scan.ts').MarketScanQuery | undefined
-    market.getMarketScan = vi.fn(query => { requested = query; return new Promise<import('../../contracts/src/market-scan.ts').MarketScanData>(resolve => { release = resolve }) })
+    database.sqlite.prepare('INSERT INTO security_master VALUES(?,?,?,?,?,?,?)').run('1.600000','600000','样本银行','SH','','',new Date().toISOString())
+    database.setSetting('stock-data.calendar', JSON.stringify({ through: '2026-10-29', dates: ['2026-10-29'] }))
+    const fact = { source: 'eastmoney-financials', date: '2026-10-30', reportDate: '2026-09-30', fetchedAt: new Date().toISOString() }
+    database.setSetting('stock-data.metrics.600000', JSON.stringify({ roe: { ...fact, value: 20 }, marketCap: { ...fact, value: 150 } }))
+    let release!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve })
+    const original = LocalScreening.prototype.query
+    vi.spyOn(LocalScreening.prototype, 'query').mockImplementationOnce(async function(this: LocalScreening, query) { await gate; return original.call(this, query) })
+    market.getMarketScan = vi.fn(async () => { throw new Error('88AI must not be called') })
     try {
       const question = '市值100亿元以上，ROE不低于15%'
       const chat = await service.call('screener.create', { openingMessage: question }, signal)
@@ -628,11 +659,12 @@ describe('HanaiService report lifecycle', () => {
       writeFileSync(join(paths.expertChatsDir, chat.id, 'workspace', 'screening-plan.json'), JSON.stringify({ question, interpretation: '按市值和ROE查询', query: { search: '', page: 1, ranges: { marketCap: { min: 100 }, roe: { min: 15 } }, sort: 'marketCap', order: 'desc' }, assumptions: [], unsupported: [] }))
       service.handleSessionEvent(chat.dshSessionId!, completed())
       await expect(service.call('screener.remove', { id: chat.id }, signal)).rejects.toThrow('扫描正在进行')
-      release({ query: requested!, total: 0, stocks: [], snapshotDate: '2026-10-30', collectedOn: '2026-10-30', meta: { providerId: 'fake', sourceName: 'test', sourceTimestamp: '2026-10-30', fetchedAt: new Date().toISOString(), cacheState: 'fresh' } })
+      release()
       await vi.advanceTimersByTimeAsync(1)
       const result = await service.call('screener.result', { id: chat.id }, signal)
       expect(result?.status).toBe('ready'); expect(result?.result?.data?.query.ranges).toEqual({ roe: { min: 15 }, marketCap: { min: 100 } })
-      expect(market.getMarketScan).toHaveBeenCalledTimes(1)
+      expect(market.getMarketScan).not.toHaveBeenCalled()
+      expect(result?.result?.data?.total).toBe(1)
       await service.call('screener.remove', { id: chat.id }, signal)
       expect(database.getSetting(`ai-screener.run.${chat.id}`)).toBeNull()
     } finally { database.close(); vi.useRealTimers() }

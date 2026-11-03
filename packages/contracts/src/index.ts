@@ -355,6 +355,7 @@ export interface StockQuoteMetricsData {
   sources: {
     quote: ProviderMeta | null
     metrics: ProviderMeta | null
+    industry?: ProviderMeta | null
   }
 }
 
@@ -488,6 +489,9 @@ export interface HanaiEndpointMap {
   'market.history.list': { request: Record<string, never>; response: { snapshots: MarketHistorySummary[] } }
   'market.history.get': { request: { date: string }; response: MarketHistorySnapshot | null }
   'sector.stocks': { request: { sectorCode: string }; response: { stocks: StockQuote[]; meta: ProviderMeta } }
+  'stock-data.status': { request: Record<string, never>; response: import('./stock-data.ts').StockDataStatus }
+  'stock-data.sync': { request: Record<string, never>; response: import('./stock-data.ts').StockDataStatus }
+  'stock-data.pause': { request: Record<string, never>; response: import('./stock-data.ts').StockDataStatus }
   'security.sync': { request: { force?: boolean }; response: { count: number; updatedAt: string | null } }
   'security.search': { request: { query: string }; response: SearchResult[] }
   'security.detail': { request: { secId: string }; response: StockDetail }

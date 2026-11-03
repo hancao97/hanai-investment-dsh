@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { MarketDataService } from '../../src/providers/index.ts'
 import { EastmoneyFinancialProvider } from '../../src/providers/financials.ts'
 import { SinaProvider } from '../../src/providers/sina.ts'
 import { TencentProvider } from '../../src/providers/tencent.ts'
 import { FakeClock, HandlerHttpClient, jsonResponse } from '../helpers.ts'
+import { SourceCircuit } from '../../src/providers/source-circuit.ts'
+import { systemClock } from '../../src/http.ts'
 
 const fixture = (name: string) => readFileSync(new URL(`../fixtures/${name}`, import.meta.url), 'utf8')
 const financials = JSON.parse(fixture('financials.json'))
@@ -24,6 +26,54 @@ function response(url: string) {
 }
 
 describe('live-captured market fallback contracts', () => {
+  it('paces actual supplementary quote and report requests through the same bulk transport', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(NOW)
+    const times: number[] = []
+    const http = new HandlerHttpClient(url => {
+      if (new URL(url).hostname.endsWith('.eastmoney.com')) times.push(Date.now())
+      return response(url)
+    })
+    const service = new MarketDataService({ http, clock: systemClock, eastmoney: { minIntervalMs: 0, totalFailureThreshold: 1 } })
+    try {
+      const pending = Promise.all([service.getStockQuoteMetrics('0.002594', true), service.getStockQuoteMetrics('0.002415', true)])
+      await vi.advanceTimersByTimeAsync(15000)
+      await pending
+      expect(times.length).toBeGreaterThanOrEqual(4)
+      expect(times.slice(1).every((time, i) => time - times[i]! >= 500)).toBe(true)
+    } finally { service.dispose(); vi.useRealTimers() }
+  })
+  it('opens the report breaker across stocks without blocking dividends or being reset by quotes', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(NOW)
+    try {
+      const clock = new FakeClock(NOW), circuit = new SourceCircuit({ clock })
+      const http = new HandlerHttpClient(url => url.includes('RPT_SHAREBONUS_DET')
+        ? jsonResponse({ success: true, result: { data: [] } }) : jsonResponse({}, 503))
+      const provider = new EastmoneyFinancialProvider(http, clock, 1000, circuit)
+      for (let i = 0; i < 4; i++) {
+        await provider.getStockMetrics(`1.${600000 + i}`, null, null)
+        await circuit.run('eastmoney-push2his', async () => 'quote ok')
+      }
+      expect(http.requests.filter(row => row.url.includes('RPT_F10_'))).toHaveLength(3)
+      expect(http.requests.filter(row => row.url.includes('RPT_SHAREBONUS'))).toHaveLength(4)
+      expect(circuit.isOpen('eastmoney-financials')).toBe(true)
+      expect(circuit.isOpen('eastmoney-dividends')).toBe(false)
+      clock.advance(300000)
+      await provider.getStockMetrics('1.600004', null, null)
+      expect(http.requests.filter(row => row.url.includes('RPT_F10_'))).toHaveLength(4)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('does not count a valid empty per-stock report as a source outage', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(NOW)
+    try {
+      const clock = new FakeClock(NOW), circuit = new SourceCircuit({ clock })
+      const http = new HandlerHttpClient(() => jsonResponse({ success: true, result: { data: [] } }))
+      const provider = new EastmoneyFinancialProvider(http, clock, 1000, circuit)
+      for (let i = 0; i < 4; i++) expect(await provider.getStockMetrics(`1.${600000 + i}`, null, null)).toBeNull()
+      expect(http.requests).toHaveLength(8)
+      expect(circuit.snapshot('eastmoney-financials').failures).toBe(0)
+    } finally { vi.useRealTimers() }
+  })
   it('restores financial fields, both boards, all rankings and drill-down under an Eastmoney quote outage', async () => {
     const http = new HandlerHttpClient(response)
     const service = new MarketDataService({ http, clock: new FakeClock(NOW), eastmoney: { minIntervalMs: 0, totalFailureThreshold: 1 } })

@@ -1,4 +1,10 @@
 .page { height: 100%; overflow: auto; padding: 20px 24px 36px; background: var(--bg); }
+.funnel { margin: 12px 0; padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; font-size: 11px; overflow: auto; }
+.funnel p { color: var(--muted); line-height: 1.7; }
+.funnel table { width: 100%; border-collapse: collapse; }
+.funnel th, .funnel td { padding: 8px; border-bottom: 1px solid var(--border); text-align: right; }
+.funnel th:first-child { text-align: left; }
+.funnel caption { padding: 6px; text-align: left; }
 .head, .head > div:last-child, .resultHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .head h1 { margin: 0; font-size: 20px; }
 .head p, .resultHead p { margin: 7px 0; color: var(--muted); font-size: 11px; line-height: 1.7; }

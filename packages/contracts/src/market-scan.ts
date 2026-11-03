@@ -30,7 +30,10 @@ export const SCAN_PRESETS: Array<{ name: string; ranges: MarketScanQuery['ranges
   { name: '小市值价值', ranges: { pe: { min: 0, max: 15 }, roe: { min: 10 }, marketCap: { max: 500 } } },
   { name: '蓝筹白马', ranges: { roe: { min: 10 }, marketCap: { min: 1000 } } },
 ]
+export interface ScreeningCoverage { universe: number; unverified: number; missingFields: string[]; sortMissing: number }
+export interface ScreeningFact { value: number | string; source: string; date: string; reportDate: string | null; fetchedAt: string }
 export interface MarketScanStock {
+  facts?: Record<string, ScreeningFact> | undefined
   secId: string
   code: string
   name: string
@@ -49,6 +52,8 @@ export interface MarketScanStock {
   grossMargin: number | null
 }
 export interface MarketScanData {
+  revision?: string | undefined
+  coverage?: ScreeningCoverage | undefined
   query: MarketScanQuery
   total: number
   stocks: MarketScanStock[]
@@ -90,10 +95,26 @@ export function isMarketScanData(value: unknown): value is MarketScanData {
   const validDate = (date: string) => Number.isFinite(Date.parse(`${date}T00:00:00Z`)) && new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) === date
   if (!validDate(value.collectedOn) || (typeof value.snapshotDate === 'string' && !validDate(value.snapshotDate))) return false
   if (value.stocks.length !== Math.min(100, Math.max(0, Number(value.total) - (Number(value.query.page) - 1) * 100))) return false
+  if (value.revision !== undefined && (typeof value.revision !== 'string' || !/^[a-f0-9]{64}$/.test(value.revision))) return false
+  if (value.coverage !== undefined) {
+    const c = value.coverage
+    if (!object(c) || ![c.universe, c.unverified, c.sortMissing].every(v => Number.isSafeInteger(v) && Number(v) >= 0)
+      || Number(c.unverified) > Number(c.universe) || !Array.isArray(c.missingFields) || c.missingFields.some(f => typeof f !== 'string' || ![...Object.keys(SCAN_FIELDS), 'industry'].includes(f))) return false
+  }
   const codes = new Set<string>()
   const query = value.query as unknown as MarketScanQuery
   return value.stocks.every(row => {
     if (!object(row) || typeof row.code !== 'string' || !/^\d{6}$/.test(row.code) || codes.has(row.code) || row.secId !== `${row.code.startsWith('6') ? '1' : '0'}.${row.code}` || typeof row.name !== 'string' || !row.name || (row.industry !== null && typeof row.industry !== 'string')) return false
+    if (row.facts !== undefined) {
+      if (!object(row.facts) || Object.keys(row.facts).length > 13) return false
+      for (const [key, fact] of Object.entries(row.facts)) {
+        if (![...Object.keys(SCAN_FIELDS), 'price', 'changePct', 'industry'].includes(key) || !object(fact)
+          || (key === 'industry' ? typeof fact.value !== 'string' : typeof fact.value !== 'number' || !Number.isFinite(fact.value))
+          || typeof fact.source !== 'string' || !fact.source || typeof fact.date !== 'string' || !validDate(fact.date)
+          || (fact.reportDate !== null && (typeof fact.reportDate !== 'string' || !validDate(fact.reportDate)))
+          || typeof fact.fetchedAt !== 'string' || !Number.isFinite(Date.parse(fact.fetchedAt))) return false
+      }
+    }
     codes.add(row.code)
     return [...Object.keys(SCAN_FIELDS), 'price', 'changePct'].every(key => row[key] === null || (typeof row[key] === 'number' && Number.isFinite(row[key])))
       && (!query.industries?.length || (typeof row.industry === 'string' && query.industries.includes(row.industry)))

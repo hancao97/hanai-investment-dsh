@@ -736,6 +736,7 @@
   grid-template-areas:
     "agent agent"
     "credential data"
+    "stockData stockData"
     "storage storage"
     "theme about";
   align-items: start;
@@ -745,6 +746,9 @@
 .settingsAgent { grid-area: agent; }
 .settingsCredential { grid-area: credential; }
 .settingsData { grid-area: data; }
+.settingsStockData { grid-area: stockData; }
+.stockDataBody { padding: 8px 16px; font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
+.stockDataReadiness { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; color: var(--muted); font-size: 11px; line-height: 1.7; }
 .settingsStorage { grid-area: storage; }
 .settingsTheme { grid-area: theme; }
 .settingsAbout { grid-area: about; }
@@ -807,6 +811,7 @@
 .storageMetrics b { display: block; overflow-wrap: anywhere; margin-top: 7px; color: var(--text); font: 600 11px ui-monospace, monospace; }
 .storageFooter { display: flex; min-height: 50px; align-items: center; justify-content: space-between; gap: 16px; padding-left: 16px; }
 .settingsNote { margin: 0; color: var(--faint); font-size: 9px; line-height: 1.5; }
+.settingsData > .settingsNote { padding: 10px 16px; }
 .settingsStorage .settingsActions { flex: 0 0 auto; padding-top: 9px; padding-left: 0; }
 .themeChoices { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; padding: 14px; }
 .themeChoices > button { display: grid; grid-template-columns: 44px 1fr 20px; align-items: center; gap: 10px; min-height: 66px; padding: 9px; border: 1px solid var(--control-border); border-radius: 8px; cursor: pointer; text-align: left; background: var(--control-bg); box-shadow: var(--control-shadow); }
@@ -970,6 +975,7 @@
       "agent"
       "credential"
       "data"
+      "stockData"
       "storage"
       "theme"
       "about";

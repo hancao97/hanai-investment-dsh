@@ -11,6 +11,17 @@ const em = { c: '001219', n: '青岛食品', lbc: 5, zbc: 3, fbt: 93000, lbt: 10
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(now) })
 afterEach(() => vi.useRealTimers())
 
+it('reads closed historical membership without requiring consecutive boards or live quotes', async () => {
+  const clock = new FakeClock(Date.parse('2026-10-30T20:00:00+08:00'))
+  const http = new HandlerHttpClient(() => jsonResponse(ths([{ ...row, high_days: '5天3板' }])))
+  const quotes = vi.fn(async () => { throw new Error('historical membership must not fetch quotes') })
+  const provider = new MarketLadderProvider(http, clock, 5000, quotes)
+  expect(await provider.historicalPool('2026-10-30')).toMatchObject({ date: '2026-10-30', codes: ['001219'], source: 'ths-limit-reason', scope: 'source-pool-positive-only' })
+  expect(http.requests).toHaveLength(1)
+  expect(quotes).not.toHaveBeenCalled()
+  await expect(provider.historicalPool('2026-11-02')).rejects.toThrow('已收盘')
+})
+
 it('calculates yesterday sample averages, both median cases and flat counts without filling missing prices', () => {
   const meta = { providerId: 'test', sourceName: 'test', sourceTimestamp: '2026-10-30', fetchedAt: new Date(now).toISOString(), cacheState: 'fresh' as const }
   expect(summarizeYesterday([-2, 0, 4], meta)).toMatchObject({ sample: 3, average: 2 / 3, median: 0, up: 1, down: 1, flat: 1 })

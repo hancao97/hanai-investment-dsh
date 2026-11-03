@@ -1,4 +1,7 @@
 import { MarketLadderProvider } from './market-ladder.ts'
+import { TechnicalScreenProvider } from './technical-screen.ts'
+import { PacedHttpClient } from './paced-http.ts'
+import { BaoStockProvider } from './baostock.ts'
 import type { MacroRange } from '../../../contracts/src/macro-range.ts'
 import type { MacroIndicatorId } from '../../../contracts/src/macro-indicators.ts'
 import { MacroIndicatorProvider } from './macro-indicators.ts'
@@ -95,6 +98,10 @@ async function optional<T>(promise: Promise<T>): Promise<T | null> {
 
 /** Facade consumed by the Host; all external transport and time are injectable for deterministic tests. */
 export class MarketDataService {
+  readonly technicalScreen: TechnicalScreenProvider
+  getTechnicalCalendar(through: string, signal: AbortSignal) { return this.technicalScreen.calendar(through, signal) }
+  getTechnicalBars(code: string, adjust: 'qfq' | 'none', asOf: string, signal: AbortSignal) { return this.technicalScreen.bars(code, adjust, asOf, signal) }
+  getTechnicalHistory(code: string, adjust: 'qfq' | 'none', asOf: string, signal: AbortSignal, limit?: number) { return this.technicalScreen.history(code, adjust, asOf, signal, limit) }
   private readonly scan: MarketScanProvider
   getMarketScan(query: MarketScanQuery, refresh = false) { return this.scan.get(query, refresh) }
   private readonly macroIndicators: MacroIndicatorProvider
@@ -113,6 +120,9 @@ export class MarketDataService {
   readonly gurufocus: GuruFocusProvider
   readonly sina: SinaProvider
   readonly financials: EastmoneyFinancialProvider
+  readonly baostock: BaoStockProvider
+  private readonly preparationTencent: TencentProvider
+  private readonly preparationEastmoney: EastmoneyProvider
   private readonly clock: Clock
   private readonly circuit: SourceCircuit
   private readonly securitiesCircuit: SourceCircuit
@@ -124,12 +134,15 @@ export class MarketDataService {
 
   constructor(options: MarketDataServiceOptions = {}) {
     const http = options.http ?? new NodeFetchHttpClient()
+    const preparationHttp = new PacedHttpClient(http, options.clock ?? systemClock)
     this.http = http
-    this.ladder = new MarketLadderProvider(http, options.clock ?? systemClock, Math.min(options.timeoutMs ?? 5000, 5000), secIds => this.getQuotes(secIds))
+    this.ladder = new MarketLadderProvider(preparationHttp, options.clock ?? systemClock, Math.min(options.timeoutMs ?? 5000, 5000), secIds => this.getQuotes(secIds))
     this.globalIndices = new GlobalIndexProvider(http, options.clock ?? systemClock, Math.min(options.timeoutMs ?? 5000, 5000), options.circuit)
     this.breadthTimeoutMs = options.timeoutMs ?? 10_000
     this.clock = options.clock ?? systemClock
     this.circuit = new SourceCircuit({ ...options.circuit, clock: this.clock })
+    this.baostock = new BaoStockProvider(this.clock, this.circuit)
+    this.technicalScreen = new TechnicalScreenProvider(preparationHttp, this.clock, this.circuit, this.baostock)
     this.scan = new MarketScanProvider(http, this.clock, this.circuit)
     this.macroInputs = new MarketMacroInputs(http, this.clock, this.circuit)
     this.macroIndicators = new MacroIndicatorProvider(http, this.clock, this.circuit)
@@ -156,11 +169,16 @@ export class MarketDataService {
     this.securitiesCircuit = new SourceCircuit({ ...options.circuit, clock: this.clock })
     this.tencent = new TencentProvider(http, this.clock, options.timeoutMs ?? 10_000)
     this.sina = new SinaProvider(http, this.clock, options.timeoutMs ?? 10_000)
-    this.financials = new EastmoneyFinancialProvider(http, this.clock, options.timeoutMs ?? 10_000)
+    this.financials = new EastmoneyFinancialProvider(preparationHttp, this.clock, options.timeoutMs ?? 10_000, this.circuit)
     this.eastmoney = new EastmoneyProvider(http, {
       ...options.eastmoney,
       clock: this.clock,
       tencent: this.tencent,
+      timeoutMs: options.eastmoney?.timeoutMs ?? options.timeoutMs ?? 8_000,
+    })
+    this.preparationTencent = new TencentProvider(preparationHttp, this.clock, options.timeoutMs ?? 10_000)
+    this.preparationEastmoney = new EastmoneyProvider(preparationHttp, {
+      ...options.eastmoney, clock: this.clock, tencent: this.preparationTencent,
       timeoutMs: options.eastmoney?.timeoutMs ?? options.timeoutMs ?? 8_000,
     })
     const cache = options.valuationCacheDir === undefined
@@ -194,6 +212,11 @@ export class MarketDataService {
     const sources = [
       ['tencent', '腾讯', 'market'], ['sina', '新浪', 'market'],
       ['eastmoney-push2his', '东方财富（行情 / K线调用链）', 'market'],
+      ['tencent-daily', '腾讯（选股日线）', 'market'], ['eastmoney-daily', '东方财富（选股日线）', 'market'],
+      ['tencent-calendar', '腾讯（指数交易日）', 'market'], ['eastmoney-calendar', '东方财富（指数交易日）', 'market'],
+      ['eastmoney-financials', '东方财富（财报）', 'market'], ['eastmoney-dividends', '东方财富（分红）', 'market'],
+      ['baostock-transport', 'BaoStock（匿名连接）', 'market'], ['baostock-daily', 'BaoStock（选股日线）', 'market'],
+      ['baostock-calendar', 'BaoStock（交易日历）', 'market'], ['baostock-securities', 'BaoStock（在市证券）', 'market'],
       ['gurufocus', '价值大师网', 'valuation'],
       ['sina', '新浪', 'security'], ['eastmoney-push2', '东方财富', 'security'],
       ['legu', '乐咕乐股（AKShare 同源）', 'breadth'],
@@ -238,6 +261,9 @@ export class MarketDataService {
   }
 
   getMarketLadder(date?: string) { return this.ladder.get(date) }
+  getTechnicalLimitPool(date: string) { return this.ladder.historicalPool(date) }
+  getScreeningFacts(code: string, asOf: string, signal: AbortSignal) { return this.baostock.facts(code, asOf, signal) }
+  dispose(): void { this.baostock.close() }
 
   getMarketDistribution(): Promise<MarketDistributionData | null> {
     return this.distributionCache.get('market', async () => {
@@ -361,16 +387,18 @@ export class MarketDataService {
     }
   }
 
-  async getStockQuoteMetrics(secId: string): Promise<StockQuoteMetricsData> {
+  async getStockQuoteMetrics(secId: string, preparation = false): Promise<StockQuoteMetricsData> {
+    const tencent = preparation ? this.preparationTencent : this.tencent
+    const eastmoney = preparation ? this.preparationEastmoney : this.eastmoney
     const [quotes, primaryMetrics] = await Promise.all([
-      optional(this.getQuotes([secId])),
-      this.callSource('eastmoney-push2his', () => this.eastmoney.getStockMetrics(secId)),
+      optional(this.getQuotes([secId], preparation)),
+      this.callSource('eastmoney-push2his', () => eastmoney.getStockMetrics(secId)),
     ])
     const quote = quotes?.quotes.find(item => item.secId === secId) ?? null
     if (primaryMetrics === null && quote !== null && quote.meta?.providerId !== 'tencent') {
-      await this.callSource('tencent', () => this.tencent.getQuotes([secId]))
+      await this.callSource('tencent', () => tencent.getQuotes([secId]))
     }
-    const base = primaryMetrics ?? (quote === null ? null : this.tencent.getQuoteMetrics(secId))
+    const base = primaryMetrics ?? (quote === null ? null : tencent.getQuoteMetrics(secId))
     const metrics = await this.financials.getStockMetrics(secId, quote, base)
     return {
       quote,
@@ -378,6 +406,7 @@ export class MarketDataService {
       sources: {
         quote: quote === null ? null : quote.meta ?? quotes?.meta ?? null,
         metrics: metrics?.meta ?? null,
+        ...(base?.industry ? { industry: base.meta } : {}),
       },
     }
   }
@@ -414,13 +443,15 @@ export class MarketDataService {
     }
   }
 
-  async getQuotes(secIds: readonly string[]): Promise<{ quotes: StockQuote[]; meta: ProviderMeta }> {
+  async getQuotes(secIds: readonly string[], preparation = false): Promise<{ quotes: StockQuote[]; meta: ProviderMeta }> {
+    const tencent = preparation ? this.preparationTencent : this.tencent
+    const eastmoney = preparation ? this.preparationEastmoney : this.eastmoney
     if (secIds.length === 0) return { quotes: [], meta: this.unavailableMeta() }
-    const primary = await this.callSource('tencent', () => this.tencent.getQuotes(secIds))
+    const primary = await this.callSource('tencent', () => tencent.getQuotes(secIds))
     const available = new Map((primary?.quotes ?? []).map(quote => [quote.secId, quote]))
     const missing = secIds.filter(id => available.get(id)?.price == null || primary?.meta.providerId.includes('memory-cache'))
     if (missing.length === 0 && primary !== null) return primary
-    const fallback = await this.callSource('eastmoney-push2his', () => this.eastmoney.getQuotes(missing))
+    const fallback = await this.callSource('eastmoney-push2his', () => eastmoney.getQuotes(missing))
       ?? { quotes: [], meta: this.unavailableMeta() }
     if (fallback.quotes.length === 0) return primary ?? { quotes: [], meta: this.unavailableMeta() }
     for (const quote of fallback.quotes) available.set(quote.secId, { ...quote, meta: quote.meta ?? fallback.meta })
@@ -442,12 +473,13 @@ export class MarketDataService {
   }
 
   clearMarketCache(): number {
-    return this.scan.clear() + this.ladder.clear() + this.eastmoney.clearQuoteCache() + this.breadthCache.clear() + this.armsCache.clear() + this.distributionCache.clear() + this.tencent.clearQuoteMetrics() + this.sina.clearCache() + this.financials.clearCache() + this.globalIndices.clear() + this.activity.clear() + this.macro.clear() + this.macroDaily.clear() + this.macroCapital.clear() + this.macroAll.clear()
+    return this.preparationTencent.clearQuoteMetrics() + this.preparationEastmoney.clearQuoteCache() + this.baostock.clearCache() + this.scan.clear() + this.ladder.clear() + this.eastmoney.clearQuoteCache() + this.breadthCache.clear() + this.armsCache.clear() + this.distributionCache.clear() + this.tencent.clearQuoteMetrics() + this.sina.clearCache() + this.financials.clearCache() + this.globalIndices.clear() + this.activity.clear() + this.macro.clear() + this.macroDaily.clear() + this.macroCapital.clear() + this.macroAll.clear()
   }
 
   async syncSecurities(
     database: HanaiDatabase,
     force = false,
+    signal?: AbortSignal,
   ): Promise<{ count: number; updatedAt: string | null }> {
     let sourceName: string | null = null
     const result = await new SecuritiesService(database, {
@@ -457,7 +489,30 @@ export class MarketDataService {
         return snapshot?.rows ?? []
       },
       getQuotes: secIds => this.getQuotes(secIds),
-    }, { clock: this.clock }).sync(force)
+    }, { clock: this.clock }).sync(force, signal)
+    signal?.throwIfAborted()
+    if (sourceName !== null) database.setSetting(SECURITY_SOURCE_SETTING, sourceName)
+    return result
+  }
+
+  async syncScreeningSecurities(database: HanaiDatabase, signal: AbortSignal, force = true): Promise<{ count: number; updatedAt: string | null }> {
+    let sourceName: string | null = null
+    const result = await new SecuritiesService(database, {
+      getAllSecurities: async () => {
+        let primary: EastmoneySecurityRow[] | null = null
+        try { primary = await this.baostock.securities(signal) } catch { signal.throwIfAborted() }
+        // BaoStock's universe does not establish complete coverage of all current A-share markets.
+        const supplement = await this.getSecuritySnapshot()
+        signal.throwIfAborted()
+        if (!primary) { sourceName = supplement?.sourceName ?? null; return supplement?.rows ?? [] }
+        if (!supplement) throw new Error('BaoStock 名录已获取，但全A范围补缺失败；保留本地名录')
+        const rows = new Map(supplement.rows.map(row => [`${row.market}.${row.code}`, row]))
+        for (const row of primary) rows.set(`${row.market}.${row.code}`, row)
+        sourceName = `BaoStock主源＋${supplement.sourceName}范围补缺`
+        return [...rows.values()]
+      }, getQuotes: ids => this.getQuotes(ids),
+    }, { clock: this.clock }).sync(force, signal)
+    signal.throwIfAborted()
     if (sourceName !== null) database.setSetting(SECURITY_SOURCE_SETTING, sourceName)
     return result
   }

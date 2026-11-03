@@ -1,5 +1,6 @@
 export const AI_SCREENER_ID = 'ai-stock-screener'
 import type { MarketScanQuery, MarketScanResult } from './market-scan.ts'
+import type { TechnicalFormula, TechnicalProgress } from './technical-screen.ts'
 
 export interface ScreeningPlan {
   question: string
@@ -7,6 +8,7 @@ export interface ScreeningPlan {
   query: MarketScanQuery
   assumptions: string[]
   unsupported: string[]
+  technical?: TechnicalFormula | undefined
 }
 export interface ScreeningRun {
   question: string
@@ -16,6 +18,7 @@ export interface ScreeningRun {
   error: string | null
   startedAt: string
   finishedAt: string | null
+  progress?: TechnicalProgress | undefined
 }
 export const SCREENER_STARTERS = [
   { title: '低估值高分红', icon: '息', question: '筛选低估值、高分红的银行股，核实股息率口径、分红持续性与资产质量。' },

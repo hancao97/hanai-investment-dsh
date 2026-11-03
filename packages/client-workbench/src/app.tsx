@@ -1,4 +1,5 @@
 import { AiScreenerPage } from './ai-screener.tsx'
+import { StockDataPanel } from './stock-data.tsx'
 import { MarketScanPage } from './market-scan.tsx'
 import { ResearchAssistantPage } from './research-assistant.tsx'
 import { MarketLadderPanels, useMarketLadder } from './market-ladder.tsx'
@@ -250,7 +251,7 @@ export function HanaiWorkbench({ client, onClose, initialPath }: HanaiWorkbenchP
             <JudgementDetailPage client={client} id={route.judgementId} onBack={() => navigate('/judgements')} onRetry={(stock, masterId) => { setLaunchRequest({ key: Date.now(), stock, masterId }); navigate('/judgements') }} notify={notify} />
           )}
           {route.page === 'market-scan' && <MarketScanPage client={client} onStock={openStock} />}
-          {(route.page === 'screener' || route.page === 'screener-detail') && <AiScreenerPage groups={bootstrap.groups} onGroups={setGroups} onStock={openStock} client={client} selectedId={route.page === 'screener-detail' ? route.chatId : null} onOpen={id => navigate(`/screener/${encodeURIComponent(id)}`)} onHome={() => navigate('/screener')} />}
+          {(route.page === 'screener' || route.page === 'screener-detail') && <AiScreenerPage onDataSettings={() => navigate('/settings')} groups={bootstrap.groups} onGroups={setGroups} onStock={openStock} client={client} selectedId={route.page === 'screener-detail' ? route.chatId : null} onOpen={id => navigate(`/screener/${encodeURIComponent(id)}`)} onHome={() => navigate('/screener')} />}
           {(route.page === 'research' || route.page === 'research-detail') && <ResearchAssistantPage key="research" client={client} selectedId={route.page === 'research-detail' ? route.chatId : null} onOpen={id => navigate(`/research/${encodeURIComponent(id)}`)} onHome={() => navigate('/research')} />}
           {(route.page === 'expert-chats' || route.page === 'expert-chat-detail') && (
             <ExpertChatsPage
@@ -1974,8 +1975,11 @@ function SettingsPage({ client, bootstrap, onTheme, onReload, notify }: { client
 
       <article className={`${styles['card']} ${styles['settingsCard']} ${styles['settingsData']}`}><PanelHead title="数据源" hint="自动切换 · 实际来源与最近调用记录" />
         <DataSources diagnostics={diagnostics} />
-        <div className={styles['settingsActions']}><button className={styles['button']} disabled={busy} onClick={() => void refreshDiagnostics().catch(error => notify(messageOf(error), 'error'))}>更新诊断</button><button className={styles['button']} disabled={busy || securitySyncCooldown > 0} onClick={() => void syncSecurities()}>{busy ? '同步中…' : securitySyncCooldown > 0 ? `主数据同步冷却 ${securitySyncCooldown}s` : '立即同步主数据'}</button></div>
+        <p className={styles['settingsNote']}>证券主数据是用于搜索和识别的代码、名称、交易所及拼音名录，不包含历史日线。</p>
+        <div className={styles['settingsActions']}><button className={styles['button']} disabled={busy} onClick={() => void refreshDiagnostics().catch(error => notify(messageOf(error), 'error'))}>更新诊断</button><button className={styles['button']} disabled={busy || securitySyncCooldown > 0} onClick={() => void syncSecurities()}>{busy ? '同步中…' : securitySyncCooldown > 0 ? `主数据同步冷却 ${securitySyncCooldown}s` : '同步证券名录'}</button></div>
       </article>
+
+      <StockDataPanel client={client} />
 
       <article className={`${styles['card']} ${styles['settingsCard']} ${styles['settingsStorage']}`}><PanelHead title="本地存储" hint="数据与缓存均隔离在 Hanai Worth 专用目录" />
         <div className={styles['storagePaths']}><KeyValue label="数据目录" value={bootstrap.diagnostics.dataRoot} mono /><KeyValue label="SQLite" value={bootstrap.diagnostics.databasePath} mono /></div>

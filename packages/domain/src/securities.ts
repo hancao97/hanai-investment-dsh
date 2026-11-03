@@ -54,7 +54,8 @@ export class SecuritiesService {
     return this.database.getSetting(SECURITY_SYNCED_AT_SETTING)
   }
 
-  async sync(force = false): Promise<{ count: number; updatedAt: string | null }> {
+  async sync(force = false, signal?: AbortSignal): Promise<{ count: number; updatedAt: string | null }> {
+    signal?.throwIfAborted()
     const previousCount = this.database.securityCount()
     const previousUpdatedAt = this.syncedAt()
     const previousTimestamp = previousUpdatedAt === null ? NaN : Date.parse(previousUpdatedAt)
@@ -68,6 +69,7 @@ export class SecuritiesService {
     }
 
     const fetched = await this.provider.getAllSecurities()
+    signal?.throwIfAborted()
     const updatedAt = new Date(this.clock.now()).toISOString()
     const unique = new Map<string, SecuritySnapshotRow>()
     for (const item of fetched) {

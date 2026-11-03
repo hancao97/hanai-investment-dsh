@@ -4,6 +4,7 @@ import {
   SOURCE_PRIORITY,
   SourceCircuit,
   SourceCircuitOpenError,
+  SourceDataUnavailableError,
   type SourceId,
 } from '../../src/providers/source-circuit.ts'
 
@@ -14,6 +15,18 @@ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(NOW) })
 afterEach(() => vi.useRealTimers())
 
 describe('SourceCircuit', () => {
+  it('does not count gaps or cancellation as outages, or reset a real failure with a gap', async () => {
+    const circuit = new SourceCircuit({ clock: new FakeClock(NOW) })
+    await expect(circuit.run('tencent-daily', fail)).rejects.toThrow()
+    await expect(circuit.run('tencent-daily', async () => { throw new SourceDataUnavailableError('停牌/未覆盖') })).rejects.toThrow()
+    const controller = new AbortController()
+    await expect(circuit.run('tencent-daily', async () => { controller.abort(); throw controller.signal.reason }, controller.signal)).rejects.toThrow()
+    expect(circuit.snapshot('tencent-daily').failures).toBe(1)
+    await circuit.run('tencent', async () => 'quote ok')
+    expect(circuit.snapshot('tencent-daily').failures).toBe(1)
+    await expect(circuit.run('tencent-daily', async () => { throw new DOMException('request timeout', 'AbortError') })).rejects.toThrow()
+    expect(circuit.snapshot('tencent-daily').failures).toBe(2)
+  })
   it('exposes actual attempt history without probing and retains failures until a successful retry', async () => {
     const clock = new FakeClock(NOW)
     const circuit = new SourceCircuit({ clock, failureThreshold: 1 })

@@ -73,6 +73,35 @@ function database(): HanaiDatabase {
 }
 
 describe('SecuritiesService', () => {
+  it('prefers BaoStock names and supplements missing markets without dropping the existing universe on failure', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-02T20:00:00+08:00'))
+    const db = database(), market = new MarketDataService({ clock: new FakeClock(Date.now()) })
+    try {
+      const primary = securityRows().map(row => ({ ...row, name: `BaoStock-${row.name}` }))
+      const primaryFetch = vi.spyOn(market.baostock, 'securities').mockResolvedValue(primary)
+      const sina = vi.spyOn(market.sina, 'getAllSecurities').mockResolvedValue([...securityRows(), { market: 0, code: '920001', name: '北交所补缺' }])
+      vi.spyOn(market.eastmoney, 'getAllSecurities').mockResolvedValue([])
+      await market.syncScreeningSecurities(db, new AbortController().signal)
+      expect(db.securityCount()).toBe(1001)
+      expect(db.getSecurity('1.600000')?.name).toBe('BaoStock-浦发银行')
+      expect(db.getSecurity('0.920001')?.name).toBe('北交所补缺')
+      await market.syncScreeningSecurities(db, new AbortController().signal, false)
+      expect(primaryFetch).toHaveBeenCalledTimes(1)
+      expect(sina).toHaveBeenCalledTimes(1)
+      sina.mockRejectedValue(new Error('supplement unavailable'))
+      await expect(market.syncScreeningSecurities(db, new AbortController().signal)).rejects.toThrow('保留本地名录')
+      expect(db.securityCount()).toBe(1001)
+    } finally { market.dispose(); db.close(); vi.useRealTimers() }
+  })
+  it('does not write a late catalogue response after the host aborts and closes its database', async () => {
+    const db = database(), provider = new FakeSecurityProvider(), controller = new AbortController()
+    let release!: (rows: EastmoneySecurityRow[]) => void
+    vi.spyOn(provider, 'getAllSecurities').mockReturnValue(new Promise(resolve => { release = resolve }))
+    const service = new SecuritiesService(db, provider)
+    const pending = service.sync(true, controller.signal)
+    controller.abort(); db.close(); release(securityRows())
+    await expect(pending).rejects.toBe(controller.signal.reason)
+  })
   it('installs the fallback snapshot through the market facade and retains it when every source fails', async () => {
     const db = database()
     try {
