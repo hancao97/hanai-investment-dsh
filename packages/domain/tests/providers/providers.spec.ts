@@ -17,6 +17,19 @@ const tencentQuotes = readFileSync(new URL('../fixtures/tencent-quotes.txt', imp
 const NOW = new Date('2026-08-15T10:00:00+08:00').getTime()
 
 describe('EastmoneyProvider', () => {
+  it('takes trend time from the last valid row instead of failing on trailing garbage', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-27T18:00:00+08:00'))
+    try {
+      const http = new HandlerHttpClient(() => jsonResponse({ data: { preClose: 3600, trends: [
+        '2026-10-27 15:00,3610,0,3605', '2026-10-27 15:01,-,100,3605', 'bad line',
+      ] } }))
+      const provider = new EastmoneyProvider(http, { clock: new FakeClock(Date.now()), minIntervalMs: 0 })
+      const result = await provider.getTrend('1.000001')
+      expect(result.points).toEqual([{ time: '15:00', price: 3610, avgPrice: 3605, volume: 0 }])
+      expect(result.meta.sourceTimestamp).toBe('2026-10-27T07:00:00.000Z')
+    } finally { vi.useRealTimers() }
+  })
   it('falls back to the delay cluster and preserves breadth and amount semantics', async () => {
     const clock = new FakeClock(NOW)
     const http = new HandlerHttpClient(url => {
@@ -119,7 +132,7 @@ describe('EastmoneyProvider', () => {
 
     const result = await provider.getKline('1.600519', '101')
 
-    expect(result.meta.providerId).toBe('tencent-fallback')
+    expect(result.meta.providerId).toBe('tencent')
     expect(result.bars).toHaveLength(2)
     expect(result.bars[0]?.amount).toBeNull()
     expect(result.bars[0]?.volume).toBe(1000)
@@ -213,7 +226,7 @@ describe('EastmoneyProvider', () => {
     expect(daily.bars).toHaveLength(2)
     expect(daily.meta.providerId).toBe('eastmoney')
     expect(trend.points).toHaveLength(2)
-    expect(trend.meta.providerId).toBe('tencent-fallback')
+    expect(trend.meta.providerId).toBe('tencent')
     expect(http.requests.filter(request => request.url.includes('/api/qt/stock/kline/get'))).toHaveLength(1)
   })
 
@@ -227,8 +240,8 @@ describe('EastmoneyProvider', () => {
       clock: new FakeClock(NOW), minIntervalMs: 0, totalFailureThreshold: 1,
     })
 
-    await expect(provider.getKline('1.600519')).resolves.toMatchObject({ meta: { providerId: 'tencent-fallback' } })
-    await expect(provider.getKline('1.600519')).resolves.toMatchObject({ meta: { providerId: 'tencent-fallback' } })
+    await expect(provider.getKline('1.600519')).resolves.toMatchObject({ meta: { providerId: 'tencent' } })
+    await expect(provider.getKline('1.600519')).resolves.toMatchObject({ meta: { providerId: 'tencent' } })
     expect(http.requests.filter(request => request.url.includes('/api/qt/stock/kline/get'))).toHaveLength(2)
     await expect(provider.getQuotes(['1.600519'])).resolves.toMatchObject({ quotes: [{ price: 1480.5 }] })
   })
@@ -275,7 +288,7 @@ describe('TencentProvider', () => {
     })
     expect(result.quotes[1]?.amount).toBe(679_398_990_000)
     expect(result.quotes[2]?.name).toBe('北证50')
-    expect(result.meta).toMatchObject({ providerId: 'tencent-fallback', cacheState: 'stale' })
+    expect(result.meta).toMatchObject({ providerId: 'tencent', cacheState: 'stale' })
     expect(result.quotes[0]?.meta?.sourceTimestamp).toBe('2026-09-30T08:14:24.000Z')
     expect(http.requests[0]?.request.responseEncoding).toBe('gb18030')
 
@@ -419,14 +432,15 @@ describe('MarketDataService', () => {
     const quote = await service.getStockQuoteMetrics('0.002594')
 
     expect(dashboard.overview.indices).toHaveLength(6)
-    expect(dashboard.overview.breadth.up).toBe(1250)
+    expect(dashboard.overview.breadth.up).toBeNull()
+    expect((await service.getMarketBreadth())?.up).toBe(1250)
     expect(dashboard.overview.breadth.totalAmount).toBe(1_438_018_090_000)
-    expect(dashboard.overview.meta.providerId).toBe('tencent-fallback')
+    expect(dashboard.overview.meta.providerId).toBe('tencent')
     expect(dashboard.overview.marketStatus).toBe('closed')
     expect(dashboard.industry).toMatchObject({ sectors: [], meta: { cacheState: 'unavailable' } })
     expect(dashboard.ranks.gainers).toEqual([])
     expect(quote.quote).toMatchObject({ name: '比亚迪', price: 83.31 })
-    expect(quote.sources.quote?.providerId).toBe('tencent-fallback')
+    expect(quote.sources.quote?.providerId).toBe('tencent')
     expect(quote.metrics).toMatchObject({ averagePrice: 82.87, amplitude: 2.16, volumeRatio: 0.99, pb: 3.17, peTtm: null })
   })
 
@@ -435,6 +449,9 @@ describe('MarketDataService', () => {
       clock: new FakeClock(NOW),
       http: new HandlerHttpClient(url => {
         if (url.startsWith('https://push2ex.eastmoney.com/')) return jsonResponse(fixtures.eastmoney.breadth)
+        if (url.includes('/api/qt/ulist.np/get')) return jsonResponse({ data: { diff: Object.entries(fixtures.eastmoney.indices).map(([id, row]) => ({
+          f12: row.f57, f13: Number(id[0]), f14: row.f58, f2: row.f43, f3: row.f170, f4: row.f169, f6: row.f48,
+        })) } })
         if (url.includes('/api/qt/stock/get')) {
           const secId = new URL(url).searchParams.get('secid') ?? ''
           return jsonResponse({ data: fixtures.eastmoney.indices[secId] })
@@ -508,7 +525,7 @@ describe('MarketDataService', () => {
       points: [{ time: '09:30', price: 1470, avgPrice: 1470, volume: 100 }],
       prevClose: 1462.2,
       meta: {
-        providerId: 'tencent-fallback', sourceName: '腾讯证券', sourceTimestamp: null,
+        providerId: 'tencent', sourceName: '腾讯证券', sourceTimestamp: null,
         fetchedAt: '2026-08-15T02:00:00.000Z', cacheState: 'fresh',
       },
     })
@@ -521,7 +538,7 @@ describe('MarketDataService', () => {
     expect(detail.trend).toHaveLength(1)
     expect(detail.trendPrevClose).toBe(1462.2)
     expect(detail.sources.quote).toBeNull()
-    expect(detail.sources.trend?.providerId).toBe('tencent-fallback')
+    expect(detail.sources.trend?.providerId).toBe('tencent')
   })
 
   it('fetches quote and metrics without touching trend, k-line, or valuation providers', async () => {

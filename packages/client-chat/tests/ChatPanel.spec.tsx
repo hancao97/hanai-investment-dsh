@@ -13,6 +13,37 @@ import { DshChatPanel } from '../src/ChatPanel.tsx'
 afterEach(() => { cleanup() })
 
 describe('DshChatPanel', () => {
+  it('sends research attachments through native prompt content and acknowledges only accepted messages', async () => {
+    const harness = makeHarness([], false)
+    const image = { type: 'image' as const, mediaType: 'image/png' as const, data: 'image-bytes', name: '图.png' }
+    const sent = vi.fn()
+    const prepare = vi.fn(async (text: string) => [{ type: 'text' as const, text: `${text}\n附件路径` }, image])
+    render(<DshChatPanel sessions={harness.sessions} sessionId="session-1" variant="research" prepareMessage={prepare} onMessageSent={sent} />)
+    const input = await screen.findByLabelText('向研究助手提问')
+    fireEvent.change(input, { target: { value: '分析图表' } })
+    fireEvent.click(screen.getByRole('button', { name: '发送' }))
+    await waitFor(() => expect(harness.prompt).toHaveBeenCalledWith([{ type: 'text', text: '分析图表\n附件路径' }, image], 'queue'))
+    expect(sent).toHaveBeenCalledWith('分析图表')
+  })
+  it('preserves the welcome-page question when file upload creates a research session', async () => {
+    const harness = makeHarness([], false)
+    render(<DshChatPanel sessions={harness.sessions} sessionId="session-1" variant="research" initialDraft="请分析我刚上传的财报" />)
+    const input = await screen.findByLabelText('向研究助手提问')
+    expect((input as HTMLTextAreaElement).value).toBe('请分析我刚上传的财报')
+    expect(harness.prompt).not.toHaveBeenCalled()
+  })
+  it('keeps the research draft and attachments when prompt preparation fails', async () => {
+    const harness = makeHarness([], false)
+    const sent = vi.fn()
+    render(<DshChatPanel sessions={harness.sessions} sessionId="session-1" variant="research" prepareMessage={async () => { throw new Error('附件尚在上传') }} onMessageSent={sent} />)
+    const input = await screen.findByLabelText('向研究助手提问')
+    fireEvent.change(input, { target: { value: '分析附件' } })
+    fireEvent.click(screen.getByRole('button', { name: '发送' }))
+    await screen.findByText('附件尚在上传')
+    expect((input as HTMLTextAreaElement).value).toBe('分析附件')
+    expect(harness.prompt).not.toHaveBeenCalled()
+    expect(sent).not.toHaveBeenCalled()
+  })
   it('waits for the first DSH session list before retaining a deep-linked conversation', async () => {
     const harness = makeHarness([assistantNode('已有历史已恢复', 'settled')], false)
     const readyList = harness.sessions.list.getSnapshot()

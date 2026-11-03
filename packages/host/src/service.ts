@@ -1,3 +1,17 @@
+import { LocalScreening } from './local-screening.ts'
+import { AiScreener } from './ai-screener.ts'
+import { StockDataSync } from './stock-data.ts'
+import { TechnicalData } from './technical-data.ts'
+import { MarketScanService } from './market-scan.ts'
+import type { MarketScanData, MarketScanQuery, ScreeningFact } from '../../contracts/src/market-scan.ts'
+import { AI_SCREENER_ID } from '../../contracts/src/ai-screener.ts'
+import { RESEARCH_ASSISTANT_ID } from '../../contracts/src/research-assistant.ts'
+import { AI_SCREENER, RESEARCH_ASSISTANT, ResearchWorkspace } from '../../domain/src/research-assistant.ts'
+import type { MarketLadderData } from '../../contracts/src/market-ladder.ts'
+import { defaultMacroRange, type MacroRange } from '../../contracts/src/macro-range.ts'
+import { MacroSeries } from './macro-series.ts'
+import { MacroIndicators } from './macro-indicators.ts'
+import type { MacroIndicatorData, MacroIndicatorId } from '../../contracts/src/macro-indicators.ts'
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import {
@@ -22,8 +36,10 @@ import type {
   Judgement,
   JudgementDetail,
   KLinePeriod,
+  MarketBreadthData,
   ProviderMeta,
   SearchResult,
+  SourceDiagnostic,
   StockDetail,
   StockKLineData,
   StockQuoteMetricsData,
@@ -38,15 +54,52 @@ import { HanaiDatabase } from '../../domain/src/database.ts'
 import type { HanaiPaths } from '../../domain/src/paths.ts'
 import { ReportStore, ReportValidationError } from '../../domain/src/reports.ts'
 import { ExpertChatStore } from '../../domain/src/expert-chats.ts'
+import { SECURITY_SOURCE_SETTING, SECURITY_SYNCED_AT_SETTING } from '../../domain/src/securities.ts'
+import { MarketHistoryStore } from '../../domain/src/market-history.ts'
+import { beijingMarketDate, marketDateFromMeta, marketHistoryPanel } from '../../contracts/src/market-history.ts'
+import type { MacroAllDailyData, MacroEtfInputs, MacroAllEtfData, MacroCapitalData, MacroEtfData, MacroIndexData, MacroDailyEtfData } from '../../contracts/src/market-macro.ts'
+import type { GlobalIndicesData } from '../../contracts/src/market-indices.ts'
+import type { MarketIntradayData, MarketSignalsData } from '../../contracts/src/market-activity.ts'
+import type { MarketArmsData } from '../../contracts/src/market-arms.ts'
+import { isMarketResting } from '../../contracts/src/market-hours.ts'
+import type { TechnicalBar, TechnicalHistoryInput, HistoricalLimitPool } from '../../contracts/src/technical-screen.ts'
+import type { MarketDistributionData } from '../../contracts/src/market-distribution.ts'
 
 const MARKET_SUCCESS_SETTING = 'market.latestSuccess'
+const BREADTH_SUCCESS_SETTING = 'market.breadth.latestSuccess'
+const GLOBAL_SUCCESS_SETTING = 'market.indices.latestSuccess'
+const ACTIVITY_SUCCESS_SETTING = 'market.activity.latestSuccess'
 const VALUATION_SUCCESS_SETTING = 'valuation.latestSuccess'
+const SECURITY_SYNC_AVAILABLE_AT_SETTING = 'security.master.manualSyncAvailableAt'
+const SECURITY_SYNC_COOLDOWN_MS = 60_000
 
 export interface MarketFacade {
+  syncScreeningSecurities?(database: HanaiDatabase, signal: AbortSignal, force?: boolean): Promise<{ count: number; updatedAt: string | null }>
+  getScreeningFacts?(code: string, asOf: string, signal: AbortSignal): Promise<Record<string, ScreeningFact>>
+  getTechnicalCalendar?(through: string, signal: AbortSignal): Promise<string[]>
+  getTechnicalBars?(code: string, adjust: 'qfq' | 'none', asOf: string, signal: AbortSignal): Promise<TechnicalBar[]>
+  getTechnicalHistory?(code: string, adjust: 'qfq' | 'none', asOf: string, signal: AbortSignal, limit?: number): Promise<TechnicalHistoryInput>
+  getTechnicalLimitPool?(date: string): Promise<HistoricalLimitPool | null>
+  getMarketScan?(query: MarketScanQuery, refresh?: boolean): Promise<MarketScanData | null>
+  getMacroIndicator?(id: MacroIndicatorId, range: MacroRange, signal?: AbortSignal): Promise<MacroIndicatorData>
+  getMacroInputs(): MacroEtfInputs | null
+  getMacroAllDaily(previous: MacroAllDailyData | null, inputs: MacroEtfInputs | null, retryMissing?: boolean, range?: MacroRange): Promise<MacroAllDailyData | null>
+  getMacroAllEtfs(range?: MacroRange): Promise<MacroAllEtfData | null>
+  getMacroCapital(previous: MacroCapitalData | null, retryMissing?: boolean, range?: MacroRange): Promise<MacroCapitalData | null>
+  getMacroDaily(previous: MacroDailyEtfData | null, inputs?: MacroEtfInputs | null, range?: MacroRange): Promise<MacroDailyEtfData | null>
+  getMacroEtfs(range?: MacroRange): Promise<MacroEtfData | null>
+  getMacroIndex(range?: MacroRange): Promise<MacroIndexData | null>
+  getMarketIntraday(): Promise<MarketIntradayData | null>
+  getMarketSignals(): Promise<MarketSignalsData | null>
+  getGlobalIndices(cacheOnly?: boolean): Promise<GlobalIndicesData>
   getDashboard(refresh?: boolean): Promise<DashboardData>
+  getMarketBreadth(): Promise<MarketBreadthData | null>
+  getMarketArms?(): Promise<MarketArmsData | null>
+  getMarketLadder?(date?: string): Promise<MarketLadderData | null>
+  getMarketDistribution?(): Promise<MarketDistributionData | null>
   getSectorStocks(sectorCode: string): Promise<{ stocks: StockQuote[]; meta: ProviderMeta }>
   getStockDetail(secId: string, security?: ReturnType<HanaiDatabase['getSecurity']>): Promise<StockDetail>
-  getStockQuoteMetrics(secId: string): Promise<StockQuoteMetricsData>
+  getStockQuoteMetrics(secId: string, preparation?: boolean): Promise<StockQuoteMetricsData>
   getTrend(secId: string): Promise<StockTrendData>
   getKline(secId: string, period: KLinePeriod, before?: string): Promise<StockKLineData>
   getValuation(
@@ -55,7 +108,8 @@ export interface MarketFacade {
   ): Promise<StockValuationData>
   getQuotes(secIds: readonly string[]): Promise<{ quotes: StockQuote[]; meta: ProviderMeta }>
   clearMarketCache(): number
-  syncSecurities(database: HanaiDatabase, force?: boolean): Promise<{ count: number; updatedAt: string | null }>
+  getSourceDiagnostics(): SourceDiagnostic[]
+  syncSecurities(database: HanaiDatabase, force?: boolean, signal?: AbortSignal): Promise<{ count: number; updatedAt: string | null }>
   searchSecurities(database: HanaiDatabase, query: string): Promise<SearchResult[]>
 }
 
@@ -97,15 +151,61 @@ export class HanaiService {
   private readonly version: string
   private readonly openDirectory: (directory: string) => Promise<void>
   private readonly reportJobs = new Map<string, Promise<void>>()
+  private securitySyncInProgress = false
+  private readonly marketHistory: MarketHistoryStore
+  private marketDateContext: { date: string; observedOn: string } | null = null
+  private readonly screener: AiScreener
+  private readonly localScreening: LocalScreening
+  private readonly scan: MarketScanService
+  private readonly macroSeries: MacroSeries
+  private readonly stockData: StockDataSync
+  private readonly technicalData: TechnicalData
+  private readonly macroIndicators: MacroIndicators
+  startBackgroundUpdates(): void { this.macroSeries.start(); if ((this.market.getTechnicalBars || this.market.getTechnicalHistory) && this.market.getTechnicalCalendar) this.stockData.start() }
+
+  private disposed = false
+  dispose(): void { this.disposed = true; this.screener.dispose(); this.stockData.dispose(); this.technicalData.dispose(); this.macroSeries.dispose(); this.macroIndicators.dispose() }
 
   constructor(options: HanaiServiceOptions) {
     this.paths = options.paths
     this.database = options.database
+    this.marketHistory = new MarketHistoryStore(options.database.sqlite)
     this.reports = options.reports
     this.expertChats = options.expertChats
     this.sessions = options.sessions
     this.defaultModel = options.defaultModel
     this.market = options.market
+    this.scan = new MarketScanService((query, refresh) => this.market.getMarketScan?.(query, refresh) ?? Promise.resolve(null), this.marketHistory, this.database)
+    const technicalSource = {
+      calendar: (through: string, signal: AbortSignal) => this.market.getTechnicalCalendar?.(through, signal) ?? Promise.reject(new Error('宿主未提供技术交易日历')),
+      bars: (code: string, adjust: 'qfq' | 'none', asOf: string, signal: AbortSignal, limit?: number) => this.market.getTechnicalHistory?.(code, adjust, asOf, signal, limit) ?? this.market.getTechnicalBars?.(code, adjust, asOf, signal) ?? Promise.reject(new Error('宿主未提供技术日线')),
+      pool: (date: string) => this.market.getMarketLadder?.(date) ?? Promise.resolve(null),
+      ...(this.market.getTechnicalLimitPool ? { limitPool: (date: string, _signal: AbortSignal) => this.market.getTechnicalLimitPool!(date) } : {}),
+    }
+    this.localScreening = new LocalScreening(this.database, () => this.stockData.ensure())
+    this.technicalData = new TechnicalData(this.database, technicalSource)
+    this.stockData = new StockDataSync(this.database, this.technicalData, async signal => {
+      const result = this.market.syncScreeningSecurities ? await this.market.syncScreeningSecurities(this.database, signal, false) : await this.market.syncSecurities(this.database, false, signal)
+      if (!result.updatedAt || !Number.isFinite(Date.parse(result.updatedAt)) || Date.parse(result.updatedAt) > Date.now() || Date.now() - Date.parse(result.updatedAt) >= 24 * 3600000) throw new Error('证券名录已过期且未确认更新，保留旧范围')
+    }, async (code, signal) => {
+      const row = this.database.getSecurity(`${code.startsWith('6') ? 1 : 0}.${code}`)
+      if (!row) throw new Error('证券已不在本地名录中')
+      let primary: Record<string, ScreeningFact> = {}
+      if (this.market.getScreeningFacts) {
+        try { primary = await this.market.getScreeningFacts(code, this.stockData.status().asOf!, signal) } catch { signal.throwIfAborted() }
+      }
+      // BaoStock daily valuation lacks market cap and the supported cumulative report metrics.
+      let input: StockQuoteMetricsData | null = null
+      try { input = await this.market.getStockQuoteMetrics(row.secId, true) } catch (cause) { signal.throwIfAborted(); if (!Object.keys(primary).length) throw cause }
+      signal.throwIfAborted()
+      this.localScreening.write(code, input, primary)
+    }, asOf => this.localScreening.readyCodes(asOf))
+    this.screener = new AiScreener(this.database, new ResearchWorkspace(this.paths), this.localScreening, this.technicalData)
+    this.macroIndicators = new MacroIndicators((id, range, signal) => {
+      if (!this.market.getMacroIndicator) return Promise.reject(new Error('当前行情服务未提供宏观经济指标能力'))
+      return this.market.getMacroIndicator(id, range, signal)
+    }, this.marketHistory, this.database)
+    this.macroSeries = new MacroSeries(this.market, this.marketHistory, this.database, slot => this.macroIndicators.tick(slot))
     this.version = options.version
     this.openDirectory = options.openDirectory ?? openDirectoryWithSystem
   }
@@ -147,16 +247,32 @@ export class HanaiService {
       this.enqueueReportJob(judgement.id)
     }
     for (const chat of this.database.listExpertChats()) {
+      if (chat.masterId === AI_SCREENER_ID && this.screener.has(chat.id)) {
+        try {
+          const run = this.screener.get(chat.id)
+          if (run?.status === 'scanning' && run.plan?.technical) { this.finishScreening(chat.id); continue }
+        } catch (cause) { this.database.updateExpertChat(chat.id, { errorCode: 'screening-recovery-failed', errorMessage: messageOf(cause) }); continue }
+      }
       if (chat.dshSessionId === null) {
         this.database.updateExpertChat(chat.id, {
           turnStatus: 'failed',
           errorCode: 'recovery-session-missing',
           errorMessage: '上次启动在 DSH Session 完成绑定前中断，请删除后重新发起对谈。',
         })
+        if (chat.masterId === AI_SCREENER_ID && this.screener.has(chat.id)) {
+          try { this.screener.fail(chat.id, '上次解析在DSH会话绑定前中断，请重新发起选股') }
+          catch (cause) { this.database.updateExpertChat(chat.id, { errorCode: 'screening-recovery-failed', errorMessage: messageOf(cause) }) }
+        }
         continue
       }
       if (await this.sessions.isRunning(chat.dshSessionId)) {
         this.database.updateExpertChat(chat.id, { turnStatus: 'running', errorCode: null, errorMessage: null })
+      } else if (chat.masterId === AI_SCREENER_ID && this.screener.has(chat.id)) {
+        try {
+          const run = this.screener.get(chat.id)
+          this.database.updateExpertChat(chat.id, { turnStatus: 'idle' })
+          if (run && ['parsing', 'scanning'].includes(run.status)) this.finishScreening(chat.id)
+        } catch (cause) { this.database.updateExpertChat(chat.id, { turnStatus: 'failed', errorCode: 'screening-recovery-failed', errorMessage: messageOf(cause) }) }
       } else if (chat.turnStatus === 'queued' || chat.turnStatus === 'running' || chat.turnStatus === 'cancelling') {
         this.database.updateExpertChat(chat.id, { turnStatus: 'idle', errorCode: null, errorMessage: null })
       }
@@ -206,6 +322,12 @@ export class HanaiService {
         ? { errorCode: 'chat-turn-error', errorMessage: event.data.reason.error.message }
         : { errorCode: null, errorMessage: null }),
     })
+    if (chat.masterId === AI_SCREENER_ID && this.screener.has(chat.id)) {
+      try {
+        if (event.data.reason.kind === 'completed') this.finishScreening(chat.id)
+        else if (this.screener.get(chat.id)?.status === 'parsing') this.screener.fail(chat.id, `解析回合未完成：${event.data.reason.kind}`)
+      } catch (cause) { this.database.updateExpertChat(chat.id, { turnStatus: 'failed', errorCode: 'screening-result-failed', errorMessage: messageOf(cause) }) }
+    }
   }
 
   private async dispatch(
@@ -214,7 +336,12 @@ export class HanaiService {
     signal: AbortSignal,
   ): Promise<unknown> {
     switch (endpoint) {
-      case 'bootstrap': return this.bootstrap()
+      case 'bootstrap': return this.bootstrap(signal)
+      case 'market.scan.query': {
+        const { query, date, refresh } = request as HanaiRequest<'market.scan.query'>
+        return this.scan.query(query, date, refresh)
+      }
+      case 'market.scan.history': return this.scan.dates((request as HanaiRequest<'market.scan.history'>).query)
       case 'dashboard.get': {
         const input = request as HanaiRequest<'dashboard.get'>
         const result = await this.market.getDashboard(input.refresh)
@@ -222,23 +349,142 @@ export class HanaiService {
           result.overview.meta,
           result.industry.meta,
           result.concept.meta,
+          ...Object.values(result.rankSources ?? {}),
         ])
+        this.archiveMarketDashboard(result)
         return result
       }
-      case 'sector.stocks': {
-        const result = await this.market.getSectorStocks(
-          (request as HanaiRequest<'sector.stocks'>).sectorCode,
-        )
-        this.recordProviderSuccess(MARKET_SUCCESS_SETTING, [result.meta])
+      case 'market.breadth': {
+        const result = await this.market.getMarketBreadth()
+        this.recordProviderSuccess(BREADTH_SUCCESS_SETTING, [result?.meta ?? null])
+        if (result !== null && result.meta.cacheState !== 'unavailable') this.recordSuccessTimestamp(MARKET_SUCCESS_SETTING, result.meta.fetchedAt)
+        if (result !== null) this.archiveMarketPanel('breadth', result, result.meta, result.qdate)
         return result
       }
-      case 'security.sync': {
-        const input = request as HanaiRequest<'security.sync'>
-        const result = await this.market.syncSecurities(this.database, input.force)
-        if (result.count > 0 && result.updatedAt !== null) {
-          this.recordSuccessTimestamp(MARKET_SUCCESS_SETTING, result.updatedAt)
+      case 'market.ladder': {
+        const date = this.marketDateContext?.observedOn === beijingMarketDate() ? this.marketDateContext.date : undefined
+        const result = await this.market.getMarketLadder?.(date) ?? null
+        if (result !== null) this.archiveMarketPanel('ladder', result, result.meta, result.date)
+        return result
+      }
+      case 'market.distribution': {
+        const result = await this.market.getMarketDistribution?.() ?? null
+        if (result !== null) this.archiveMarketPanel('distribution', result, result.meta)
+        return result
+      }
+      case 'market.arms': {
+        const result = await this.market.getMarketArms?.() ?? null
+        if (result !== null) this.archiveMarketPanel('arms', result, result.meta, result.point.date)
+        return result
+      }
+      case 'market.history.list': return { snapshots: this.marketHistory.list('market') }
+      case 'market.macro.indicators': {
+        const { topic, range, refresh } = request as HanaiRequest<'market.macro.indicators'>
+        return this.macroIndicators.query(topic, range, refresh)
+      }
+      case 'market.macro.query': {
+        const { range, refresh } = request as HanaiRequest<'market.macro.query'>
+        return this.macroSeries.query(range, refresh)
+      }
+      case 'market.macro.generate': return this.macroSeries.query(defaultMacroRange(), true).task
+      case 'market.macro.generation': return this.macroSeries.status()
+      case 'market.macro.allDaily': {
+        const saved = this.marketHistory.list().find(snapshot => snapshot.date <= beijingMarketDate() && snapshot.panels.includes('macro.etf.all.daily'))
+        const previous = saved === undefined ? null : marketHistoryPanel(this.marketHistory.get(saved.date), 'macro.etf.all.daily')
+        const inputDate = this.marketHistory.list().find(snapshot => snapshot.date <= beijingMarketDate() && snapshot.panels.includes('macro.etf.inputs'))
+        const inputs = inputDate === undefined ? null : marketHistoryPanel(this.marketHistory.get(inputDate.date), 'macro.etf.inputs')
+        const result = await this.market.getMacroAllDaily(previous, inputs, (request as HanaiRequest<'market.macro.allDaily'>).retryMissing)
+        const raw = this.market.getMacroInputs()
+        if (raw !== null) this.archiveMarketPanel('macro.etf.inputs', raw, raw.meta)
+        if (result !== null) this.archiveMarketPanel('macro.etf.all.daily', result, result.meta)
+        return result
+      }
+      case 'market.macro.all': {
+        const result = await this.market.getMacroAllEtfs()
+        if (result !== null) this.archiveMarketPanel('macro.etf.all.quarter', result, result.meta)
+        return result
+      }
+      case 'market.macro.capital': {
+        const saved = this.marketHistory.list().find(snapshot => snapshot.date <= beijingMarketDate() && snapshot.panels.includes('macro.capital'))
+        const previous = saved === undefined ? null : marketHistoryPanel(this.marketHistory.get(saved.date), 'macro.capital')
+        const result = await this.market.getMacroCapital(previous, (request as HanaiRequest<'market.macro.capital'>).retryMissing)
+        if (result !== null) this.archiveMarketPanel('macro.capital', result, result.meta)
+        return result
+      }
+      case 'market.macro.daily': {
+        const saved = this.marketHistory.list().find(snapshot => snapshot.date <= beijingMarketDate() && snapshot.panels.includes('macro.etf.daily'))
+        const previous = saved === undefined ? null : marketHistoryPanel(this.marketHistory.get(saved.date), 'macro.etf.daily')
+        const inputDate = this.marketHistory.list().find(snapshot => snapshot.date <= beijingMarketDate() && snapshot.panels.includes('macro.etf.inputs'))
+        const inputs = inputDate === undefined ? null : marketHistoryPanel(this.marketHistory.get(inputDate.date), 'macro.etf.inputs')
+        const result = await this.market.getMacroDaily(previous, inputs)
+        const raw = this.market.getMacroInputs()
+        if (raw !== null) this.archiveMarketPanel('macro.etf.inputs', raw, raw.meta)
+        if (result !== null) this.archiveMarketPanel('macro.etf.daily', result, result.meta)
+        return result
+      }
+      case 'market.macro.etf': {
+        const result = await this.market.getMacroEtfs()
+        if (result !== null) this.archiveMarketPanel('macro.etf', result, result.meta)
+        return result
+      }
+      case 'market.macro.index': {
+        const result = await this.market.getMacroIndex()
+        if (result !== null) this.archiveMarketPanel('macro.index', result, result.meta)
+        return result
+      }
+      case 'market.intraday': {
+        const result = await this.market.getMarketIntraday()
+        if (result !== null) {
+          this.recordProviderSuccess(ACTIVITY_SUCCESS_SETTING, [result.meta])
+          this.archiveMarketPanel('intraday', result, result.meta, result.date)
         }
         return result
+      }
+      case 'market.signals': {
+        const result = await this.market.getMarketSignals()
+        if (result !== null) this.archiveMarketPanel('signals', result, result.meta, result.date)
+        return result
+      }
+      case 'market.indices': {
+        const resting = isMarketResting()
+        if (resting) {
+          for (const entry of this.marketHistory.list('market')) {
+            if (entry.date > beijingMarketDate() || !entry.panels.includes('global.indices')) continue
+            const saved = marketHistoryPanel(this.marketHistory.get(entry.date), 'global.indices')
+            if (saved !== null) return { ...saved, meta: { ...saved.meta, cacheState: 'cached' }, indices: saved.indices.map(index => ({ ...index, meta: { ...index.meta, cacheState: index.meta.cacheState === 'fresh' ? 'cached' : index.meta.cacheState } })) }
+          }
+        }
+        const result = await this.market.getGlobalIndices(resting)
+        this.recordProviderSuccess(GLOBAL_SUCCESS_SETTING, result.indices.map(item => item.meta))
+        if (result.meta.cacheState !== 'unavailable' && result.meta.cacheState !== 'stale') this.recordSuccessTimestamp(MARKET_SUCCESS_SETTING, result.meta.fetchedAt)
+        // The record is the Beijing-day observation; every overseas row retains its own market date.
+        this.marketHistory.save('global.indices', result, result.meta, beijingMarketDate(Date.parse(result.meta.fetchedAt)))
+        return result
+      }
+      case 'market.history.get': return this.marketHistory.get((request as HanaiRequest<'market.history.get'>).date)
+      case 'sector.stocks': {
+        const { sectorCode } = request as HanaiRequest<'sector.stocks'>
+        const result = await this.market.getSectorStocks(sectorCode)
+        this.recordProviderSuccess(MARKET_SUCCESS_SETTING, [result.meta])
+        this.archiveMarketPanel(`sector:${sectorCode}`, result, result.meta)
+        return result
+      }
+      case 'stock-data.status': return this.stockData.status()
+      case 'stock-data.sync': return this.stockData.request()
+      case 'stock-data.pause': return this.stockData.pause()
+      case 'security.sync': {
+        const input = request as HanaiRequest<'security.sync'>
+        if (this.securitySyncInProgress) throw new Error('主数据正在同步，请等待完成')
+        const availableAt = Date.parse(this.database.getSetting(SECURITY_SYNC_AVAILABLE_AT_SETTING) ?? '')
+        const remaining = Math.ceil((availableAt - Date.now()) / 1000)
+        if (remaining > 0) throw new Error(`主数据手动同步冷却中，请 ${remaining} 秒后重试`)
+        this.database.setSetting(SECURITY_SYNC_AVAILABLE_AT_SETTING, new Date(Date.now() + SECURITY_SYNC_COOLDOWN_MS).toISOString())
+        this.securitySyncInProgress = true
+        try {
+          return this.market.syncScreeningSecurities ? await this.market.syncScreeningSecurities(this.database, signal, input.force ?? false) : await this.market.syncSecurities(this.database, input.force, signal)
+        } finally {
+          this.securitySyncInProgress = false
+        }
       }
       case 'security.search': {
         const input = request as HanaiRequest<'security.search'>
@@ -321,7 +567,33 @@ export class HanaiService {
       case 'judgement.remove': return this.removeJudgement(
         (request as HanaiRequest<'judgement.remove'>).id,
       )
-      case 'expert-chat.list': return this.database.listExpertChats()
+      case 'screener.result': { const { id } = request as HanaiRequest<'screener.result'>; this.getExpertChat(id, 'screener'); return this.screener.get(id) }
+      case 'screener.execute': { const { id } = request as HanaiRequest<'screener.execute'>; this.getExpertChat(id, 'screener'); return this.screener.execute(id) }
+      case 'screener.list': return this.listConversations('screener')
+      case 'screener.create': return this.createExpertChat({ ...(request as HanaiRequest<'screener.create'>), masterId: AI_SCREENER_ID }, 'screener')
+      case 'screener.get': return this.getExpertChat((request as HanaiRequest<'screener.get'>).id, 'screener')
+      case 'screener.remove': return this.removeExpertChat((request as HanaiRequest<'screener.remove'>).id, 'screener')
+      case 'screener.rename': {
+        const input = request as HanaiRequest<'screener.rename'>
+        this.getExpertChat(input.id, 'screener')
+        return this.database.updateExpertChat(input.id, { title: expertChatTitle(AI_SCREENER.name, input.title) })
+      }
+      case 'research-chat.list': return this.listConversations('research')
+      case 'research-chat.create': return this.createExpertChat({ ...(request as HanaiRequest<'research-chat.create'>), masterId: RESEARCH_ASSISTANT_ID }, 'research')
+      case 'research-chat.get': return this.getExpertChat((request as HanaiRequest<'research-chat.get'>).id, 'research')
+      case 'research-chat.remove': return this.removeExpertChat((request as HanaiRequest<'research-chat.remove'>).id, 'research')
+      case 'research-chat.rename': {
+        const input = request as HanaiRequest<'research-chat.rename'>
+        this.getExpertChat(input.id, 'research')
+        return this.database.updateExpertChat(input.id, { title: expertChatTitle(RESEARCH_ASSISTANT.name, input.title) })
+      }
+      case 'research-chat.upload': {
+        const input = request as HanaiRequest<'research-chat.upload'>
+        const chat = this.getExpertChat(input.id, 'research')
+        if (chat.dshSessionId === null) throw new Error('研究会话尚未建立，不能上传附件')
+        return new ResearchWorkspace(this.paths).upload(chat.id, input.name, input.data)
+      }
+      case 'expert-chat.list': return this.listConversations('expert')
       case 'expert-chat.create': return this.createExpertChat(request as HanaiRequest<'expert-chat.create'>)
       case 'expert-chat.get': return this.getExpertChat((request as HanaiRequest<'expert-chat.get'>).id)
       case 'expert-chat.remove': return this.removeExpertChat(
@@ -346,13 +618,11 @@ export class HanaiService {
     }
   }
 
-  private async bootstrap(): Promise<BootstrapData> {
+  private async bootstrap(signal: AbortSignal): Promise<BootstrapData> {
     if (this.database.securityCount() === 0) {
       try {
-        const result = await this.market.syncSecurities(this.database, false)
-        if (result.count > 0 && result.updatedAt !== null) {
-          this.recordSuccessTimestamp(MARKET_SUCCESS_SETTING, result.updatedAt)
-        }
+        if (this.market.syncScreeningSecurities) await this.market.syncScreeningSecurities(this.database, signal, false)
+        else await this.market.syncSecurities(this.database, false, signal)
       } catch {
         // First-run market access may be offline; the workbench still boots and exposes manual retry.
       }
@@ -362,7 +632,7 @@ export class HanaiService {
       masters: listMasters(),
       groups: this.database.listWatchGroups(),
       judgements: this.database.listJudgements(),
-      expertChats: this.database.listExpertChats(),
+      expertChats: this.listConversations('expert'),
       diagnostics: this.diagnostics(),
     }
   }
@@ -414,9 +684,15 @@ export class HanaiService {
       securityCount: this.database.securityCount(),
       masterCount: listMasters().length,
       judgementCount: this.database.judgementCount(),
-      expertChatCount: this.database.expertChatCount(),
+      expertChatCount: this.listConversations('expert').length,
       latestMarketSuccess: this.database.getSetting('market.latestSuccess'),
       latestValuationSuccess: this.database.getSetting('valuation.latestSuccess'),
+      marketSources: [...this.providerSources(MARKET_SUCCESS_SETTING), ...this.providerSources(BREADTH_SUCCESS_SETTING), ...this.providerSources(GLOBAL_SUCCESS_SETTING), ...this.providerSources(ACTIVITY_SUCCESS_SETTING)],
+      valuationSources: this.providerSources(VALUATION_SUCCESS_SETTING),
+      securitySource: this.database.getSetting(SECURITY_SOURCE_SETTING),
+      latestSecuritySuccess: this.database.getSetting(SECURITY_SYNCED_AT_SETTING),
+      securitySyncAvailableAt: this.database.getSetting(SECURITY_SYNC_AVAILABLE_AT_SETTING),
+      sourceAttempts: this.market.getSourceDiagnostics(),
       storage: {
         totalBytes: total.bytes,
         cacheBytes: cache.bytes,
@@ -461,7 +737,49 @@ export class HanaiService {
     ])
   }
 
+  private archiveMarketPanel(key: string, data: unknown, meta: ProviderMeta, date?: string): void {
+    if (this.disposed || meta.cacheState === 'unavailable') return
+    if (meta.sourceTimestamp === null) {
+      const context = this.marketDateContext
+      // Undated caches retain their original archive; never bind them to a later index date.
+      if (meta.cacheState !== 'fresh' || context?.observedOn !== beijingMarketDate()
+        || context.date !== beijingMarketDate(Date.parse(meta.fetchedAt)) || context.date !== context.observedOn) return
+      date = context.date
+    }
+    this.marketHistory.save(key, data, meta, date)
+  }
+
+  private archiveMarketDashboard(data: DashboardData): void {
+    const date = data.overview.meta.sourceTimestamp === null ? null : marketDateFromMeta(data.overview.meta)
+    if (date !== null && data.overview.indices.length > 0 && data.overview.meta.cacheState !== 'unavailable') {
+      this.marketDateContext = { date, observedOn: beijingMarketDate() }
+      this.archiveMarketPanel('overview', data.overview, data.overview.meta, date)
+    } else {
+      this.marketDateContext = null
+    }
+    for (const kind of ['industry', 'concept'] as const) {
+      const panel = data[kind]
+      this.archiveMarketPanel(kind, panel, panel.meta)
+    }
+    for (const kind of ['gainers', 'losers', 'amount', 'turnover'] as const) {
+      const meta = data.rankSources?.[kind] ?? data.overview.meta
+      this.archiveMarketPanel(`rank.${kind}`, { entries: data.ranks[kind], meta }, meta)
+    }
+  }
+
   private recordProviderSuccess(setting: string, values: ReadonlyArray<ProviderMeta | null>): void {
+    const sources = values.filter((value): value is ProviderMeta => value !== null && Number.isFinite(Date.parse(value.fetchedAt)))
+    const previous = this.providerSources(setting)
+    const newestAt = (metas: ProviderMeta[]) => Math.max(...metas.map(meta => Date.parse(meta.fetchedAt)))
+    if (sources.length === 0 || newestAt(sources) >= newestAt(previous)) {
+      const unique = new Map<string, ProviderMeta>()
+      for (const meta of sources) {
+        const key = `${meta.providerId}:${meta.cacheState}`
+        const existing = unique.get(key)
+        if (existing === undefined || Date.parse(meta.fetchedAt) >= Date.parse(existing.fetchedAt)) unique.set(key, meta)
+      }
+      this.database.setSetting(`${setting}.sources`, JSON.stringify([...unique.values()]))
+    }
     const newest = values
       .filter((value): value is ProviderMeta => value !== null
         && value.cacheState !== 'unavailable'
@@ -470,6 +788,20 @@ export class HanaiService {
       .filter(value => Number.isFinite(Date.parse(value)))
       .sort((left, right) => Date.parse(right) - Date.parse(left))[0]
     if (newest !== undefined) this.recordSuccessTimestamp(setting, newest)
+  }
+
+  private providerSources(setting: string): ProviderMeta[] {
+    try {
+      const values: unknown = JSON.parse(this.database.getSetting(`${setting}.sources`) ?? '[]')
+      if (!Array.isArray(values)) return []
+      return values.filter((value): value is ProviderMeta => value !== null && typeof value === 'object'
+        && typeof value.providerId === 'string' && typeof value.sourceName === 'string'
+        && typeof value.fetchedAt === 'string' && Number.isFinite(Date.parse(value.fetchedAt))
+        && (value.sourceTimestamp === null || typeof value.sourceTimestamp === 'string')
+        && ['fresh', 'cached', 'stale', 'unavailable'].includes(value.cacheState))
+    } catch {
+      return []
+    }
   }
 
   private recordSuccessTimestamp(setting: string, timestamp: string): void {
@@ -550,13 +882,14 @@ export class HanaiService {
     return this.database.listWatchGroups()
   }
 
-  private async createExpertChat(input: HanaiRequest<'expert-chat.create'>): Promise<ExpertChat> {
-    const master = getMasterPersona(input.masterId)
+  private async createExpertChat(input: HanaiRequest<'expert-chat.create'>, kind: 'expert' | 'research' | 'screener' = 'expert'): Promise<ExpertChat> {
+    const research = kind !== 'expert'
+    const master = kind === 'screener' ? AI_SCREENER : research ? RESEARCH_ASSISTANT : getMasterPersona(input.masterId)
     if (master === null) throw new Error('专家不存在')
     const id = randomUUID()
     let chat = this.database.createExpertChat({
       id,
-      title: expertChatTitle(master.name, input.openingMessage),
+      title: research && !input.openingMessage ? kind === 'screener' ? '新选股查询' : '新研究对话' : expertChatTitle(master.name, input.openingMessage),
       masterId: master.id,
       masterName: master.name,
       masterVersion: master.version,
@@ -569,8 +902,16 @@ export class HanaiService {
     let createdSessionId: string | null = null
     let sessionBound = false
     try {
-      const workspace = this.expertChats.prepareWorkspace(id, master)
-      const sessionId = await this.sessions.create(`chat-${id}`, workspace.workspace, input.model)
+      let workspace: string
+      if (research) {
+        const latest = this.marketHistory.list('market').find(row => row.panels.includes('overview'))
+        const snapshot = latest ? this.marketHistory.get(latest.date) : null
+        const records = snapshot ? Object.fromEntries(Object.entries(snapshot.records).filter(([key]) => !key.startsWith('macro.') && !key.startsWith('scan:'))) : null
+        const context = snapshot && records ? { ...snapshot, records, panels: Object.keys(records), capturedAt: Object.values(records).map(row => row.capturedAt).sort().at(-1) ?? snapshot.capturedAt } : null
+        workspace = new ResearchWorkspace(this.paths).prepare(id, context, kind === 'screener' ? { securities: this.database.screeningUniverse(), note: '仅代码名称参考，不含财务指标；不是全市场筛选结果' } : undefined)
+      } else workspace = this.expertChats.prepareWorkspace(id, master).workspace
+      if (kind === 'screener' && input.openingMessage) this.screener.start(id, input.openingMessage)
+      const sessionId = await this.sessions.create(`chat-${id}`, workspace, input.model)
       createdSessionId = sessionId
       chat = this.database.updateExpertChat(id, {
         dshSessionId: sessionId,
@@ -593,31 +934,46 @@ export class HanaiService {
           )
         }
       }
+      if (kind === 'screener') this.screener.fail(chat.id, messageOf(failure))
       this.database.updateExpertChat(chat.id, {
         turnStatus: 'failed',
-        errorCode: 'expert-chat-start-failed',
+        errorCode: `${kind}-chat-start-failed`,
         errorMessage: messageOf(failure),
       })
       throw failure
     }
   }
 
-  private getExpertChat(id: string): ExpertChat {
+  private finishScreening(id: string): void {
+    void this.screener.complete(id).catch(cause => { if (!this.disposed) this.database.updateExpertChat(id, { turnStatus: 'failed', errorCode: 'screening-result-failed', errorMessage: messageOf(cause) }) })
+  }
+
+  private conversationKind(chat: ExpertChat): 'expert' | 'research' | 'screener' {
+    return chat.masterId === AI_SCREENER_ID ? 'screener' : chat.masterId === RESEARCH_ASSISTANT_ID ? 'research' : 'expert'
+  }
+
+  private listConversations(kind: 'expert' | 'research' | 'screener'): ExpertChat[] {
+    return this.database.listExpertChats().filter(chat => this.conversationKind(chat) === kind)
+  }
+
+  private getExpertChat(id: string, kind: 'expert' | 'research' | 'screener' = 'expert'): ExpertChat {
     const chat = this.database.getExpertChat(id)
-    if (chat === null) throw new Error('专家对谈不存在')
+    if (chat === null || this.conversationKind(chat) !== kind) throw new Error(kind === 'screener' ? '选股查询不存在' : kind === 'research' ? '研究对话不存在' : '专家对谈不存在')
     return chat
   }
 
-  private async removeExpertChat(id: string): Promise<HanaiResponse<'expert-chat.remove'>> {
-    const chat = this.database.getExpertChat(id)
-    if (chat === null) throw new Error('专家对谈不存在')
+  private async removeExpertChat(id: string, kind: 'expert' | 'research' | 'screener' = 'expert'): Promise<HanaiResponse<'expert-chat.remove'>> {
+    const chat = this.getExpertChat(id, kind)
+    if (this.screener.busy(id)) throw new Error('候选扫描正在进行，暂时不能删除')
     if (chat.dshSessionId !== null) {
-      if (await this.sessions.isRunning(chat.dshSessionId)) throw new Error('专家正在回答，暂时不能删除')
+      if (await this.sessions.isRunning(chat.dshSessionId)) throw new Error('会话正在回答，暂时不能删除')
       await this.sessions.archive(chat.dshSessionId)
     }
+    if (this.screener.busy(id)) throw new Error('候选扫描正在进行，暂时不能删除')
     this.expertChats.remove(id)
     this.database.removeExpertChat(id)
-    return this.database.listExpertChats()
+    if (kind === 'screener') this.screener.remove(id)
+    return this.listConversations(kind)
   }
 
   private async createJudgement(

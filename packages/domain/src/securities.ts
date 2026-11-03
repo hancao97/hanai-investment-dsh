@@ -5,6 +5,7 @@ import { systemClock, type Clock } from './http.ts'
 import type { EastmoneySecurityRow } from './providers/eastmoney.ts'
 
 export const SECURITY_SYNCED_AT_SETTING = 'security.master.syncedAt'
+export const SECURITY_SOURCE_SETTING = 'security.master.source'
 const DEFAULT_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000
 
 export interface SecurityDataProvider {
@@ -53,7 +54,8 @@ export class SecuritiesService {
     return this.database.getSetting(SECURITY_SYNCED_AT_SETTING)
   }
 
-  async sync(force = false): Promise<{ count: number; updatedAt: string | null }> {
+  async sync(force = false, signal?: AbortSignal): Promise<{ count: number; updatedAt: string | null }> {
+    signal?.throwIfAborted()
     const previousCount = this.database.securityCount()
     const previousUpdatedAt = this.syncedAt()
     const previousTimestamp = previousUpdatedAt === null ? NaN : Date.parse(previousUpdatedAt)
@@ -67,6 +69,7 @@ export class SecuritiesService {
     }
 
     const fetched = await this.provider.getAllSecurities()
+    signal?.throwIfAborted()
     const updatedAt = new Date(this.clock.now()).toISOString()
     const unique = new Map<string, SecuritySnapshotRow>()
     for (const item of fetched) {

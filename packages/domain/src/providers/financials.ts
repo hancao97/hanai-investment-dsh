@@ -3,6 +3,7 @@ import { fetchJson, isoNow, systemClock, type Clock, type HttpClient } from '../
 import { ProviderCache } from './cache.ts'
 import { finiteNumber, metricsFromQuote } from './metrics.ts'
 import { tencentSymbol } from './tencent.ts'
+import { SourceCircuit, SourceDataUnavailableError } from './source-circuit.ts'
 
 type Row = Record<string, unknown>
 interface ReportData { rows: Row[]; count: number | null; meta: ProviderMeta }
@@ -18,12 +19,13 @@ function divide(numerator: number | null, denominator: number | null): number | 
   return numerator === null || denominator === null || denominator === 0 ? null : numerator / denominator
 }
 
-/** Financial reports use a separate data-center host, independent of realtime quote breakers. */
+/** Reports and dividends have independent breakers; quote success cannot reset them. */
 export class EastmoneyFinancialProvider {
   private readonly reports: ProviderCache<ReportData>
   private readonly dividends: ProviderCache<ReportData>
 
-  constructor(private readonly http: HttpClient, private readonly clock: Clock = systemClock, private readonly timeoutMs = 10_000) {
+  constructor(private readonly http: HttpClient, private readonly clock: Clock = systemClock, private readonly timeoutMs = 10_000,
+    private readonly circuit = new SourceCircuit({ clock })) {
     this.reports = new ProviderCache(clock, 6 * 60 * 60_000)
     this.dividends = new ProviderCache(clock, 6 * 60 * 60_000)
   }
@@ -43,7 +45,7 @@ export class EastmoneyFinancialProvider {
     const rows = response.data.result.data.filter((row): row is Row => row !== null && typeof row === 'object'
       && row.SECURITY_CODE === secId.slice(2) && row.SECUCODE === identity)
     if (rows.length !== response.data.result.data.length) throw new Error('财报股票标识不匹配')
-    if (!dividend && rows.length === 0) throw new Error('未返回该股票财报')
+    if (!dividend && rows.length === 0) throw new SourceDataUnavailableError('未返回该股票财报')
     return {
       rows, count: finiteNumber(response.data.result.count),
       meta: { providerId: 'eastmoney-financials', sourceName: '东方财富财报',
@@ -86,8 +88,8 @@ export class EastmoneyFinancialProvider {
 
   async getStockMetrics(secId: string, quote: StockQuote | null, base: StockMetrics | null): Promise<StockMetrics | null> {
     const [reports, dividends] = await Promise.all([
-      this.reports.get(secId, () => this.load(secId, false)),
-      this.dividends.get(secId, () => this.load(secId, true)),
+      this.reports.get(secId, () => this.circuit.run('eastmoney-financials', () => this.load(secId, false))),
+      this.dividends.get(secId, () => this.circuit.run('eastmoney-dividends', () => this.load(secId, true))),
     ])
     const rows = reports?.rows.filter(row => {
       const date = reportDate(row)

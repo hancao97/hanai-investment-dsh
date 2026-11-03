@@ -62,7 +62,7 @@ export function describeDataStatus(
       : { kind: 'cached', label: '缓存数据', detail: '数据已超过实时新鲜度窗口' }
   }
   if (meta.cacheState === 'cached') {
-    return { kind: 'cached', label: '缓存数据', detail: '当前结果来自本地缓存' }
+    return { kind: 'cached', label: '缓存复用', detail: '当前结果来自有效期内的本地缓存，获取时间保持不变' }
   }
 
   switch (options.marketStatus) {

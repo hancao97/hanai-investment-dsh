@@ -1,3 +1,5 @@
+import { LocalScreening } from '../src/local-screening.ts'
+import { MarketHistoryStore } from '../../domain/src/market-history.ts'
 import {
   existsSync,
   mkdirSync,
@@ -12,7 +14,10 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { SessionSeq, type SessionEvent } from '@deepseek-ai/dsh-session'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { DefaultModelSelection, ProviderMeta, StockDetail } from '../../contracts/src/index.ts'
+import type { DashboardData, DefaultModelSelection, ProviderMeta, StockDetail } from '../../contracts/src/index.ts'
+import { MARKET_HISTORY_PANELS, marketHistoryPanel } from '../../contracts/src/market-history.ts'
+import { MACRO_ETFS, MACRO_GENERATION_PANELS } from '../../contracts/src/market-macro.ts'
+import { GLOBAL_INDICES } from '../../contracts/src/market-indices.ts'
 import { HanaiDatabase } from '../../domain/src/database.ts'
 import { ensureHanaiLayout, resolveHanaiPaths } from '../../domain/src/paths.ts'
 import { ReportStore } from '../../domain/src/reports.ts'
@@ -83,7 +88,18 @@ function fixture(minChars = 100) {
     fetchedAt: new Date(0).toISOString(), cacheState: 'fresh' as const,
   }
   const market: MarketFacade = {
+    getMacroInputs: () => null,
+    getMacroAllDaily: async () => null,
+    getMacroAllEtfs: async () => null,
+    getMacroCapital: async () => null,
+    getMacroDaily: async () => null,
+    getMacroEtfs: async () => null,
+    getMacroIndex: async () => null,
+    getMarketIntraday: async () => null,
+    getMarketSignals: async () => null,
+    getGlobalIndices: async () => ({ indices: [], meta }),
     getDashboard: async () => { throw new Error('unused') },
+    getMarketBreadth: async () => null,
     getSectorStocks: async () => ({ stocks: [], meta }),
     getStockDetail: async () => stockDetail(),
     getStockQuoteMetrics: async () => ({
@@ -96,6 +112,7 @@ function fixture(minChars = 100) {
     getValuation: async () => ({ valuation: null, meta: null }),
     getQuotes: async () => ({ quotes: [], meta }),
     clearMarketCache: () => 0,
+    getSourceDiagnostics: () => [],
     syncSecurities: async () => ({ count: 0, updatedAt: null }),
     searchSecurities: async () => [],
   }
@@ -122,6 +139,590 @@ async function eventually(assertion: () => void): Promise<void> {
 }
 
 describe('HanaiService report lifecycle', () => {
+  it('prepares BaoStock facts first and keeps them when supplementary quotes fail', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-02T20:00:00+08:00'))
+    const { service, market, database } = fixture()
+    try {
+      market.syncScreeningSecurities = vi.fn(async () => {
+        const updatedAt = new Date().toISOString()
+        database.sqlite.prepare('INSERT INTO security_master VALUES(?,?,?,?,?,?,?)').run('1.600000', '600000', '浦发银行', 'SH', '', '', updatedAt)
+        database.setSetting('security.master.syncedAt', updatedAt)
+        return { count: 1, updatedAt }
+      })
+      const legacyMaster = vi.spyOn(market, 'syncSecurities')
+      market.getTechnicalCalendar = vi.fn(async () => ['2026-11-02'])
+      market.getTechnicalHistory = vi.fn(async () => ({ source: 'baostock', fetchedAt: new Date().toISOString(), bars: [{ date: '2026-11-02', open: 10, high: 10, low: 10, close: 10, volume: 100 }] }))
+      const order: string[] = []
+      market.getScreeningFacts = vi.fn(async () => { order.push('primary'); return { price: { value: 10, source: 'baostock', date: '2026-11-02', reportDate: null, fetchedAt: new Date().toISOString() } } })
+      vi.spyOn(market, 'getStockQuoteMetrics').mockImplementation(async () => { order.push('supplement'); throw new Error('offline') })
+      const signal = new AbortController().signal
+      await service.call('stock-data.sync', {}, signal)
+      await vi.waitFor(async () => { const status = await service.call('stock-data.status', {}, signal); expect(status.phase, JSON.stringify(status)).toBe('finished') })
+      expect(order).toEqual(['primary', 'supplement'])
+      expect(legacyMaster).not.toHaveBeenCalled()
+      expect(JSON.parse(database.getSetting('stock-data.metrics.600000')!)).toMatchObject({ price: { source: 'baostock', value: 10 } })
+    } finally { service.dispose(); database.close(); vi.useRealTimers() }
+  })
+  it('keeps existing frozen charts intact while new updates only merge time-series observations', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-28T18:00:00+08:00'))
+    const f = fixture()
+    const { database, market, service } = f
+    const meta: ProviderMeta = { providerId: 'test', sourceName: '公开数据', sourceTimestamp: '2026-09-30', fetchedAt: new Date().toISOString(), cacheState: 'fresh' }
+    const cap = { points: [{ date: '2026-09-30', floatCap: 500000 }], checkedMonths: ['202609'], complete: true, meta }
+    const daily = { points: [{ date: '2026-10-27', assets: 400 }], expectedDays: 1, complete: true, meta: { ...meta, sourceTimestamp: '2026-10-27' } }
+    const capital = vi.spyOn(market, 'getMacroCapital').mockResolvedValue(cap)
+    const sizes = vi.spyOn(market, 'getMacroDaily').mockResolvedValue(daily)
+    const prices = vi.spyOn(market, 'getMacroIndex').mockResolvedValue({ points: [{ date: '2026-10-28', close: 4083 }], meta: { ...meta, sourceTimestamp: '2026-10-28' } })
+    const signal = new AbortController().signal
+    try {
+      const generatedAt = new Date().toISOString()
+      const yesterday = { date: '2026-10-28', generatedAt, capital: cap, daily, index: await market.getMacroIndex(), etfs: null, allEtfs: null, allDaily: null,
+        task: { state: 'partial', startedAt: generatedAt, finishedAt: generatedAt, availableAt: 0, panels: MACRO_GENERATION_PANELS.map(panel => ({ ...panel, state: 'completed', checked: 1, total: 1, missing: 0, error: null })) },
+        meta: { ...meta, providerId: 'macro-generation', sourceName: '旧整图快照', sourceTimestamp: generatedAt, fetchedAt: generatedAt } }
+      new MarketHistoryStore(database.sqlite).save('macro.chart', yesterday, yesterday.meta, yesterday.date)
+      vi.advanceTimersByTime(24 * 3_600_000)
+      capital.mockResolvedValue({ ...cap, points: [{ date: '2026-09-30', floatCap: 600000 }], meta: { ...meta, fetchedAt: new Date().toISOString() } })
+      sizes.mockResolvedValue({ ...daily, points: [{ date: '2026-10-28', assets: 550 }], meta: { ...meta, sourceTimestamp: '2026-10-28', fetchedAt: new Date().toISOString() } })
+      prices.mockResolvedValue({ points: [{ date: '2026-10-29', close: 4150 }], meta: { ...meta, sourceTimestamp: '2026-10-29', fetchedAt: new Date().toISOString() } })
+      await service.call('market.macro.generate', {}, signal)
+      await vi.waitFor(async () => expect((await service.call('market.macro.generation', {}, signal)).state).toBe('partial'))
+      const today = (await service.call('market.macro.query', { range: { from: '2026-09-01', to: '2026-10-29' } }, signal)).data
+      expect(today.daily?.points[0]?.assets).toBe(550)
+      expect(today.capital?.points[0]?.floatCap).toBe(600000)
+      expect(marketHistoryPanel(await service.call('market.history.get', { date: '2026-10-29' }, signal), 'macro.chart')).toBeNull()
+      expect(marketHistoryPanel(await service.call('market.history.get', { date: '2026-10-28' }, signal), 'macro.chart')).toEqual(yesterday)
+      capital.mockResolvedValue(null); sizes.mockResolvedValue(null); prices.mockResolvedValue(null)
+      vi.advanceTimersByTime(61_000)
+      await service.call('market.macro.generate', {}, signal)
+      await vi.waitFor(async () => expect((await service.call('market.macro.generation', {}, signal)).state).toBe('failed'))
+      expect((await service.call('market.macro.query', { range: { from: '2026-09-01', to: '2026-10-29' } }, signal)).data.daily).toEqual(today.daily)
+      await service.call('cache.clear', { scope: 'market' }, signal)
+      const reloaded = new HanaiService({ ...f, version: 'test' })
+      expect(marketHistoryPanel(await reloaded.call('market.history.get', { date: '2026-10-28' }, signal), 'macro.chart')).toEqual(yesterday)
+      reloaded.dispose()
+    } finally { service.dispose(); database.close(); vi.useRealTimers() }
+  })
+  it('keeps macro work in the host after the caller disconnects and archives subsequent batches', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-28T10:00:00+08:00'))
+    const { database, market, service } = fixture()
+    const meta: ProviderMeta = { providerId: 'test', sourceName: '日频数据', sourceTimestamp: '2026-10-27', fetchedAt: new Date().toISOString(), cacheState: 'fresh' }
+    const first = { points: [{ date: '2026-10-27', assets: 400 }], expectedDays: 2, complete: false, meta }
+    let release!: (value: typeof first) => void
+    const load = vi.spyOn(market, 'getMacroDaily').mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
+      .mockResolvedValue({ ...first, points: [{ date: '2026-10-26', assets: 390 }, ...first.points], complete: true, meta: { ...meta, fetchedAt: new Date(Date.now() + 1000).toISOString() } })
+    const caller = new AbortController()
+    const reader = new AbortController().signal
+    try {
+      expect((await service.call('market.macro.generate', {}, caller.signal)).state).toBe('running')
+      caller.abort()
+      await service.call('market.macro.generate', {}, reader)
+      expect(load).toHaveBeenCalledTimes(1)
+      vi.advanceTimersByTime(1000)
+      release(first)
+      await vi.waitFor(async () => expect((await service.call('market.macro.generation', {}, reader)).state).not.toBe('running'))
+      expect(load).toHaveBeenCalledTimes(2)
+      expect(load).toHaveBeenLastCalledWith(first, null, { from: '2021-10-27', to: '2026-10-27' })
+      const saved = marketHistoryPanel(await service.call('market.history.get', { date: '2026-10-01' }, reader), 'macro.series')?.daily
+      expect(saved?.points).toHaveLength(2)
+      const count = load.mock.calls.length
+      await service.call('market.macro.generation', {}, reader)
+      expect(load).toHaveBeenCalledTimes(count)
+    } finally { service.dispose(); database.close(); vi.useRealTimers() }
+  })
+  it('archives raw ETF inputs and daily totals together, resumes both and never erases them on failure or cache clearing', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-28T10:00:00+08:00'))
+    const { database, market, service } = fixture()
+    const meta: ProviderMeta = { providerId: 'test', sourceName: '公开原始数据', sourceTimestamp: '2026-10-27', fetchedAt: new Date().toISOString(), cacheState: 'fresh' }
+    const raw = { funds: MACRO_ETFS.map(fund => ({ code: fund.code, navFetchedAt: meta.fetchedAt, navs: [{ date: '2026-10-27', value: 4 }], shares: [{ date: '2026-10-27', value: 100000, fetchedAt: meta.fetchedAt }] })), meta }
+    const total = { funds: MACRO_ETFS.map(fund => ({ code: fund.code, name: fund.name, listedOn: '2012-01-01' })), universeAsOf: '2026-10-28',
+      points: [{ date: '2026-10-27', assets: 160, fourAssets: 160, otherAssets: 0 }], missingDates: [], expectedDays: 1, complete: true, meta }
+    const load = vi.spyOn(market, 'getMacroAllDaily').mockResolvedValue(total)
+    vi.spyOn(market, 'getMacroInputs').mockReturnValue(raw)
+    const signal = new AbortController().signal
+    try {
+      await service.call('market.history.list', {}, signal)
+      expect(load).not.toHaveBeenCalled()
+      await service.call('market.macro.allDaily', { retryMissing: true }, signal)
+      expect(load).toHaveBeenLastCalledWith(null, null, true)
+      const snapshot = await service.call('market.history.get', { date: '2026-10-27' }, signal)
+      expect(marketHistoryPanel(snapshot, 'macro.etf.inputs')).toEqual(raw)
+      expect(marketHistoryPanel(snapshot, 'macro.etf.all.daily')).toEqual(total)
+      load.mockResolvedValue(null)
+      await service.call('market.macro.allDaily', {}, signal)
+      expect(load).toHaveBeenLastCalledWith(total, raw, undefined)
+      await service.call('cache.clear', { scope: 'market' }, signal)
+      expect(await service.call('market.history.get', { date: '2026-10-27' }, signal)).toEqual(snapshot)
+    } finally { database.close(); vi.useRealTimers() }
+  })
+  it('archives macro tradable caps by their report date, resumes saved months and never fetches them from history reads', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-28T10:00:00+08:00'))
+    const { database, market, service } = fixture()
+    const meta: ProviderMeta = { providerId: 'sse-statistics', sourceName: '上交所统计月报', sourceTimestamp: '2026-09-30', fetchedAt: new Date().toISOString(), cacheState: 'fresh' }
+    const first = { points: [{ date: '2026-09-30', floatCap: 500000 }], checkedMonths: ['202609', '202610'], complete: false, meta }
+    const load = vi.spyOn(market, 'getMacroCapital').mockResolvedValue(first)
+    const signal = new AbortController().signal
+    try {
+      await service.call('market.history.list', {}, signal)
+      expect(load).not.toHaveBeenCalled()
+      await service.call('market.macro.capital', {}, signal)
+      expect(load).toHaveBeenLastCalledWith(null, undefined)
+      const snapshot = await service.call('market.history.get', { date: '2026-09-30' }, signal)
+      expect(marketHistoryPanel(snapshot, 'macro.capital')).toEqual(first)
+      expect(await service.call('market.history.get', { date: '2026-10-28' }, signal)).toBeNull()
+      vi.advanceTimersByTime(1000)
+      const next = { ...first, checkedMonths: ['202608', ...first.checkedMonths], meta: { ...meta, fetchedAt: new Date().toISOString() } }
+      load.mockResolvedValue(next)
+      await service.call('market.macro.capital', {}, signal)
+      expect(load).toHaveBeenLastCalledWith(first, undefined)
+      const saved = await service.call('market.history.get', { date: '2026-09-30' }, signal)
+      expect(marketHistoryPanel(saved, 'macro.capital')).toEqual(next)
+      load.mockResolvedValue(null)
+      await service.call('market.macro.capital', {}, signal)
+      await service.call('cache.clear', { scope: 'market' }, signal)
+      expect(await service.call('market.history.get', { date: '2026-09-30' }, signal)).toEqual(saved)
+    } finally { database.close(); vi.useRealTimers() }
+  })
+  it('persists composite cap provenance at the latest source date and reads it without reconstruction requests', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-29T10:00:00+08:00'))
+    const { database, market, service } = fixture()
+    const fetchedAt = new Date().toISOString()
+    const officialMeta: ProviderMeta = { providerId: 'sse-statistics', sourceName: '上交所月报', sourceTimestamp: '2026-09-30', fetchedAt: '2026-10-28T02:00:00Z', cacheState: 'fresh' }
+    const capital = { points: [{ date: '2026-09-30', floatCap: 500000 }], checkedMonths: ['202609'], complete: true, officialMeta,
+      reference: { points: [{ date: '2026-10-28', floatCap: 487032.31, membershipDate: '2026-10-26' }], checkedDates: ['2026-10-28'], missingDates: [], expectedDays: 1, complete: true,
+        meta: { ...officialMeta, providerId: 'baostock-eastmoney', sourceName: '重建参考', sourceTimestamp: '2026-10-28', fetchedAt } },
+      meta: { ...officialMeta, providerId: 'macro-capital', sourceName: '月报＋重建参考', sourceTimestamp: '2026-10-28', fetchedAt } }
+    const load = vi.spyOn(market, 'getMacroCapital').mockResolvedValue(capital)
+    const signal = new AbortController().signal
+    try {
+      await service.call('market.macro.capital', { retryMissing: true }, signal)
+      expect(load).toHaveBeenLastCalledWith(null, true)
+      expect(await service.call('market.history.get', { date: '2026-09-30' }, signal)).toBeNull()
+      await service.call('cache.clear', { scope: 'market' }, signal)
+      expect(marketHistoryPanel(await service.call('market.history.get', { date: '2026-10-28' }, signal), 'macro.capital')).toEqual(capital)
+      expect(load).toHaveBeenCalledOnce()
+    } finally { service.dispose(); database.close(); vi.useRealTimers() }
+  })
+  it('persists incremental daily ETF history and passes saved progress back to the provider without changing its source date', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-28T10:00:00+08:00'))
+    const { database, market, service } = fixture()
+    const meta: ProviderMeta = { providerId: 'exchange-etf-nav', sourceName: '日份额×单位净值', sourceTimestamp: '2026-10-27', fetchedAt: new Date().toISOString(), cacheState: 'fresh' }
+    const first = { points: [{ date: '2026-10-27', assets: 3403.3 }], expectedDays: 2, complete: false, meta }
+    const load = vi.spyOn(market, 'getMacroDaily').mockResolvedValue(first)
+    const signal = new AbortController().signal
+    try {
+      await service.call('market.macro.daily', {}, signal)
+      expect(load).toHaveBeenLastCalledWith(null, null)
+      expect(marketHistoryPanel(await service.call('market.history.get', { date: '2026-10-27' }, signal), 'macro.etf.daily')).toEqual(first)
+      expect(await service.call('market.history.get', { date: '2026-10-28' }, signal)).toBeNull()
+      vi.advanceTimersByTime(1000)
+      const second = { ...first, complete: true, points: [{ date: '2026-10-26', assets: 3390.8 }, ...first.points], meta: { ...meta, fetchedAt: new Date().toISOString() } }
+      load.mockResolvedValue(second)
+      await service.call('market.macro.daily', {}, signal)
+      expect(load).toHaveBeenLastCalledWith(first, null)
+      const snapshot = await service.call('market.history.get', { date: '2026-10-27' }, signal)
+      expect(marketHistoryPanel(snapshot, 'macro.etf.daily')).toEqual(second)
+      load.mockResolvedValue(null)
+      await service.call('market.macro.daily', {}, signal)
+      await service.call('cache.clear', { scope: 'market' }, signal)
+      expect(await service.call('market.history.get', { date: '2026-10-27' }, signal)).toEqual(snapshot)
+    } finally { database.close(); vi.useRealTimers() }
+  })
+  it('archives macro series independently by their source dates and retains them after failure and cache clearing', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-27T18:00:00+08:00'))
+    const { database, market, service } = fixture()
+    const meta: ProviderMeta = { providerId: 'eastmoney-fund', sourceName: '基金季报', sourceTimestamp: '2026-09-30', fetchedAt: new Date().toISOString(), cacheState: 'fresh' }
+    const etfs = { funds: MACRO_ETFS.map(fund => ({ code: fund.code, points: [{ date: '2026-09-30', assets: 100 }] })), meta }
+    const allEtfs = { ...etfs, universeAsOf: '2026-10-27', funds: etfs.funds.map(fund => ({ ...fund, name: fund.code, inceptionDate: '2013-01-01' })) }
+    const index = { points: [{ date: '2026-10-26', close: 4000 }], meta: { ...meta, sourceTimestamp: '2026-10-26' } }
+    const funds = vi.spyOn(market, 'getMacroEtfs').mockResolvedValue(etfs)
+    const allFunds = vi.spyOn(market, 'getMacroAllEtfs').mockResolvedValue(allEtfs)
+    const prices = vi.spyOn(market, 'getMacroIndex').mockResolvedValue(index)
+    const dashboard = vi.spyOn(market, 'getDashboard')
+    const signal = new AbortController().signal
+    try {
+      await service.call('market.macro.etf', {}, signal)
+      await service.call('market.macro.all', {}, signal)
+      await service.call('market.macro.index', {}, signal)
+      const quarter = await service.call('market.history.get', { date: '2026-09-30' }, signal)
+      const day = await service.call('market.history.get', { date: '2026-10-26' }, signal)
+      expect(marketHistoryPanel(quarter, 'macro.etf')).toEqual(etfs)
+      expect(marketHistoryPanel(quarter, 'macro.etf.all.quarter')).toEqual(allEtfs)
+      expect(marketHistoryPanel(day, 'macro.index')).toEqual(index)
+      expect(await service.call('market.history.get', { date: '2026-10-27' }, signal)).toBeNull()
+      funds.mockResolvedValue(null)
+      allFunds.mockResolvedValue(null)
+      prices.mockResolvedValue({ ...index, meta: { ...index.meta, cacheState: 'stale' } })
+      await service.call('market.macro.etf', {}, signal)
+      await service.call('market.macro.all', {}, signal)
+      await service.call('market.macro.index', {}, signal)
+      await service.call('cache.clear', { scope: 'market' }, signal)
+      expect(await service.call('market.history.get', { date: '2026-09-30' }, signal)).toEqual(quarter)
+      expect(await service.call('market.history.get', { date: '2026-10-26' }, signal)).toEqual(day)
+      expect(dashboard).not.toHaveBeenCalled()
+    } finally { database.close(); vi.useRealTimers() }
+  })
+  it('archives intraday and news independently by source day and preserves them after failed retries', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-27T18:00:00+08:00'))
+    const { database, market, service } = fixture()
+    const meta: ProviderMeta = { providerId: 'test', sourceName: '分时', sourceTimestamp: '2026-10-26T07:00:00Z', fetchedAt: '2026-10-27T10:00:00Z', cacheState: 'fresh' }
+    const trend = { date: '2026-10-26', points: [{ time: '15:00', price: 3500, avgPrice: null, volume: 0 }], prevClose: 3600, meta }
+    const news = { date: trend.date, signals: [], meta: { ...meta, sourceTimestamp: trend.date } }
+    const prices = vi.spyOn(market, 'getMarketIntraday').mockResolvedValue(trend)
+    const signals = vi.spyOn(market, 'getMarketSignals').mockResolvedValue(news)
+    const dashboard = vi.spyOn(market, 'getDashboard')
+    const signal = new AbortController().signal
+    try {
+      await service.call('market.intraday', {}, signal)
+      let snapshot = await service.call('market.history.get', { date: trend.date }, signal)
+      expect(marketHistoryPanel(snapshot, 'intraday')).toEqual(trend)
+      expect(marketHistoryPanel(snapshot, 'signals')).toBeNull()
+      await service.call('market.signals', {}, signal)
+      snapshot = await service.call('market.history.get', { date: trend.date }, signal)
+      expect(marketHistoryPanel(snapshot, 'signals')).toEqual(news)
+      prices.mockResolvedValue(null)
+      signals.mockResolvedValue({ ...news, meta: { ...news.meta, cacheState: 'stale' } })
+      await service.call('market.intraday', {}, signal)
+      await service.call('market.signals', {}, signal)
+      expect(await service.call('market.history.get', { date: trend.date }, signal)).toEqual(snapshot)
+      expect(await service.call('market.history.get', { date: '2026-10-27' }, signal)).toBeNull()
+      expect(dashboard).not.toHaveBeenCalled()
+    } finally { database.close(); vi.useRealTimers() }
+  })
+  it('archives the independent ladder by its source date and preserves it on a failed retry', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-30T18:00:00+08:00'))
+    const { database, market, service } = fixture()
+    const meta: ProviderMeta = { providerId: 'ths-limit-reason', sourceName: '同花顺涨停池', sourceTimestamp: '2026-10-29', fetchedAt: '2026-10-30T08:00:00Z', cacheState: 'fresh' }
+    const data = { date: '2026-10-29', stocks: [], promotion: null, broken: null, issues: [], meta }
+    const fetch = vi.fn().mockResolvedValue(data)
+    market.getMarketLadder = fetch
+    const signal = new AbortController().signal
+    try {
+      await service.call('market.ladder', {}, signal)
+      const saved = await service.call('market.history.get', { date: data.date }, signal)
+      expect(marketHistoryPanel(saved, 'ladder')).toEqual(data)
+      expect(await service.call('market.history.get', { date: '2026-10-30' }, signal)).toBeNull()
+      fetch.mockResolvedValue({ ...data, meta: { ...meta, cacheState: 'stale' } })
+      await service.call('market.ladder', {}, signal)
+      expect(await service.call('market.history.get', { date: data.date }, signal)).toEqual(saved)
+    } finally { database.close(); vi.useRealTimers() }
+  })
+  it('archives independent overseas indices by observation date without rewriting their market dates', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-27T14:00:00+08:00'))
+    const { database, market, service } = fixture()
+    const meta: ProviderMeta = { providerId: 'global-indices', sourceName: '海外指数汇总', sourceTimestamp: null, fetchedAt: new Date().toISOString(), cacheState: 'fresh' }
+    const data = { meta, indices: GLOBAL_INDICES.map(item => ({ code: item.code, name: item.name, price: 100, change: 0, changePct: 0, amount: null, upCount: null, downCount: null, flatCount: null,
+      marketDate: item.code === 'IXIC' ? '2026-10-26' : '2026-10-27', meta: { ...meta, sourceTimestamp: item.code === 'IXIC' ? '2026-10-26T20:00:00Z' : '2026-10-27T05:59:00Z' } })) }
+    const fetchIndices = vi.spyOn(market, 'getGlobalIndices').mockResolvedValue(data)
+    const dashboard = vi.spyOn(market, 'getDashboard')
+    const signal = new AbortController().signal
+    try {
+      expect(await service.call('market.indices', {}, signal)).toEqual(data)
+      expect(fetchIndices).toHaveBeenCalledWith(false)
+      expect(dashboard).not.toHaveBeenCalled()
+      const record = await service.call('market.history.get', { date: '2026-10-27' }, signal)
+      expect(marketHistoryPanel(record, 'global.indices')).toEqual(data)
+      expect(await service.call('market.history.get', { date: '2026-10-26' }, signal)).toBeNull()
+      vi.setSystemTime(new Date('2026-10-28T00:01:00+08:00'))
+      vi.spyOn(market, 'getGlobalIndices').mockResolvedValue({ ...data, meta: { ...meta, cacheState: 'cached' } })
+      const cached = await service.call('market.indices', {}, signal)
+      expect(cached.meta.cacheState).toBe('cached')
+      expect(cached.meta.fetchedAt).toBe(meta.fetchedAt)
+      expect(fetchIndices).toHaveBeenCalledTimes(1)
+      expect(await service.call('market.history.get', { date: '2026-10-28' }, signal)).toBeNull()
+    } finally { database.close(); vi.useRealTimers() }
+  })
+  it('requests only memory cache for overseas indices when resting without an archive', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-28T00:01:00+08:00'))
+    const { database, market, service } = fixture()
+    const fetchIndices = vi.spyOn(market, 'getGlobalIndices')
+    try {
+      await service.call('market.indices', {}, new AbortController().signal)
+      expect(fetchIndices).toHaveBeenCalledWith(true)
+    } finally { database.close(); vi.useRealTimers() }
+  })
+  it('never rebinds undated boards, ranks or sector caches to a different market day', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-27T10:00:00+08:00'))
+    const { database, market, service } = fixture()
+    const quoteMeta: ProviderMeta = { providerId: 'tencent', sourceName: '腾讯', sourceTimestamp: '2026-10-26T15:00:00+08:00', fetchedAt: new Date().toISOString(), cacheState: 'stale' }
+    const boardMeta: ProviderMeta = { providerId: 'sina', sourceName: '新浪', sourceTimestamp: null, fetchedAt: new Date().toISOString(), cacheState: 'fresh' }
+    const data: DashboardData = {
+      overview: { indices: [{ code: '000001', name: '上证', price: 100, change: 0, changePct: 0, amount: 10, upCount: null, downCount: null, flatCount: null }],
+        breadth: { up: null, down: null, flat: null, limitUp: null, limitDown: null, totalAmount: null }, meta: quoteMeta, marketStatus: 'trading' },
+      industry: { type: 'industry', sectors: [], meta: boardMeta }, concept: { type: 'concept', sectors: [], meta: boardMeta },
+      ranks: { gainers: [], losers: [], amount: [], turnover: [] },
+      rankSources: { gainers: boardMeta, losers: boardMeta, amount: boardMeta, turnover: boardMeta },
+    }
+    vi.spyOn(market, 'getDashboard').mockImplementation(async () => data)
+    vi.spyOn(market, 'getSectorStocks').mockResolvedValue({ stocks: [], meta: boardMeta })
+    const signal = new AbortController().signal
+    try {
+      await service.call('dashboard.get', {}, signal)
+      await service.call('sector.stocks', { sectorCode: 'SINA:new_blhy' }, signal)
+      expect((await service.call('market.history.get', { date: '2026-10-26' }, signal))?.panels).toEqual(['overview'])
+      expect(await service.call('market.history.get', { date: '2026-10-27' }, signal)).toBeNull()
+      quoteMeta.sourceTimestamp = '2026-10-27T09:25:00+08:00'
+      quoteMeta.cacheState = 'fresh'
+      boardMeta.cacheState = 'cached'
+      for (const fetchedAt of ['2026-10-26T23:59:59+08:00', '2026-10-27T09:24:59+08:00']) {
+        boardMeta.fetchedAt = fetchedAt
+        await service.call('dashboard.get', {}, signal)
+        await service.call('sector.stocks', { sectorCode: 'SINA:new_blhy' }, signal)
+        expect((await service.call('market.history.get', { date: '2026-10-27' }, signal))?.panels).toEqual(['overview'])
+      }
+      boardMeta.cacheState = 'fresh'
+      boardMeta.fetchedAt = new Date().toISOString()
+      await service.call('dashboard.get', {}, signal)
+      await service.call('sector.stocks', { sectorCode: 'SINA:new_blhy' }, signal)
+      const saved = await service.call('market.history.get', { date: '2026-10-27' }, signal)
+      expect(saved?.panels).toEqual(expect.arrayContaining(['industry', 'concept', 'rank.gainers', 'rank.losers', 'rank.amount', 'rank.turnover', 'sector:SINA:new_blhy']))
+      quoteMeta.cacheState = 'unavailable'
+      data.overview.indices = []
+      vi.advanceTimersByTime(60_000)
+      boardMeta.fetchedAt = new Date().toISOString()
+      await service.call('dashboard.get', {}, signal)
+      await service.call('sector.stocks', { sectorCode: 'SINA:new_blhy' }, signal)
+      expect(await service.call('market.history.get', { date: '2026-10-27' }, signal)).toEqual(saved)
+    } finally { database.close(); vi.useRealTimers() }
+  })
+
+  it('archives all market panels on ordinary reads, preserving source dates, independent breadth and sector drills', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-26T16:00:00+08:00'))
+    const { database, market, service } = fixture()
+    const meta: ProviderMeta = { providerId: 'fake', sourceName: '测试', sourceTimestamp: '2026-10-26T15:00:00+08:00', fetchedAt: new Date().toISOString(), cacheState: 'stale' }
+    const summaryMeta = { ...meta, sourceTimestamp: null, cacheState: 'fresh' as const }
+    const data: DashboardData = {
+      overview: { indices: [{ code: '000001', name: '上证指数', price: 3500, change: 0, changePct: 0, amount: 100, upCount: null, downCount: null, flatCount: null }],
+        breadth: { up: null, down: null, flat: null, limitUp: null, limitDown: null, totalAmount: 100 }, meta, marketStatus: 'closed' },
+      industry: { type: 'industry', sectors: [], meta: summaryMeta }, concept: { type: 'concept', sectors: [], meta: summaryMeta },
+      ranks: { gainers: [], losers: [], amount: [], turnover: [] },
+      rankSources: { gainers: summaryMeta, losers: summaryMeta, amount: summaryMeta, turnover: summaryMeta },
+    }
+    const width = { up: 100, down: 200, flat: 3, limitUp: 4, limitDown: 5, qdate: '2026-10-26', meta }
+    const dashboardRead = vi.spyOn(market, 'getDashboard').mockResolvedValue(data)
+    const breadthRead = vi.spyOn(market, 'getMarketBreadth').mockResolvedValue(width)
+    const sectorRead = vi.spyOn(market, 'getSectorStocks').mockResolvedValue({ stocks: [], meta: summaryMeta })
+    const signal = new AbortController().signal
+    try {
+      await service.call('market.breadth', {}, signal)
+      await service.call('dashboard.get', { refresh: false }, signal)
+      await service.call('sector.stocks', { sectorCode: 'SINA:new_blhy' }, signal)
+      const store = new MarketHistoryStore(database.sqlite)
+      store.save('macro.index', { points: [{ date: '2026-10-01', close: 4000 }], meta: summaryMeta }, summaryMeta, '2026-10-01')
+      store.save('macro.index', { points: [{ date: '2026-10-26', close: 4000 }], meta: summaryMeta }, summaryMeta, '2026-10-26')
+      const snapshot = await service.call('market.history.get', { date: '2026-10-26' }, signal)
+      expect(snapshot?.panels).toEqual(expect.arrayContaining([...MARKET_HISTORY_PANELS.filter(key => !key.startsWith('macro.') && !['global.indices', 'intraday', 'signals', 'arms', 'distribution', 'ladder'].includes(key)), 'sector:SINA:new_blhy']))
+      expect(marketHistoryPanel(snapshot, 'overview')).toMatchObject({ indices: [{ ...data.overview.indices[0], meta }], meta })
+      expect(marketHistoryPanel(snapshot, 'breadth')).toEqual(width)
+      expect(marketHistoryPanel(snapshot, 'industry')).toEqual(data.industry)
+      expect(await service.call('market.history.get', { date: '2026-10-27' }, signal)).toBeNull()
+      await service.call('cache.clear', { scope: 'market' }, signal)
+      const dates = await service.call('market.history.list', {}, signal)
+      expect(dates.snapshots.map(row => row.date)).toEqual(['2026-10-26'])
+      expect(dates.snapshots[0]?.panels.some(key => key.startsWith('macro.'))).toBe(false)
+      expect(marketHistoryPanel(store.get('2026-10-01'), 'macro.index')).not.toBeNull()
+      expect(await service.call('market.history.get', { date: '2026-10-26' }, signal)).toEqual(snapshot)
+      expect(dashboardRead).toHaveBeenCalledTimes(1)
+      expect(breadthRead).toHaveBeenCalledTimes(1)
+      expect(sectorRead).toHaveBeenCalledTimes(1)
+      vi.advanceTimersByTime(60_000)
+      const failed = { ...meta, cacheState: 'unavailable' as const, fetchedAt: new Date().toISOString() }
+      dashboardRead.mockResolvedValue({ ...data, overview: { ...data.overview, indices: [], meta: failed },
+        industry: { ...data.industry, meta: failed }, concept: { ...data.concept, meta: failed },
+        rankSources: { gainers: failed, losers: failed, amount: failed, turnover: failed } })
+      await service.call('dashboard.get', { refresh: true }, signal)
+      expect(await service.call('market.history.get', { date: '2026-10-26' }, signal)).toEqual(snapshot)
+    } finally { database.close(); vi.useRealTimers() }
+  })
+
+  it('archives the arms snapshot by its market date and does not overwrite it on failure', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-26T15:06:00+08:00'))
+    const { database, market, service } = fixture()
+    const meta = { providerId: '88ai-arms', sourceName: '88AI', sourceTimestamp: '2026-10-26T07:00:00.000Z', fetchedAt: new Date().toISOString(), cacheState: 'fresh' as const }
+    const arms = { meta, point: { date: '2026-10-26', time: '15:00', upCount: 100, downCount: 200, flatCount: 3, upAmount: 300, downAmount: 200, trin: 1 / 3, adRatio: 0.5, amountRatio: 1.5, estimated: false } }
+    market.getMarketArms = vi.fn().mockResolvedValueOnce(arms).mockResolvedValueOnce(null)
+    try {
+      const signal = new AbortController().signal
+      await service.call('market.arms', {}, signal)
+      await service.call('market.arms', {}, signal)
+      const snapshot = await service.call('market.history.get', { date: '2026-10-26' }, signal)
+      expect(marketHistoryPanel(snapshot, 'arms')).toEqual(arms)
+    } finally { database.close(); vi.useRealTimers() }
+  })
+
+  it('archives undated distribution only after confirming the market date and preserves it on failure', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-30T16:00:00+08:00'))
+    const { database, market, service } = fixture()
+    const meta: ProviderMeta = { providerId: 'sina-distribution', sourceName: '新浪涨跌分布', sourceTimestamp: null, fetchedAt: new Date().toISOString(), cacheState: 'fresh' }
+    const data = { total: 9, counts: { down10: 1, down5: 1, down2: 1, down0: 1, flat: 1, up0: 1, up2: 1, up5: 1, up10: 1 }, meta }
+    const read = vi.fn().mockResolvedValue(data)
+    market.getMarketDistribution = read
+    const overviewMeta = { ...meta, sourceTimestamp: '2026-10-30T15:00:00+08:00' }
+    market.getDashboard = vi.fn().mockResolvedValue({
+      overview: { indices: [{ code: '000001', name: '上证', price: 3500, change: 0, changePct: 0, amount: 10, upCount: null, downCount: null, flatCount: null }], breadth: { totalAmount: 10 }, marketStatus: 'closed', meta: overviewMeta },
+      industry: { type: 'industry', sectors: [], meta }, concept: { type: 'concept', sectors: [], meta }, ranks: { gainers: [], losers: [], amount: [], turnover: [] },
+    })
+    const signal = new AbortController().signal
+    try {
+      await service.call('market.distribution', {}, signal)
+      expect(marketHistoryPanel(await service.call('market.history.get', { date: '2026-10-30' }, signal), 'distribution')).toBeNull()
+      await service.call('dashboard.get', {}, signal)
+      await service.call('market.distribution', {}, signal)
+      const saved = marketHistoryPanel(await service.call('market.history.get', { date: '2026-10-30' }, signal), 'distribution')
+      expect(saved).toEqual(data)
+      read.mockResolvedValue(null)
+      await service.call('market.distribution', {}, signal)
+      expect(marketHistoryPanel(await service.call('market.history.get', { date: '2026-10-30' }, signal), 'distribution')).toEqual(saved)
+    } finally { database.close(); vi.useRealTimers() }
+  })
+
+  it('serves independent breadth without running the dashboard and preserves both source records', async () => {
+    const { database, market, service } = fixture()
+    const quoteMeta: ProviderMeta = { providerId: 'tencent', sourceName: '腾讯行情', sourceTimestamp: null,
+      fetchedAt: '2026-10-27T06:40:00.000Z', cacheState: 'fresh' }
+    const width = { up: 100, down: 200, flat: 3, limitUp: 4, limitDown: 5, qdate: '2026-10-27',
+      meta: { ...quoteMeta, providerId: 'legu-breadth', sourceName: '乐咕乐股（AKShare 同源）' } }
+    database.setSetting('market.latestSuccess.sources', JSON.stringify([quoteMeta]))
+    const dashboard = vi.spyOn(market, 'getDashboard')
+    vi.spyOn(market, 'getMarketBreadth').mockResolvedValue(width)
+    try {
+      expect(await service.call('market.breadth', {}, new AbortController().signal)).toEqual(width)
+      expect(dashboard).not.toHaveBeenCalled()
+      const diagnostics = await service.call('diagnostics.get', {}, new AbortController().signal)
+      expect(diagnostics.marketSources).toEqual([quoteMeta, width.meta])
+      expect(diagnostics.latestMarketSuccess).toBe(width.meta.fetchedAt)
+    } finally { database.close() }
+  })
+
+  it('keeps screening sessions, universe snapshots and deletion separate from research and experts', async () => {
+    const { database, paths, service, sessions } = fixture()
+    const signal = new AbortController().signal
+    try {
+      database.sqlite.prepare('INSERT INTO security_master VALUES (?, ?, ?, ?, ?, ?, ?)').run('1.600000', '600000', '浦发银行', 'SH', 'pufayinhang', 'pfyh', '2026-10-30T07:00:00Z')
+      const research = await service.call('research-chat.create', {}, signal)
+      const expert = await service.call('expert-chat.create', { masterId: 'sun-yuchen-perspective' }, signal)
+      const chat = await service.call('screener.create', { openingMessage: '低估值银行股', model: { provider: 'test', model: 'screen-model' } }, signal)
+      expect(chat).toMatchObject({ masterId: 'ai-stock-screener', masterName: 'AI选股', title: '低估值银行股', model: 'screen-model', turnStatus: 'queued' })
+      expect(sessions.prompts.at(-1)?.text).toBe('低估值银行股')
+      expect(await service.call('screener.list', {}, signal)).toEqual([chat])
+      expect(await service.call('research-chat.list', {}, signal)).toEqual([research])
+      expect(await service.call('expert-chat.list', {}, signal)).toEqual([expert])
+      const workspace = join(paths.expertChatsDir, chat.id, 'workspace')
+      expect(JSON.parse(readFileSync(join(workspace, 'candidate-universe.json'), 'utf8')).securities).toEqual(database.screeningUniverse())
+      expect(database.screeningUniverse()).toEqual([{ secId: '1.600000', code: '600000', name: '浦发银行', exchange: 'SH', updatedAt: '2026-10-30T07:00:00Z' }])
+      expect(readFileSync(join(workspace, 'AGENTS.md'), 'utf8')).toContain('当前会话：AI选股')
+      for (const endpoint of ['research-chat.get', 'research-chat.remove', 'expert-chat.get', 'expert-chat.remove'] as const) await expect(service.call(endpoint, { id: chat.id }, signal)).rejects.toThrow('不存在')
+      await expect(service.call('research-chat.upload', { id: chat.id, name: 'x.txt', data: 'eA==' }, signal)).rejects.toThrow('不存在')
+      await expect(service.call('screener.rename', { id: research.id, title: 'x' }, signal)).rejects.toThrow('不存在')
+      await expect(service.call('screener.get', { id: expert.id }, signal)).rejects.toThrow('不存在')
+      expect((await service.call('screener.rename', { id: chat.id, title: '新条件' }, signal)).title).toBe('新条件')
+      sessions.running = true
+      await expect(service.call('screener.remove', { id: chat.id }, signal)).rejects.toThrow('正在回答')
+      sessions.running = false
+      expect(await service.call('screener.remove', { id: chat.id }, signal)).toEqual([])
+      expect(existsSync(workspace)).toBe(false)
+      expect(database.getExpertChat(research.id)).not.toBeNull()
+      expect(database.getExpertChat(expert.id)).not.toBeNull()
+    } finally { database.close() }
+  })
+  it('turns a completed DSH screening plan into a frozen source-backed result and blocks deletion while scanning', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-30T10:00:00+08:00'))
+    const { database, service, market, paths } = fixture()
+    const signal = new AbortController().signal
+    database.sqlite.prepare('INSERT INTO security_master VALUES(?,?,?,?,?,?,?)').run('1.600000','600000','样本银行','SH','','',new Date().toISOString())
+    database.setSetting('stock-data.calendar', JSON.stringify({ through: '2026-10-29', dates: ['2026-10-29'] }))
+    const fact = { source: 'eastmoney-financials', date: '2026-10-30', reportDate: '2026-09-30', fetchedAt: new Date().toISOString() }
+    database.setSetting('stock-data.metrics.600000', JSON.stringify({ roe: { ...fact, value: 20 }, marketCap: { ...fact, value: 150 } }))
+    let release!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve })
+    const original = LocalScreening.prototype.query
+    vi.spyOn(LocalScreening.prototype, 'query').mockImplementationOnce(async function(this: LocalScreening, query) { await gate; return original.call(this, query) })
+    market.getMarketScan = vi.fn(async () => { throw new Error('88AI must not be called') })
+    try {
+      const question = '市值100亿元以上，ROE不低于15%'
+      const chat = await service.call('screener.create', { openingMessage: question }, signal)
+      expect((await service.call('screener.result', { id: chat.id }, signal))?.status).toBe('parsing')
+      writeFileSync(join(paths.expertChatsDir, chat.id, 'workspace', 'screening-plan.json'), JSON.stringify({ question, interpretation: '按市值和ROE查询', query: { search: '', page: 1, ranges: { marketCap: { min: 100 }, roe: { min: 15 } }, sort: 'marketCap', order: 'desc' }, assumptions: [], unsupported: [] }))
+      service.handleSessionEvent(chat.dshSessionId!, completed())
+      await expect(service.call('screener.remove', { id: chat.id }, signal)).rejects.toThrow('扫描正在进行')
+      release()
+      await vi.advanceTimersByTimeAsync(1)
+      const result = await service.call('screener.result', { id: chat.id }, signal)
+      expect(result?.status).toBe('ready'); expect(result?.result?.data?.query.ranges).toEqual({ roe: { min: 15 }, marketCap: { min: 100 } })
+      expect(market.getMarketScan).not.toHaveBeenCalled()
+      expect(result?.result?.data?.total).toBe(1)
+      await service.call('screener.remove', { id: chat.id }, signal)
+      expect(database.getSetting(`ai-screener.run.${chat.id}`)).toBeNull()
+    } finally { database.close(); vi.useRealTimers() }
+  })
+  it('marks a screening task interrupted before session binding as failed instead of polling forever', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-30T10:00:00+08:00'))
+    const { database, service } = fixture()
+    try {
+      const chat = database.createExpertChat({ id: 'unbound-screen', title: '解析中断', masterId: 'ai-stock-screener', masterName: 'AI选股', masterVersion: '1' })
+      database.setSetting(`ai-screener.run.${chat.id}`, JSON.stringify({ question: 'ROE不低于15%', status: 'parsing', plan: null, result: null, error: null, startedAt: new Date().toISOString(), finishedAt: null }))
+      await service.recover()
+      const run = await service.call('screener.result', { id: chat.id }, new AbortController().signal)
+      expect(run?.status).toBe('failed'); expect(run?.error).toContain('会话绑定前中断')
+    } finally { database.close(); vi.useRealTimers() }
+  })
+  it('retains a failed screening query in its own history when model creation fails', async () => {
+    const { database, service, sessions } = fixture()
+    const signal = new AbortController().signal
+    try {
+      vi.spyOn(sessions, 'create').mockRejectedValueOnce(new Error('model unavailable'))
+      await expect(service.call('screener.create', { openingMessage: '高分红银行股' }, signal)).rejects.toThrow('model unavailable')
+      const saved = await service.call('screener.list', {}, signal)
+      expect(saved).toHaveLength(1)
+      expect(saved[0]).toMatchObject({ title: '高分红银行股', turnStatus: 'failed', errorCode: 'screener-chat-start-failed' })
+      expect(await service.call('research-chat.list', {}, signal)).toEqual([])
+      expect(await service.call('expert-chat.list', {}, signal)).toEqual([])
+    } finally { database.close() }
+  })
+  it('creates an independent research assistant, scopes its endpoints, persists attachments, and removes its workspace', async () => {
+    const { database, paths, service, sessions } = fixture()
+    const signal = new AbortController().signal
+    try {
+      const chat = await service.call('research-chat.create', { openingMessage: '研究存储产业链', model: { provider: 'test', model: 'research-model' } }, signal)
+      expect(chat).toMatchObject({ masterId: 'ai-research-assistant', masterName: 'AI研究助手', title: '研究存储产业链', model: 'research-model', turnStatus: 'queued' })
+      expect(sessions.prompts.at(-1)?.text).toBe('研究存储产业链')
+      expect(await service.call('research-chat.list', {}, signal)).toEqual([chat])
+      expect(await service.call('expert-chat.list', {}, signal)).toEqual([])
+      expect((await service.call('bootstrap', {}, signal)).expertChats).toEqual([])
+      await expect(service.call('expert-chat.get', { id: chat.id }, signal)).rejects.toThrow('不存在')
+      const expert = await service.call('expert-chat.create', { masterId: 'sun-yuchen-perspective' }, signal)
+      await expect(service.call('research-chat.get', { id: expert.id }, signal)).rejects.toThrow('不存在')
+      await expect(service.call('research-chat.upload', { id: expert.id, name: 'x.txt', data: 'eA==' }, signal)).rejects.toThrow('不存在')
+      await expect(service.call('research-chat.rename', { id: expert.id, title: '不能跨类型改名' }, signal)).rejects.toThrow('不存在')
+      const workspace = join(paths.expertChatsDir, chat.id, 'workspace')
+      expect(readFileSync(join(workspace, 'AGENTS.md'), 'utf8')).toContain('AI研究助手')
+      expect(JSON.parse(readFileSync(join(workspace, 'market-context.json'), 'utf8'))).toBeNull()
+      const file = await service.call('research-chat.upload', { id: chat.id, name: '公告.txt', data: Buffer.from('公告原文').toString('base64') }, signal)
+      expect(readFileSync(join(workspace, file.path), 'utf8')).toBe('公告原文')
+      const renamed = await service.call('research-chat.rename', { id: chat.id, title: '新的研究标题' }, signal)
+      expect(renamed.title).toBe('新的研究标题')
+      sessions.running = true
+      await expect(service.call('research-chat.remove', { id: chat.id }, signal)).rejects.toThrow('正在回答')
+      sessions.running = false
+      expect(await service.call('research-chat.remove', { id: chat.id }, signal)).toEqual([])
+      expect(existsSync(workspace)).toBe(false)
+      expect(database.getExpertChat(expert.id)).not.toBeNull()
+    } finally { database.close() }
+  })
   it('creates a stock-independent expert chat, tracks DSH turns, and removes its workspace safely', async () => {
     const { database, paths, service, sessions } = fixture()
     const created = await service.call('expert-chat.create', {
@@ -584,11 +1185,95 @@ describe('HanaiService report lifecycle', () => {
     const diagnostics = await service.call('diagnostics.get', {}, new AbortController().signal)
     expect(diagnostics.latestMarketSuccess).toBe('2026-08-15T01:02:00.000Z')
     expect(diagnostics.latestValuationSuccess).toBe('2026-08-15T01:03:00.000Z')
+    expect(diagnostics.marketSources).toEqual([marketMeta])
+    expect(diagnostics.valuationSources).toEqual([valuationMeta])
     database.close()
   })
 })
 
 describe('HanaiService parity endpoints and diagnostics', () => {
+  it('enforces the shared manual security cooldown until the exact 60-second boundary', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-26T10:00:00+08:00'))
+    const { database, market, service } = fixture()
+    try {
+      const sync = vi.spyOn(market, 'syncSecurities').mockResolvedValue({ count: 5576, updatedAt: null })
+      const signal = new AbortController().signal
+      await service.call('security.sync', { force: true }, signal)
+      expect((await service.call('diagnostics.get', {}, signal)).securitySyncAvailableAt).toBe('2026-10-26T02:01:00.000Z')
+      await expect(service.call('security.sync', {}, signal)).rejects.toThrow('60 秒后重试')
+      vi.advanceTimersByTime(59_999)
+      await expect(service.call('security.sync', { force: true }, signal)).rejects.toThrow('1 秒后重试')
+      expect(sync).toHaveBeenCalledTimes(1)
+      vi.advanceTimersByTime(1)
+      await service.call('security.sync', { force: true }, signal)
+      expect(sync).toHaveBeenCalledTimes(2)
+    } finally { database.close(); vi.useRealTimers() }
+  })
+
+  it('retains cooldown after failure and service recreation while leaving automatic bootstrap sync independent', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-26T10:00:00+08:00'))
+    const setup = fixture()
+    try {
+      const sync = vi.spyOn(setup.market, 'syncSecurities').mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValue({ count: 0, updatedAt: null })
+      const signal = new AbortController().signal
+      await expect(setup.service.call('security.sync', { force: true }, signal)).rejects.toThrow('offline')
+      const restarted = new HanaiService({ ...setup, version: 'test' })
+      await expect(restarted.call('security.sync', { force: true }, signal)).rejects.toThrow('冷却中')
+      await restarted.call('bootstrap', {}, signal)
+      expect(sync).toHaveBeenCalledTimes(2)
+      expect(sync.mock.calls[1]?.[1]).toBe(false)
+      vi.advanceTimersByTime(60_000)
+      await setup.service.call('security.sync', { force: true }, signal)
+      expect(sync).toHaveBeenCalledTimes(3)
+    } finally { setup.database.close(); vi.useRealTimers() }
+  })
+
+  it('blocks overlapping manual syncs even when a running request outlasts its cooldown', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-26T10:00:00+08:00'))
+    const { database, market, service } = fixture()
+    let finish!: (value: { count: number; updatedAt: string | null }) => void
+    const pending = new Promise<{ count: number; updatedAt: string | null }>(resolve => { finish = resolve })
+    const sync = vi.spyOn(market, 'syncSecurities').mockReturnValue(pending)
+    const signal = new AbortController().signal
+    const active = service.call('security.sync', { force: true }, signal)
+    try {
+      vi.advanceTimersByTime(61_000)
+      await expect(service.call('security.sync', { force: true }, signal)).rejects.toThrow('正在同步')
+      expect(sync).toHaveBeenCalledTimes(1)
+    } finally {
+      finish({ count: 5576, updatedAt: null })
+      await active
+      database.close()
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps security provenance separate from market success and exposes diagnostics without fetching prices', async () => {
+    const { database, market, service } = fixture()
+    try {
+      database.setSetting('market.latestSuccess', '2026-10-26T01:00:00.000Z')
+      market.syncSecurities = async () => {
+        database.setSetting('security.master.syncedAt', '2026-10-26T02:00:00.000Z')
+        database.setSetting('security.master.source', '新浪')
+        return { count: 5576, updatedAt: '2026-10-26T02:00:00.000Z' }
+      }
+      const history = [{ source: 'sina', sourceName: '新浪', scope: 'security' as const, lastAttemptAt: null,
+        lastSuccessAt: null, lastError: null, failures: 0, openUntil: null }]
+      market.getSourceDiagnostics = () => history
+      const quotes = vi.spyOn(market, 'getQuotes')
+      await service.call('security.sync', { force: true }, new AbortController().signal)
+      await service.call('bootstrap', {}, new AbortController().signal)
+      const diagnostics = await service.call('diagnostics.get', {}, new AbortController().signal)
+      expect(diagnostics).toMatchObject({ latestMarketSuccess: '2026-10-26T01:00:00.000Z', marketSources: [],
+        securitySource: '新浪', latestSecuritySuccess: '2026-10-26T02:00:00.000Z', sourceAttempts: history })
+      expect(quotes).not.toHaveBeenCalled()
+    } finally { database.close() }
+  })
+
   it('reads unique watch securities locally even when market providers are unavailable', async () => {
     const { database, market, service } = fixture()
     try {

@@ -9,7 +9,7 @@ declare module 'echarts/core' {
   export interface ECharts {
     on(event: 'click', handler: (params: unknown) => void): void
     off(event: 'click', handler: (params: unknown) => void): void
-    setOption(option: EChartsCoreOption, options?: { notMerge?: boolean }): void
+    setOption(option: EChartsCoreOption, options?: { notMerge?: boolean; replaceMerge?: string[]; lazyUpdate?: boolean }): void
     clear(): void
     resize(): void
     dispose(): void
@@ -22,6 +22,7 @@ declare module 'echarts/core' {
 declare module 'echarts/charts' {
   export const TreemapChart: unknown
   export const LineChart: unknown
+  export const ScatterChart: unknown
   export const BarChart: unknown
   export const CandlestickChart: unknown
   export const RadarChart: unknown
@@ -39,4 +40,8 @@ declare module 'echarts/components' {
 
 declare module 'echarts/renderers' {
   export const CanvasRenderer: unknown
+}
+
+declare module 'echarts/features' {
+  export const LabelLayout: unknown
 }

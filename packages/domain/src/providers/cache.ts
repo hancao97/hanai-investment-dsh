@@ -6,17 +6,19 @@ export class ProviderCache<T extends { meta: ProviderMeta }> {
   private readonly entries = new Map<string, { value: T | null; expiresAt: number }>()
   private readonly pending = new Map<string, Promise<T | null>>()
 
-  constructor(private readonly clock: Clock, private readonly ttlMs: number) {}
+  constructor(private readonly clock: Clock, private readonly ttlMs: number | (() => number)) {}
 
   get(key: string, load: () => Promise<T>): Promise<T | null> {
     const pending = this.pending.get(key)
     if (pending !== undefined) return pending
     const cached = this.entries.get(key)
-    if (cached !== undefined && cached.expiresAt > this.clock.now()) {
+    const expiresAt = cached?.value?.meta.cacheState === 'fresh' && typeof this.ttlMs === 'function'
+      ? Math.min(cached.expiresAt, Date.parse(cached.value.meta.fetchedAt) + this.ttlMs()) : cached?.expiresAt
+    if (cached !== undefined && expiresAt !== undefined && expiresAt > this.clock.now()) {
       return Promise.resolve(cached.value === null ? null : this.cached(cached.value))
     }
     const promise = load().then(value => {
-      this.entries.set(key, { value, expiresAt: this.clock.now() + this.ttlMs })
+      this.entries.set(key, { value, expiresAt: this.clock.now() + (typeof this.ttlMs === 'number' ? this.ttlMs : this.ttlMs()) })
       return value
     }).catch(() => {
       const value = cached?.value === null || cached?.value === undefined ? null
@@ -33,6 +35,11 @@ export class ProviderCache<T extends { meta: ProviderMeta }> {
 
   private cached(value: T): T {
     return { ...value, meta: { ...value.meta, cacheState: value.meta.cacheState === 'fresh' ? 'cached' : value.meta.cacheState } }
+  }
+
+  peek(key: string): T | null {
+    const value = this.entries.get(key)?.value
+    return value == null ? null : this.cached(value)
   }
 
   clear(): number {

@@ -4,12 +4,9 @@ import {
   readFileSync,
   realpathSync,
   readdirSync,
-  renameSync,
   statSync,
-  unlinkSync,
-  writeFileSync,
 } from 'node:fs'
-import { delimiter, dirname, join, relative, resolve } from 'node:path'
+import { delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type * as DshBoot from '@deepseek-ai/dsh-app-boot'
 
@@ -56,90 +53,32 @@ export function readManifest(manifestPath: string): JsonObject {
   return object(parsed, manifestPath)
 }
 
-/**
- * Refuse to repurpose a profile that is not already Hanai-owned. The legacy
- * web-app dependency is accepted only so the installer can migrate it away.
- */
+/** Validate an existing Web profile without rewriting other plugins or settings. */
 export function assertSafeProfileManifest(manifest: JsonObject, profile: string): void {
   const dependencies = object(manifest.dependencies ?? {}, `${profile}.dependencies`)
-  const allowedDependencies = new Set([WEB_APP_BUNDLE, HANAI_BUNDLE])
-  const unexpectedDependencies = Object.keys(dependencies).filter(name => !allowedDependencies.has(name))
-  invariant(
-    unexpectedDependencies.length === 0,
-    `profile ${profile} 已存在且含有其他插件（${unexpectedDependencies.join(', ')}），为避免污染已拒绝修改`,
-  )
-
-  const dsh = object(manifest.dsh ?? {}, `${profile}.dsh`)
-  const profileConfig = object(dsh.profile ?? {}, `${profile}.dsh.profile`)
-  const bundles = stringArray(profileConfig.bundles ?? [], `${profile}.dsh.profile.bundles`)
-  const allowedBundles = new Set<string>(EXPECTED_PROFILE_BUNDLES)
-  const unexpectedBundles = bundles.filter(name => !allowedBundles.has(name))
-  invariant(
-    unexpectedBundles.length === 0,
-    `profile ${profile} 已存在且含有其他组合层（${unexpectedBundles.join(', ')}），为避免覆盖已拒绝修改`,
-  )
-}
-
-/**
- * Convert both a new custom profile and the legacy Hanai profile to the DSH
- * installation-owned bundle topology. The Web app remains a bundle layer but
- * is deliberately not a profile dependency.
- */
-export function normalizeProfileManifest(manifest: JsonObject): JsonObject {
-  const dependencies = { ...object(manifest.dependencies ?? {}, 'profile.dependencies') }
-  delete dependencies[WEB_APP_BUNDLE]
-  invariant(
-    typeof dependencies[HANAI_BUNDLE] === 'string' && dependencies[HANAI_BUNDLE] !== '',
-    `profile 尚未安装 ${HANAI_BUNDLE}`,
-  )
-
-  const dsh = { ...object(manifest.dsh ?? {}, 'profile.dsh') }
-  const profile = { ...object(dsh.profile ?? {}, 'profile.dsh.profile') }
-  profile.bundles = [...EXPECTED_PROFILE_BUNDLES]
-  dsh.profile = profile
-  return {
-    ...manifest,
-    dependencies,
-    dsh,
-  }
+  invariant(Object.values(dependencies).every(value => typeof value === 'string' && value !== ''),
+    `profile ${profile} 的 dependencies 必须是非空字符串`)
+  invariant(!Object.hasOwn(dependencies, WEB_APP_BUNDLE),
+    `${WEB_APP_BUNDLE} 不得是 profile dependency；请先用 DSH CLI 移除该内置包依赖并保留 Web bundle`)
+  const dsh = object(manifest.dsh, `${profile}.dsh`)
+  const config = object(dsh.profile, `${profile}.dsh.profile`)
+  const bundles = stringArray(config.bundles, `${profile}.dsh.profile.bundles`)
+  invariant(new Set(bundles).size === bundles.length, `profile ${profile} 的 bundles 不得重复`)
+  const base = bundles.indexOf(BASE_BUNDLE)
+  const web = bundles.indexOf(WEB_APP_BUNDLE)
+  const hanai = bundles.indexOf(HANAI_BUNDLE)
+  invariant(base >= 0 && web > base && (hanai < 0 || hanai > web),
+    `profile ${profile} 必须按 Base → Web app → Hanai 的相对顺序装配；允许其它插件`)
 }
 
 export function assertProfileContract(manifest: JsonObject, profile: string): void {
+  assertSafeProfileManifest(manifest, profile)
   const dependencies = object(manifest.dependencies ?? {}, `${profile}.dependencies`)
-  invariant(
-    !Object.hasOwn(dependencies, WEB_APP_BUNDLE),
-    `${WEB_APP_BUNDLE} 不得是 profile dependency；请重新运行 profile:install 完成迁移`,
-  )
-  invariant(
-    typeof dependencies[HANAI_BUNDLE] === 'string' && dependencies[HANAI_BUNDLE] !== '',
-    `profile ${profile} 缺少 ${HANAI_BUNDLE} dependency`,
-  )
-  const unexpectedDependencies = Object.keys(dependencies).filter(name => name !== HANAI_BUNDLE)
-  invariant(
-    unexpectedDependencies.length === 0,
-    `profile ${profile} 含有非 Hanai dependency：${unexpectedDependencies.join(', ')}`,
-  )
-
-  const dsh = object(manifest.dsh, `${profile}.dsh`)
-  const profileConfig = object(dsh.profile, `${profile}.dsh.profile`)
-  const bundles = stringArray(profileConfig.bundles, `${profile}.dsh.profile.bundles`)
-  invariant(
-    bundles.length === EXPECTED_PROFILE_BUNDLES.length
-      && bundles.every((bundle, index) => bundle === EXPECTED_PROFILE_BUNDLES[index]),
-    `profile ${profile} 的 bundles 必须严格为 ${EXPECTED_PROFILE_BUNDLES.join(' -> ')}`,
-  )
-}
-
-/** Atomic manifest replacement; an interrupted write never leaves partial JSON. */
-export function writeManifestAtomic(manifestPath: string, manifest: JsonObject): void {
-  const temporary = `${manifestPath}.hanai-${String(process.pid)}.tmp`
-  const mode = existsSync(manifestPath) ? statSync(manifestPath).mode : 0o644
-  try {
-    writeFileSync(temporary, `${JSON.stringify(manifest, null, 2)}\n`, { mode })
-    renameSync(temporary, manifestPath)
-  } finally {
-    if (existsSync(temporary)) unlinkSync(temporary)
-  }
+  invariant(typeof dependencies[HANAI_BUNDLE] === 'string' && dependencies[HANAI_BUNDLE] !== '',
+    `profile ${profile} 缺少 ${HANAI_BUNDLE} dependency`)
+  const config = object(object(manifest.dsh, `${profile}.dsh`).profile, `${profile}.dsh.profile`)
+  invariant(stringArray(config.bundles, `${profile}.bundles`).includes(HANAI_BUNDLE),
+    `profile ${profile} 缺少 ${HANAI_BUNDLE} bundle`)
 }
 
 /**
@@ -164,7 +103,7 @@ export async function assertRuntimeIdentity(profileDir: string, dshBin = 'dsh'):
   const localPackages = profileLocalDshPackages(profileDir)
   invariant(
     localPackages.length === 0,
-    `profile node_modules 含有 DSH 内置包副本（${localPackages.join(', ')}）；请重新运行 profile:install 清理 shadow packages`,
+    `profile node_modules 含有 DSH 内置包副本（${localPackages.join(', ')}）；请先备份并通过 DSH CLI 排查内置包重复安装；安装器不会删除其它插件`,
   )
 
   // DSH 0.2 routes packages in memory. Use the selected CLI's own boot and
@@ -191,8 +130,11 @@ export async function assertRuntimeIdentity(profileDir: string, dshBin = 'dsh'):
       profileTools === agentLoopTools,
       `DSH runtime identity 分裂：profile 使用 ${profileTools}，agent-loop 使用 ${agentLoopTools}`,
     )
+    // Windows 上 profile 与 dsh 安装可能分属不同盘符，relative 跨盘会返回
+    // 目标绝对路径；绝对路径同样说明 dsh-tools 不在 profile 目录内。
+    const toolsRelative = relative(profileDir, profileTools)
     invariant(
-      relative(profileDir, profileTools).startsWith('..'),
+      toolsRelative.startsWith('..') || isAbsolute(toolsRelative),
       `dsh-tools 错误地从 profile 内解析：${profileTools}`,
     )
   } finally {
@@ -204,7 +146,12 @@ export async function assertRuntimeIdentity(profileDir: string, dshBin = 'dsh'):
 export function resolveDshInstallAnchor(dshBin: string): string {
   const candidates = dshBin.includes('/') || dshBin.includes('\\')
     ? [resolve(dshBin)]
-    : (process.env.PATH ?? '').split(delimiter).map(directory => resolve(directory, dshBin))
+    : (process.env.PATH ?? '').split(delimiter).flatMap(directory => [
+        resolve(directory, dshBin),
+        // Windows npm 全局布局的可执行体是 .cmd/.ps1 shim。
+        resolve(directory, `${dshBin}.cmd`),
+        resolve(directory, `${dshBin}.ps1`),
+      ])
   const executable = candidates.find(candidate => existsSync(candidate) && statSync(candidate).isFile())
   invariant(executable !== undefined, `无法定位 dsh CLI：${dshBin}`)
   let directory = dirname(realpathSync(executable))
@@ -217,6 +164,16 @@ export function resolveDshInstallAnchor(dshBin: string): string {
         return manifestPath
       }
     }
+    // npm 全局布局：bin shim 与实际包分居两处，包在 bin 目录的
+    // node_modules/@deepseek-ai/dsh 下，向上逐层探测。
+    const siblingPath = join(directory, 'node_modules', '@deepseek-ai', 'dsh', 'package.json')
+    if (existsSync(siblingPath)) {
+      const manifest = readManifest(siblingPath)
+      if (manifest.name === '@deepseek-ai/dsh') {
+        assertDshVersion(String(manifest.version))
+        return siblingPath
+      }
+    }
     const parent = dirname(directory)
     invariant(parent !== directory, `无法从 ${dshBin} 定位 @deepseek-ai/dsh 安装目录`)
     directory = parent
@@ -225,7 +182,7 @@ export function resolveDshInstallAnchor(dshBin: string): string {
 
 export function assertComposedLayers(output: string): void {
   for (const bundle of EXPECTED_PROFILE_BUNDLES) {
-    invariant(output.includes(`# == ${bundle}`) || output.includes(`patched by ${bundle}`), `独立 profile 缺少组合层：${bundle}`)
+    invariant(output.includes(`# == ${bundle}`) || output.includes(`patched by ${bundle}`), `profile 缺少组合层：${bundle}`)
   }
 }
 

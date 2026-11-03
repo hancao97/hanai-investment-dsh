@@ -2,7 +2,7 @@ import type { KLineBar, ProviderMeta, StockMetrics, StockQuote, TrendPoint } fro
 import { fetchJson, isoNow, systemClock, type Clock, type HttpClient } from '../http.ts'
 import { metricsFromQuote } from './metrics.ts'
 
-const SOURCE_NAME = '腾讯行情（备源）'
+const SOURCE_NAME = '腾讯行情'
 const HEADERS = { Referer: 'https://gu.qq.com/' }
 
 function finiteNumber(value: unknown): number | null {
@@ -60,7 +60,7 @@ export class TencentProvider {
 
   private meta(sourceTimestamp: string | null = null): ProviderMeta {
     return {
-      providerId: 'tencent-fallback',
+      providerId: 'tencent',
       sourceName: SOURCE_NAME,
       sourceTimestamp,
       fetchedAt: isoNow(this.clock),

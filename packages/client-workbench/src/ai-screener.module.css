@@ -1,0 +1,66 @@
+.page { height: 100%; overflow: auto; padding: 20px 24px 36px; background: var(--bg); }
+.funnel { margin: 12px 0; padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; font-size: 11px; overflow: auto; }
+.funnel p { color: var(--muted); line-height: 1.7; }
+.funnel table { width: 100%; border-collapse: collapse; }
+.funnel th, .funnel td { padding: 8px; border-bottom: 1px solid var(--border); text-align: right; }
+.funnel th:first-child { text-align: left; }
+.funnel caption { padding: 6px; text-align: left; }
+.head, .head > div:last-child, .resultHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.head h1 { margin: 0; font-size: 20px; }
+.head p, .resultHead p { margin: 7px 0; color: var(--muted); font-size: 11px; line-height: 1.7; }
+.composer { margin: 18px 0 12px; padding: 12px; background: var(--panel); border: 1px solid var(--control-border); border-radius: 10px; }
+.composer textarea { width: 100%; min-height: 56px; resize: vertical; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13px; }
+.composer > div { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.composer button { margin-left: auto; }
+.composer small { color: var(--faint); font-size: 10px; }
+.composer select, .history input, .resultHead select { padding: 7px; color: var(--text); background: var(--input-bg); border: 1px solid var(--control-border); border-radius: 5px; font-size: 11px; }
+.starters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 18px; }
+.layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 16px; align-items: start; }
+.history, .panel, .welcome, .card { min-width: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.history { max-height: 780px; overflow: auto; padding: 13px; }
+.history h2 { margin: 0 0 12px; font-size: 13px; }
+.history input { width: 100%; margin-bottom: 10px; }
+.history > p { font-size: 11px; color: var(--muted); }
+.historyItem, .active { padding: 8px; border-radius: 6px; position: relative; margin-bottom: 6px; }
+.active { background: var(--gold-soft); }
+.historyItem > button:first-child, .active > button:first-child { display: flex; flex-direction: column; gap: 7px; width: 100%; text-align: left; color: var(--text); background: transparent; cursor: pointer; padding-right: 16px; }
+.history b { display: block; max-width: 100%; font-size: 11px; font-weight: 500; overflow-wrap: anywhere; }
+.history small { font-size: 10px; color: var(--faint); }
+.remove { position: absolute; right: 3px; top: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.main { display: flex; flex-direction: column; min-width: 0; gap: 14px; }
+.welcome { padding: 38px; text-align: center; }
+.welcome h2 { font-size: 22px; }
+.welcome p { color: var(--muted); line-height: 1.8; font-size: 12px; }
+.welcome > div, .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.welcome > div { justify-content: center; padding: 18px 0; }
+.welcome span, .chips span { color: var(--gold-strong); background: var(--gold-soft); border: 1px solid var(--border); border-radius: 5px; padding: 6px 9px; font-size: 11px; }
+.plan { padding: 14px; font-size: 12px; line-height: 1.8; }
+.plan > b { font-size: 11px; color: var(--muted); }
+.plan > p { margin: 6px 0 12px; }
+.plan ul { padding-left: 20px; }
+.warning { background: var(--gold-soft); border-radius: 6px; padding: 10px 12px; margin: 12px 0; }
+.warning p { font-size: 11px; }
+.resultHead { padding: 3px 0; }
+.resultHead h2 { margin: 0; font-size: 15px; }
+.note { margin: 0; padding: 12px 14px; color: var(--muted); font-size: 11px; line-height: 1.8; }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.card { padding: 16px; }
+.card header { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
+.card h3 { margin: 0 0 6px; font-size: 15px; }
+.card small { color: var(--faint); font-size: 10px; }
+.card header > div:last-child { display: flex; flex-direction: column; align-items: end; gap: 6px; font-size: 12px; }
+.card h4 { font-size: 11px; color: var(--muted); margin: 18px 0 7px; }
+.card ul { padding-left: 16px; font-size: 12px; line-height: 1.8; min-height: 32px; }
+.metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; border-top: 1px solid var(--border); padding-top: 12px; }
+.metrics span { color: var(--muted); font-size: 10px; }
+.metrics b { display: block; color: var(--text); font-size: 12px; margin-top: 7px; overflow-wrap: anywhere; }
+.card footer { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 15px; }
+.chat { height: 520px; display: flex; flex-direction: column; }
+.chat > section { flex: 1; min-height: 0; }
+.error, .notice { padding: 12px 14px; border-radius: 6px; font-size: 12px; overflow-wrap: anywhere; }
+.error { color: var(--up); background: var(--up-soft); }
+.notice { color: var(--text); background: var(--gold-soft); }
+@media (max-width: 1200px) { .layout { grid-template-columns: 195px minmax(0, 1fr); } .cards { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 800px) { .layout { grid-template-columns: minmax(0, 1fr); } .history { max-height: 180px; } .page { padding: 16px; } }
+
+.summary { display: flex; flex-wrap: wrap; gap: 18px; color: var(--muted); font-size: 11px; margin-top: 15px; }

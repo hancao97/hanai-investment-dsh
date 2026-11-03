@@ -2,6 +2,7 @@ import type { ProviderMeta, RankEntry, SectorBoard, SectorItem, StockQuote } fro
 import { fetchJson, isoNow, systemClock, type Clock, type HttpClient } from '../http.ts'
 import { ProviderCache } from './cache.ts'
 import { finiteNumber } from './metrics.ts'
+import type { EastmoneySecurityRow } from './eastmoney.ts'
 
 const HEADERS = { Referer: 'https://finance.sina.com.cn/' }
 const API = 'https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.'
@@ -23,7 +24,7 @@ export class SinaProvider {
 
   private meta(): ProviderMeta {
     // These endpoints expose no trade date. fetchedAt must never be presented as the quote timestamp.
-    return { providerId: 'sina-fallback', sourceName: '新浪行情（备源）', sourceTimestamp: null, fetchedAt: isoNow(this.clock), cacheState: 'fresh' }
+    return { providerId: 'sina', sourceName: '新浪行情', sourceTimestamp: null, fetchedAt: isoNow(this.clock), cacheState: 'fresh' }
   }
 
   getSectorBoard(type: 'industry' | 'concept'): Promise<SectorBoard | null> {
@@ -60,6 +61,32 @@ export class SinaProvider {
     const response = await fetchJson<unknown>(this.http, `${API}getHQNodeData?${params}`, { timeoutMs: this.timeoutMs, headers: HEADERS })
     if (!response.ok || !Array.isArray(response.data)) throw new Error('股票列表请求失败')
     return response.data.filter((row): row is Row => row !== null && typeof row === 'object' && !Array.isArray(row))
+  }
+
+  async getAllSecurities(): Promise<EastmoneySecurityRow[]> {
+    const count = await fetchJson<unknown>(this.http, `${API}getHQNodeStockCount?node=hs_a`, { timeoutMs: this.timeoutMs, headers: HEADERS })
+    const total = count.ok ? finiteNumber(count.data) : null
+    if (total === null || !Number.isInteger(total) || total < 1000 || total > 8000) throw new Error('新浪主数据总数不可用')
+    const securities = new Map<string, EastmoneySecurityRow>()
+    for (let page = 1; page <= Math.ceil(total / 100); page += 1) {
+      if (page > 1) await this.clock.sleep(120)
+      let rows = await this.rows('hs_a', page, 'symbol', true)
+      const expected = Math.min(100, total - (page - 1) * 100)
+      // 新浪偶发返回空页；仅重取当前短页，避免重跑全市场或把半份快照当成功。
+      for (let retry = 1; rows.length !== expected && retry <= 2; retry += 1) {
+        await this.clock.sleep(500 * retry)
+        rows = await this.rows('hs_a', page, 'symbol', true)
+      }
+      if (rows.length !== expected) throw new Error(`新浪主数据第 ${page} 页不完整（${rows.length}/${expected} 条）`)
+      for (const row of rows) {
+        const symbol = typeof row.symbol === 'string' ? row.symbol : ''
+        if (!/^(?:sh6\d{5}|sz[03]\d{5}|bj\d{6})$/.test(symbol)
+          || row.code !== symbol.slice(2) || typeof row.name !== 'string' || row.name.trim() === '') continue
+        securities.set(symbol, { code: symbol.slice(2), name: row.name.trim(), market: symbol.startsWith('sh') ? 1 : 0 })
+      }
+    }
+    if (securities.size < total) throw new Error(`新浪主数据不完整（${securities.size}/${total} 条）`)
+    return [...securities.values()]
   }
 
   private quote(row: Row): StockQuote | null {

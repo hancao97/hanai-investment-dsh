@@ -12,6 +12,8 @@ import type {
 } from '../../../contracts/src/index.ts'
 import { fetchJson, isoNow, systemClock, type Clock, type HttpClient } from '../http.ts'
 import { TencentProvider } from './tencent.ts'
+import { eastmoneyBreadth, type BreadthSnapshot } from './market-breadth.ts'
+import { isMarketDate } from '../../../contracts/src/market-history.ts'
 
 const HEADERS = { Referer: 'https://quote.eastmoney.com/' }
 const STOCK_FIELDS = 'f2,f3,f4,f5,f6,f8,f9,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23'
@@ -64,13 +66,6 @@ interface IndexResponse {
   f58?: unknown
   f169?: unknown
   f170?: unknown
-}
-
-interface BreadthResponse {
-  data?: {
-    qdate?: unknown
-    fenbu?: unknown
-  } | null
 }
 
 interface KlineResponse {
@@ -355,51 +350,11 @@ export class EastmoneyProvider {
     }
   }
 
-  private async getBreadth(): Promise<{
-    up: number | null
-    down: number | null
-    flat: number | null
-    limitUp: number | null
-    limitDown: number | null
-    qdate: string | null
-  }> {
-    const response = await fetchJson<BreadthResponse>(
-      this.http,
-      'https://push2ex.eastmoney.com/getTopicZDFenBu?ut=7eea3edcaed734bea9cbfc24409ed989&dpt=wz.ztzt',
-      { timeoutMs: this.timeoutMs, headers: HEADERS },
-    )
-    const buckets = response.ok && Array.isArray(response.data?.data?.fenbu)
-      ? response.data.data.fenbu
-      : null
-    if (buckets === null) {
-      return { up: null, down: null, flat: null, limitUp: null, limitDown: null, qdate: null }
-    }
-    let up = 0
-    let down = 0
-    let flat = 0
-    let limitUp = 0
-    let limitDown = 0
-    for (const bucket of buckets) {
-      if (bucket === null || typeof bucket !== 'object' || Array.isArray(bucket)) continue
-      for (const [rawKey, rawValue] of Object.entries(bucket)) {
-        const key = Number(rawKey)
-        const value = finiteNumber(rawValue)
-        if (!Number.isFinite(key) || value === null) continue
-        if (key > 0) up += value
-        else if (key < 0) down += value
-        else flat += value
-        if (key === 11) limitUp = value
-        if (key === -11) limitDown = value
-      }
-    }
-    const rawDate = String(response.data?.data?.qdate ?? '')
-    const qdate = /^\d{8}$/.test(rawDate)
-      ? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`
-      : null
-    return { up, down, flat, limitUp, limitDown, qdate }
+  getBreadth(): Promise<BreadthSnapshot> {
+    return eastmoneyBreadth(this.http, this.clock, this.timeoutMs)
   }
 
-  private marketStatus(qdate: string | null): MarketOverview['marketStatus'] {
+  marketStatus(qdate: string | null): MarketOverview['marketStatus'] {
     // A-share sessions are always evaluated in Asia/Shanghai, independent of the Host machine timezone.
     const now = new Date(this.clock.now() + 8 * 60 * 60 * 1000)
     const today = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`
@@ -415,7 +370,7 @@ export class EastmoneyProvider {
   async getMarketOverview(): Promise<MarketOverview> {
     const [indices, breadth] = await Promise.all([
       Promise.all(CORE_INDICES.map(index => this.getIndex(index.secId).catch(() => null))),
-      this.getBreadth(),
+      this.getBreadth().catch(() => ({ up: null, down: null, flat: null, limitUp: null, limitDown: null, qdate: null })),
     ])
     const valid = indices.filter((entry): entry is ProviderValue<IndexQuote> => entry !== null)
     const source = valid.some(entry => entry.source === 'delay') ? 'delay' : 'realtime'
@@ -761,12 +716,17 @@ export class EastmoneyProvider {
       fields2: 'f51,f53,f56,f58',
     }).catch(() => null)
     const rawLines = Array.isArray(response?.value.trends) ? response.value.trends : []
+    let sourceTimestamp: string | null = null
     const points: TrendPoint[] = rawLines.flatMap(rawLine => {
       if (typeof rawLine !== 'string') return []
       const [rawTime, rawPrice, rawVolume, rawAveragePrice] = rawLine.split(',')
       const price = finiteNumberString(rawPrice)
       const volume = finiteNumberString(rawVolume)
       if (rawTime === undefined || price === null || volume === null) return []
+      const [date, time] = rawTime.split(' ')
+      if (isMarketDate(date ?? '') && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time ?? '')) {
+        sourceTimestamp = new Date(`${date}T${time}:00+08:00`).toISOString()
+      }
       return [{
         time: rawTime.split(' ')[1] ?? rawTime,
         price,
@@ -778,7 +738,7 @@ export class EastmoneyProvider {
       return {
         points,
         prevClose: finiteNumber(response.value.preClose),
-        meta: this.meta(response.source),
+        meta: { ...this.meta(response.source), sourceTimestamp },
       }
     }
     const fallback = await this.tencent.getTrend(secId)

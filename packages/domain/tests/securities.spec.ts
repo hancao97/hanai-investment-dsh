@@ -1,11 +1,12 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { StockQuote } from '../../contracts/src/index.ts'
 import { HanaiDatabase } from '../src/database.ts'
 import { SecuritiesService, type SecurityDataProvider } from '../src/securities.ts'
 import type { EastmoneySecurityRow } from '../src/providers/eastmoney.ts'
+import { MarketDataService } from '../src/providers/index.ts'
 import { FakeClock } from './helpers.ts'
 
 const roots: string[] = []
@@ -72,6 +73,56 @@ function database(): HanaiDatabase {
 }
 
 describe('SecuritiesService', () => {
+  it('prefers BaoStock names and supplements missing markets without dropping the existing universe on failure', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-02T20:00:00+08:00'))
+    const db = database(), market = new MarketDataService({ clock: new FakeClock(Date.now()) })
+    try {
+      const primary = securityRows().map(row => ({ ...row, name: `BaoStock-${row.name}` }))
+      const primaryFetch = vi.spyOn(market.baostock, 'securities').mockResolvedValue(primary)
+      const sina = vi.spyOn(market.sina, 'getAllSecurities').mockResolvedValue([...securityRows(), { market: 0, code: '920001', name: '北交所补缺' }])
+      vi.spyOn(market.eastmoney, 'getAllSecurities').mockResolvedValue([])
+      await market.syncScreeningSecurities(db, new AbortController().signal)
+      expect(db.securityCount()).toBe(1001)
+      expect(db.getSecurity('1.600000')?.name).toBe('BaoStock-浦发银行')
+      expect(db.getSecurity('0.920001')?.name).toBe('北交所补缺')
+      await market.syncScreeningSecurities(db, new AbortController().signal, false)
+      expect(primaryFetch).toHaveBeenCalledTimes(1)
+      expect(sina).toHaveBeenCalledTimes(1)
+      sina.mockRejectedValue(new Error('supplement unavailable'))
+      await expect(market.syncScreeningSecurities(db, new AbortController().signal)).rejects.toThrow('保留本地名录')
+      expect(db.securityCount()).toBe(1001)
+    } finally { market.dispose(); db.close(); vi.useRealTimers() }
+  })
+  it('does not write a late catalogue response after the host aborts and closes its database', async () => {
+    const db = database(), provider = new FakeSecurityProvider(), controller = new AbortController()
+    let release!: (rows: EastmoneySecurityRow[]) => void
+    vi.spyOn(provider, 'getAllSecurities').mockReturnValue(new Promise(resolve => { release = resolve }))
+    const service = new SecuritiesService(db, provider)
+    const pending = service.sync(true, controller.signal)
+    controller.abort(); db.close(); release(securityRows())
+    await expect(pending).rejects.toBe(controller.signal.reason)
+  })
+  it('installs the fallback snapshot through the market facade and retains it when every source fails', async () => {
+    const db = database()
+    try {
+      const market = new MarketDataService({ clock: new FakeClock(Date.parse('2026-10-26T10:00:00+08:00')) })
+      const sina = vi.spyOn(market.sina, 'getAllSecurities').mockResolvedValue(securityRows())
+      vi.spyOn(market.eastmoney, 'getAllSecurities').mockResolvedValue([])
+      const synced = await market.syncSecurities(db, true)
+      expect(synced.count).toBe(1000)
+      expect(db.getSetting('security.master.source')).toBe('新浪')
+      expect(db.getSecurity('0.000001')).toMatchObject({ name: '平安银行', exchange: 'SZ' })
+      await market.syncSecurities(db, false)
+      expect(sina).toHaveBeenCalledTimes(1)
+      sina.mockRejectedValue(new Error('offline'))
+      expect(await market.syncSecurities(db, true)).toEqual(synced)
+      expect(db.getSetting('security.master.source')).toBe('新浪')
+      expect(db.getSecurity('0.000001')?.name).toBe('平安银行')
+    } finally {
+      db.close()
+    }
+  })
+
   it('atomically installs a complete snapshot and searches code/name/pinyin with quote enrichment', async () => {
     const db = database()
     const provider = new FakeSecurityProvider()

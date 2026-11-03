@@ -107,6 +107,7 @@ export interface CreateExpertChatRecord {
 }
 
 export interface ExpertChatUpdate {
+  title?: string
   dshSessionId?: string | null
   turnStatus?: TurnStatus
   errorCode?: string | null
@@ -223,6 +224,16 @@ export class HanaiDatabase {
         error_message TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_expert_chats_updated ON expert_chats(updated_at DESC);
+      CREATE TABLE IF NOT EXISTS market_panel_snapshots (
+        date TEXT NOT NULL,
+        panel_key TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        captured_at TEXT NOT NULL,
+        observed_at TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        meta TEXT NOT NULL,
+        PRIMARY KEY(date, panel_key)
+      );
     `)
     const version = this.sqlite.prepare('SELECT MAX(version) AS value FROM schema_migrations').get() as
       | { value: number | null }
@@ -234,6 +245,9 @@ export class HanaiDatabase {
     if ((version?.value ?? 0) < 2) {
       this.sqlite.prepare('INSERT INTO schema_migrations(version, applied_at) VALUES(2, ?)')
         .run(new Date().toISOString())
+    }
+    if ((version?.value ?? 0) < 3) {
+      this.sqlite.prepare('INSERT INTO schema_migrations(version, applied_at) VALUES(3, ?)').run(new Date().toISOString())
     }
     this.ensureDefaultWatchGroup()
   }
@@ -261,6 +275,8 @@ export class HanaiDatabase {
       | undefined
     return row?.value ?? null
   }
+
+  removeSetting(key: string): void { this.sqlite.prepare('DELETE FROM app_settings WHERE key = ?').run(key) }
 
   setSetting(key: string, value: string): void {
     this.sqlite.prepare(`
@@ -329,6 +345,11 @@ export class HanaiDatabase {
       pinyinFull: row.pinyin_full,
       pinyinInitial: row.pinyin_initial,
     }))
+  }
+
+  /** Identity reference only: the master does not contain financial screening metrics. */
+  screeningUniverse(): Array<{ secId: string; code: string; name: string; exchange: string; updatedAt: string }> {
+    return this.sqlite.prepare('SELECT sec_id AS secId, code, name, exchange, updated_at AS updatedAt FROM security_master ORDER BY code').all() as unknown as ReturnType<HanaiDatabase['screeningUniverse']>
   }
 
   /** Replace the complete security snapshot atomically after the provider completeness gate. */
@@ -607,6 +628,7 @@ export class HanaiDatabase {
       fields.push(`${column} = ?`)
       values.push(value)
     }
+    if (update.title !== undefined) add('title', update.title)
     if ('dshSessionId' in update) add('dsh_session_id', update.dshSessionId ?? null)
     if ('turnStatus' in update) add('turn_status', update.turnStatus)
     if ('errorCode' in update) add('error_code', update.errorCode ?? null)

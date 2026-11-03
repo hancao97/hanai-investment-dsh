@@ -1,14 +1,8 @@
-# Hanai is a Web-surface bundle. The recommended installer composes it into a
-# dedicated `hanai-investment` profile after `dsh-web-app`, leaving `web` intact.
+# Add Hanai after the existing Base and Web App bundles. Native UI stays enabled.
 - id: connection
   # Preserve DSH's webStartup config dependency and expose webServer for
   # Connection's authenticated /hanai channel registration.
   inject: [webStartup, webServer]
-
-- id: ui-settings-models
-  # Hanai owns the credential and model setup experience. Disabling the stock
-  # models surface also prevents its first-run modal from covering Workbench.
-  disabled: true
 
 - insert:
     - id: hanai-investment

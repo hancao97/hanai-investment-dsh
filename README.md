@@ -13,7 +13,7 @@
 
 DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件和会话持久化；Hanai Worth 负责证券与估值数据、自选分组、研究资料、不可变报告快照和全部产品界面。产品包含“今日市场、自选与发现、大师研判、专家对谈、专家中心、设置与诊断”六个一级页面，以及个股、研判和对谈详情页。
 
-插件包名为 `hanai-investment-dsh`，独立 DSH Profile 名为 `hanai-investment`；安装和启动命令使用这两个名称。当前已验证的 DSH 版本为 `0.2.1-rc.2`。
+插件包名为 `hanai-investment-dsh`，默认安装到 DSH 的 `web` Profile，与原生聊天和其它插件共存。当前已验证的 DSH 版本为 `0.2.1-rc.2`。
 
 品牌中的两条趋势线在证据点形成金叉：价格给出市场报价，研究帮助看见价值。每一份研判，都应能回到证据、方法与上下文。
 
@@ -28,6 +28,18 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 [GitHub Pages 报告目录](https://hancao97.github.io/hanai-investment-dsh/)保留各期入口。10 月投资报告使用软件公开行情与财务链路、官方宏观资料及公司公告；将东泰山、散户乙、段永平、巴菲特、芒格五个内置 Skill 的方法统一应用于研究，**没有独立专家投票**。20 家公司是附条件候选池，不是要求同时买入；GF 参考值、源标签和报告筛选门槛分别展示，数据日期、口径差异与反证均在页面内说明。
 
 周期展望实际调用仓库内五个专家 Skill，但它们是同源的 **AI 方法论角色**。完成版先冻结2026-08-25市场解析快照与官方财报，补齐事实、机制、质量、估值和反证五门，再由 Round 4 的独立 `council_vote` 关闭会商门；[专家实际读取的前置输入](docs/research-data/a-share-cycle-outlook-pre-council-2026-08-25.json)与五份[原始输出、提示词及 Skill 哈希](docs/research-data/a-share-cycle-expert-runs-2026-08-25.json)分别保存并以 SHA 绑定。主题映射核对和股票门禁核对不是独立投票，具体模型与reasoning配置也未在产物中冻结；报告不提供未经校准的概率、目标价或收益承诺。
+
+## 市场扫描
+
+侧栏「市场扫描」基于已授权的88AI公开汇总源，提供 A 股财务条件、快捷策略、高级筛选、服务端排序/分页及当前页 CSV 导出，复用统一熔断与历史存储；见 [市场扫描说明](docs/market-scan.md)。
+
+## AI选股
+
+侧栏「AI选股」由 DSH 解析条件，宿主校验后执行已授权的财务扫描，展示候选卡片、源数据依据、待核实项和冻结的查询历史；模糊阈值或无法执行的条件先确认，不静默忽略；见 [AI选股说明](docs/ai-stock-screener.md)。
+
+## AI研究助手
+
+侧栏新增「AI研究助手」：支持自然语言研究、快捷问题、独立历史记录、新对话模型选择和材料上传，复用 DSH 的流式会话、停止生成与审批。材料读取取决于当前模型和工具能力；用法与存储说明见 [AI研究助手](docs/ai-research-assistant.md)。
 
 ## 界面预览
 
@@ -62,7 +74,11 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 
 ### 今日市场与自选
 
-- **市场全景**：六大指数、涨跌停与上涨/下跌家数、两市成交额、行业/概念 `treemap` 和四类榜单并行加载；热力图面积代表成交额，颜色遵循 A 股涨红跌绿。
+今日市场支持[整页历史记录](docs/market-page-history.md)：成功数据按日期和面板自动保存在本地，可切换日期查看指数、市场宽度、行业/概念热力与四类榜单；历史缺失面板明确提示，普通缓存清理不会删除归档。
+
+指数行情下方提供“大盘异动”：左侧展示上证分时与同花顺板块异动标注，右侧为市场宽度，与下方板块热力和榜单对齐。分时、快讯独立加载并归档，慢请求和失败不阻塞其余行情。
+
+- **市场全景**：指数行情面板包含8个境内指数与纳斯达克综合、恒生、富时中国A50现货、韩国KOSPI、日经225，共13张卡片。面板头集中展示来源和行情时间范围，前6张默认显示，其余7张可展开、收起；海外批量行情独立加载、缓存和熔断，按各市场时区轮询并保存历史。涨跌停与上涨/下跌家数、两市成交额、行业/概念 `treemap` 和四类榜单并行加载；热力图面积代表成交额，颜色遵循 A 股涨红跌绿。
 - **自选分组**：默认分组始终保留，支持新建、重命名、删除自定义分组，以及股票添加、移动、移除和三态排序。
 - **自选行情**：展示最新价、涨跌幅、成交额、换手率、市值、PE、PB、加入日期和加入以来表现；行情状态明确区分 fresh、stale 与 unavailable。
 - **自选估值**：合理估值由价值大师网按分组异步、限并发加载，不阻塞行情表格；同时展示距现价的金额和比例。合理估值高于现价的上行空间使用红色，低于现价使用绿色。
@@ -167,7 +183,7 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 - **亮色/黑夜模式**：两套主题只替换语义色彩，不改变页面结构、图表数据或业务含义。
 - **全局搜索与深链接**：可按代码、名称或拼音搜索股票；`#/dashboard`、`#/watch`、`#/judgements`、`#/expert-chats`、`#/personas`、`#/settings` 及详情页支持刷新、前进、后退和直接打开。
 - **设置与诊断**：在工作台内管理 DSH Credentials、默认模型和主题，查看 Agent、数据源、缓存、本地存储与版本状态，并可打开数据目录或清理行情/估值缓存。
-- **完全自有界面**：使用 React 18、DSH Slot、Session Controller 与 Conversation Projection、ECharts 和 CSS Modules；不显示或复用 DSH 原生聊天 UI。
+- **完全自有界面**：使用 React 18、DSH Slot、Session Controller 与 Conversation Projection、ECharts 和 CSS Modules；值见内保留业务聊天呈现，返回 DSH 后可继续使用原生聊天与其它插件。
 
 ## 架构
 
@@ -175,7 +191,7 @@ DeepSeek Harness（DSH）负责模型、Agent、工具、Session、流式事件�
 
 ```mermaid
 flowchart LR
-  U["用户"] --> W["Hanai React Workbench\nshell.overlay"]
+  U["用户"] --> W["Hanai React Workbench\nmain panel"]
   W --> R["/hanai Connection RPC"]
   W --> C["DSH Credentials / Models"]
   W --> S["DSH Session Runtime"]
@@ -204,7 +220,7 @@ flowchart LR
 - DeepSeek Harness `0.2.1-rc.2`；CLI、CLI 自带的 Web App 与 Hanai 声明的 DSH 依赖版本必须一致
 - 一个 DeepSeek API Key（只在实际运行 Agent 时需要）
 
-DSH 仍处于 pre-release，rc 之间不承诺兼容。安装器会在修改 Profile 前检查 CLI 是否为已验证的 `0.2.1-rc.2`。包内 `engines.dsh` 也限定同一版本，供 DSH 明确识别已验证的兼容版本。仓库把 Host、Client 和 profile 装配都纳入兼容性检查；升级时需运行完整门禁，并实际启动独立 Profile，不能只检查配置组合。
+DSH 仍处于 pre-release，rc 之间不承诺兼容。安装器会在修改 Profile 前检查 CLI 是否为已验证的 `0.2.1-rc.2`。包内 `engines.dsh` 也限定同一版本，供 DSH 明确识别已验证的兼容版本。仓库把 Host、Client 和 profile 装配都纳入兼容性检查；升级时需运行完整门禁，并实际启动隔离的 Web Profile，不能只检查配置组合。
 
 ## 从源码安装
 
@@ -216,26 +232,30 @@ pnpm install --frozen-lockfile
 pnpm run build
 pnpm run profile:install -- --package .
 pnpm run profile:verify
-dsh --profile hanai-investment --port 3080
+dsh web --port 3080
 ```
 
 已有源码时，从仓库根目录执行 `npm install -g` 起的命令即可。如果 pnpm 版本不符，可以通过已安装的 Corepack 执行 `corepack enable` 和 `corepack prepare pnpm@11.7.0 --activate`。
 
-安装器会创建或安全迁移独立的 `hanai-investment` Profile。最终 Bundle 顺序固定为 DSH Base、DSH Web App、Hanai；只有 `hanai-investment-dsh` 是 Profile dependency。Base 与 Web App 必须由当前 DSH CLI 的 installation-owned runtime resolution 提供，不能再用 `dsh plugin add @deepseek-ai/dsh-web-app` 安装到 Profile，否则相同版本的 DSH runtime 仍可能被加载成两个模块实例。安装器会拒绝修改 `web`、`headless` 等保留 Profile，也会在目标 Profile 含无关依赖或 Bundle 时停止。
+安装器默认通过 DSH CLI 将 Hanai 加入 `web`，保留已有插件、顺序和设置；自定义目标使用 `--profile <已有 Web Profile>`，验证时传同样参数。Base、Web App 必须由当前 DSH 安装提供，并在 Hanai 之前，三者不要求相邻。不要把内置 Web App 再装成 Profile dependency。安装器不自动删除或修复已有 DSH runtime 副本，发现冲突应先备份并单独排障。
+
+首次启动仍可能出现原生模型引导，可关闭后查看行情。点击 DSH 侧栏「值见」打开工作台，右上「返回 DSH」回到原生会话；加载失败时也能返回。工作台内部导航不修改 DSH URL；关闭或刷新后重新进入工作台从今日市场开始，未保存的表单不保留。后台宏观补取任务仍由宿主运行，不受关闭面板影响。
 
 ### 日常启动与停止
 
 完成安装后，可以在任意目录执行：
 
 ```bash
-dsh --profile hanai-investment --port 3080
+dsh web --port 3080
 ```
 
 保持终端进程运行，在该终端按 `Ctrl+C` 停止。端口被占用时，先停止占用它的服务，或改用 `--port 3081`。只看行情、自选和已有报告无需 DeepSeek Key；发起研判或发送专家消息前，在“设置与诊断”保存 Key 并选择默认模型。
 
 DSH 默认自动打开浏览器；需要自己打开时可加 `--no-open`，随后使用终端打印的完整启动地址。`--no-open` 只控制自动打开浏览器，认证仍然生效。
 
-通用 DSH Web 使用 `dsh web`，Hanai 使用上述独立 Profile。两者可以使用不同端口同时运行。详见 [ADR-0003](docs/adr/0003-isolated-dsh-profile.md)。
+同一 Profile 中使用原生 DSH 与值见，无需启动两个进程。旧独立 Profile 的背景见 [ADR-0003](docs/adr/0003-isolated-dsh-profile.md)；当前部署规则以 [插件部署指南](docs/dsh-profile-deployment.md) 为准。
+
+本仓库作为 fork 使用：分支划分、Windows 安装修复与 upstream 合并步骤见 [DSH Profile 部署与 upstream 合并指南](docs/dsh-profile-deployment.md)。
 
 ### 浏览器认证是什么
 
@@ -262,7 +282,7 @@ git pull --ff-only
 pnpm install --frozen-lockfile
 pnpm run check
 pnpm run profile:verify
-dsh --profile hanai-investment --port 3080
+dsh web --port 3080
 ```
 
 源码安装的 Profile 链接到本仓库，`pnpm run check` 包含生产构建；重新启动后使用新构建。日常启动无需重新安装 Profile。升级 DSH 或修复旧 Profile 时，则需要重新执行安装与校验。
@@ -278,16 +298,18 @@ dsh --profile hanai-investment --port 3080
 
 本次生成的六维流程、阅读量口径、三个核心模型、PB 的分母与盈利能力，以及实际模型验证的局限，集中整理在[东泰山 Skill v6 生成总结](docs/dong-taishan-skill-distillation-2026-10-01.md)。
 
-### 修复旧 Profile
+### 安装与卸载
 
-先停止 Hanai，在仓库根目录执行以下命令。安装器可重复运行，也会迁移早期错误安装过 Web App dependency 的 Profile：
+在仓库根目录构建后安装；安装器可重复运行，不重排其它插件。已有独立 Profile 如需继续使用，可显式传 `--profile hanai-investment`，前提是其已有 Base 和 Web App：
 
 ```bash
 pnpm run build
 pnpm run profile:install -- --package .
 pnpm run profile:verify
-dsh --profile hanai-investment --port 3080
+dsh web --port 3080
 ```
+
+卸载使用 `dsh plugin --profile web remove hanai-investment-dsh`，随后重启 DSH。业务数据库和报告保留，原生页面及其它插件继续可用。不要同时用两个宿主进程写同一个 Hanai 数据目录。
 
 需要安装已有发布包时，在本仓库中把 `--package .` 换成该包的完整名称与版本，或本地 `.tgz` 路径。不要手工执行 `dsh plugin ... add @deepseek-ai/dsh-web-app`；它会重新引入 Profile-local DSH runtime shadow。
 
@@ -322,14 +344,16 @@ Hanai 数据根默认权限为 `0700`，普通数据文件为 `0600`。API Key �
 
 | 数据面板 | 主源与备源 | 时间与降级口径 |
 | --- | --- | --- |
-| 六大指数、个股与自选报价 | 东方财富实时 → 东方财富延迟 → 腾讯 | 腾讯按 GBK 解码，保留真实交易时间与正确金额单位 |
-| 分时、前复权日/周/月 K | 东方财富历史接口 → 腾讯 | 与实时报价分别熔断，报价接口失败不会阻断 K 线备源 |
-| 行业/概念热力与四类榜单 | 东方财富 → 新浪行情中心 | 显示实际来源；新浪未提供交易日期时只显示获取时间 |
+| 六大指数、个股与自选报价 | 腾讯 → 东方财富 | 腾讯按 GBK 解码，缺失的证券再由东财兜底 |
+| 市场宽度 | 乐咕汇总（AKShare 同源）→ 东方财富 push2ex → 完整快照 | 参考 AKShare `stock_market_activity_legu`，单次读取公开汇总页；保留源统计时间和原始涨跌停计数，不混用“真实涨跌停”或 ST 子项。页面标注各自口径，不保证覆盖范围或跨源计数一致 |
+| 分时、前复权日/周/月 K | 腾讯 → 东方财富历史接口 | 复用通用数据源熔断；周/月 K 仍加载完整历史 |
+| 行业/概念热力与四类榜单 | 新浪行情中心 → 东方财富 | 显示实际来源；新浪未提供交易日期时只显示获取时间 |
 | 基本面财报 | 东方财富独立财报接口 | 不受实时报价熔断影响，报告与分红数据缓存 6 小时 |
 | 合理估值与价值曲线 | 价值大师网（GuruFocus） | 独立异步加载，按日缓存并保留来源限制 |
 
 - 日 K 支持向左拖动分段补齐历史，周/月 K 返回完整历史；
 - 首页按面板独立降级：板块或榜单失败不会隐藏仍可取得的指数与市场宽度；未返回的数据明确显示不可用，网络断连不会误报成 HTTP 限流；
+- 市场宽度沿用通用 `SourceCircuit`，乐咕与东财请求分别计入各自源的熔断记录，连续失败 3 次冷却 5 分钟；不再扫描新浪全市场或向腾讯补限价。乐咕直接按 AKShare 同源页面解析，不引入 Python 运行环境；缺字段、异常值、无效或未来统计时间均触发兜底。盘中缓存 25 秒、闭市 6 小时，开市重新校验有效期；所有源失败才沿用宿主内存中的最近完整快照，标明旧时间与更新失败，重启后需重新取数；
 - [新浪行情中心](https://vip.stock.finance.sina.com.cn/mkt/)的备源榜单按对应指标排序并排除 ST，板块支持完整成分股下钻。备源板块分类与东方财富不同，页面显示实际来源；
 - 基本面从[东方财富独立财报接口](https://emweb.securities.eastmoney.com/PC_HSF10/NewFinanceAnalysis/Index?type=web&code=SZ002594)取得，独立于实时报价熔断并缓存 6 小时。营收、归母净利润、EPS、ROE 和同比对应最新报告期本年累计数据；PE(动)用最新累计净利润年化，PE(静)用最近年报，PE(TTM)/PS(TTM)按“本期累计 + 上年全年 − 上年同期”结合当前市值计算。股息率按报价交易日之前 12 个月已实施的税前现金分红计算，并调整期间后续送转股；缺少必要财报或分红数据时保留缺失值；
 - 备源请求按数据面板合并并发、短期缓存；失败时保留并标记最近成功数据为 stale，并退避 60 秒后重试，避免轮询持续冲击失败接口；
@@ -352,6 +376,16 @@ GuruFocus 接口仅作为个人研究原型使用，遵循页面声明的来源�
 | 显示“行情源请求连续失败” | 表示网络或服务失败触发了暂停与退避；只有观察到 HTTP 429 才提示限流，按页面重试时间等待后刷新 |
 | 新建专家对谈后消息区为空 | 未填写开场问题的对谈尚无消息，发送首问即可；已有历史从原 DSH Session 恢复 |
 | 页面可用但 Agent 无法运行 | 在“设置与诊断”检查 Key、默认模型与网络；旧 Profile 的 runtime 冲突使用上面的修复命令处理 |
+
+## 生成插件安装包
+
+```bash
+pnpm run pack:plugin
+```
+
+命令先构建，再在独立临时目录中只放入经过白名单校验的编译产物、专家资源、许可和说明文件，输出 `dist/hanai-investment-dsh-<版本>.tgz`。发布清单移除 `devDependencies`、开发用 `packageManager` 和构建/测试生命周期脚本，仅保留生产依赖、DSH 契约及已编译的 Profile 工具；不修改源码的开发配置。
+
+打包会拒绝 `node_modules`、pnpm 安装目录、环境文件、锁文件和本机配置，即使它们嵌套在 `lib` 或专家资源目录中。给他人安装测试时使用此命令，不直接压缩源码目录。它不会清理用户 Profile 中已经存在的损坏依赖；那类问题仍需干净卸载后重装。
 
 ## 开发与验证
 
@@ -412,7 +446,7 @@ docs/
 
 ## 当前边界
 
-- `shell.overlay` 是 DSH AppFrame 的全屏插件画布，不是弹窗、iframe 或命令行 Shell。它让 Hanai 在不 fork DSH 的前提下拥有完整页面；Workbench 通过 `location.hash` 提供页面深链接，不要求 DSH 增加通用 Router Slot。
+- Hanai 注册 DSH `sidebar.panellist` 入口和 `main` 面板，仅在选择值见时挂载全屏工作台；内部路由使用内存状态，不占用 DSH 的 Hash 或会话 URL。
 - DSH 尚未发布稳定的树外 Client Plugin 构建 SDK，因此仓库维护了一个最小、版本锁定的 bundler adapter。
 - DSH Session 删除与跨版本迁移能力仍有限；备份持续对话时，需要同时保留 Hanai 数据根和 DSH Session 数据。
 - 本项目是研究辅助工具，不构成投资建议，不承诺数据实时性、完整性或投资收益。
